@@ -5,8 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -14,6 +17,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.auth.AuthScreen
 import com.example.auth.authStateFlow
+import com.example.data.NetworkMonitor
 import com.example.data.firebase.SecurityRepository
 import com.example.ui.screens.MainScreen
 import com.example.ui.theme.SecurityBpsTheme
@@ -44,6 +48,12 @@ fun AppNavigation(auth: FirebaseAuth = Firebase.auth) {
         AuthScreen(onAuthSuccess = {})
     } else {
         val uid = user.uid
+        val context = LocalContext.current
+        val networkMonitor = remember(context) { NetworkMonitor(context.applicationContext) }
+        DisposableEffect(networkMonitor) {
+            onDispose { networkMonitor.release() }
+        }
+
         key(uid) {
             val viewModel: SecurityViewModel = viewModel(
                 key = uid,
@@ -56,6 +66,7 @@ fun AppNavigation(auth: FirebaseAuth = Firebase.auth) {
                         val db = FirebaseFirestore.getInstance(databaseId)
                         SecurityViewModel(
                             repository = SecurityRepository(db),
+                            networkMonitor = networkMonitor,
                             currentUserId = uid,
                             initialDisplayName = user.displayName
                         )

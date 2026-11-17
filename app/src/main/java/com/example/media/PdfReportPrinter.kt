@@ -1,7 +1,6 @@
 package com.example.media
 
 import android.content.Context
-import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
@@ -116,7 +115,6 @@ private class SecurityReportPrintAdapter(
                 }
             }
 
-            // Kop Surat Header
             val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.rgb(15, 23, 42)
                 textSize = 15f
@@ -166,6 +164,10 @@ private class SecurityReportPrintAdapter(
                 color = Color.rgb(30, 41, 59)
                 textSize = 9.5f
             }
+            val captionPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(71, 85, 105)
+                textSize = 7.5f
+            }
             val borderPaint = Paint().apply {
                 color = Color.rgb(203, 213, 225)
                 style = Paint.Style.STROKE
@@ -185,7 +187,8 @@ private class SecurityReportPrintAdapter(
                     y += 24f
                 } else {
                     catItems.forEachIndexed { idx, item ->
-                        val headerLine = "${idx + 1}. [${item.time} WIB | ${item.shift}] • ${item.status} • Oleh: ${item.officerName}"
+                        val dateBadge = item.formattedDateBadge().takeIf { it.isNotBlank() }?.let { "$it • " }.orEmpty()
+                        val headerLine = "${idx + 1}. [$dateBadge${item.time} WIB | ${item.shift}] • ${item.status} • Oleh: ${item.officerName}"
                         val descLayout = StaticLayout.Builder.obtain(
                             item.description,
                             0,
@@ -196,7 +199,12 @@ private class SecurityReportPrintAdapter(
                             .setLineSpacing(2f, 1.0f)
                             .build()
 
-                        val photoRowsHeight = if (item.photos.isNotEmpty()) 76f else 0f
+                        val hasCaptions = item.photoCaptions.any { it.isNotBlank() }
+                        val photoRowsHeight = if (item.photos.isNotEmpty()) {
+                            if (hasCaptions) 98f else 76f
+                        } else {
+                            0f
+                        }
                         val blockHeight = 20f + descLayout.height + photoRowsHeight + 14f
                         ensureSpace(blockHeight)
 
@@ -214,7 +222,7 @@ private class SecurityReportPrintAdapter(
                             var photoX = margin + 8f
                             val thumbW = 112f
                             val thumbH = 68f
-                            item.photos.take(4).forEach { b64 ->
+                            item.photos.take(4).forEachIndexed { pIdx, b64 ->
                                 val bmp = ImageUtils.decodeBase64ToBitmap(b64)
                                 if (bmp != null) {
                                     val dest = Rect(
@@ -226,9 +234,23 @@ private class SecurityReportPrintAdapter(
                                     canvas.drawBitmap(bmp, null, dest, null)
                                     bmp.recycle()
                                 }
+                                val caption = item.photoCaptions.getOrNull(pIdx)?.trim().orEmpty()
+                                if (caption.isNotBlank()) {
+                                    val capLayout = StaticLayout.Builder.obtain(
+                                        caption,
+                                        0,
+                                        caption.length,
+                                        captionPaint,
+                                        thumbW.toInt()
+                                    ).setMaxLines(2).build()
+                                    canvas.save()
+                                    canvas.translate(photoX, y + thumbH + 3f)
+                                    capLayout.draw(canvas)
+                                    canvas.restore()
+                                }
                                 photoX += thumbW + 8f
                             }
-                            y += thumbH + 6f
+                            y += thumbH + (if (hasCaptions) 26f else 6f)
                         }
 
                         y += 6f

@@ -98,18 +98,31 @@ fun AuthScreen(
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(Navy950, Navy900, Navy800)
-                )
-            )
-            .safeDrawingPadding()
+        modifier = Modifier.fillMaxSize()
     ) {
+        Image(
+            painter = painterResource(id = R.drawable.bg_bumi_papan_selaras),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Navy950.copy(alpha = 0.68f),
+                            Navy900.copy(alpha = 0.60f),
+                            Navy950.copy(alpha = 0.84f)
+                        )
+                    )
+                )
+        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .safeDrawingPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,

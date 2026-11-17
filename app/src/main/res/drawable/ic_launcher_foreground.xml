@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/ic_security_shield_1794947235641"
+        android:drawable="@drawable/ic_mahakam_kencana_launcher"
         android:gravity="center" />
 </layer-list>

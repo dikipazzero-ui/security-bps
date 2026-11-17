@@ -40,9 +40,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -76,6 +76,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.credentials.CredentialManager
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.auth.signOutOfficer
@@ -92,7 +95,9 @@ import com.example.ui.theme.Navy700
 import com.example.ui.theme.Navy800
 import com.example.ui.theme.Navy900
 import com.example.ui.theme.Navy950
+import com.example.ui.theme.Red100
 import com.example.ui.theme.Red600
+import com.example.ui.theme.Red800
 import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate300
 import com.example.ui.theme.Slate400
@@ -106,25 +111,39 @@ private enum class PhotoTarget {
     CHAT_ATTACHMENT
 }
 
+private data class LightboxPayload(
+    val base64: String,
+    val caption: String?
+)
+
 @Composable
 fun MainScreen(
     viewModel: SecurityViewModel,
     currentUserId: String
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val credentialManager = remember(context) { CredentialManager.create(context) }
 
     val activeTab by viewModel.activeTab.collectAsStateWithLifecycle()
     val unreadChatCount by viewModel.unreadChatCount.collectAsStateWithLifecycle()
+    val isInternetConnected by viewModel.isInternetConnected.collectAsStateWithLifecycle()
+    val activeRoomCode by viewModel.activeRoomCode.collectAsStateWithLifecycle()
+    val activeChatRoom by viewModel.activeChatRoom.collectAsStateWithLifecycle()
+    val roomMembers by viewModel.roomMembersState.collectAsStateWithLifecycle()
     val profileState by viewModel.profileState.collectAsStateWithLifecycle()
     val reportsState by viewModel.reportsState.collectAsStateWithLifecycle()
     val chatState by viewModel.chatState.collectAsStateWithLifecycle()
     val formState by viewModel.formState.collectAsStateWithLifecycle()
+    val reportFilter by viewModel.reportFilter.collectAsStateWithLifecycle()
+    val chatFilter by viewModel.chatFilter.collectAsStateWithLifecycle()
     val chatTextInput by viewModel.chatTextInput.collectAsStateWithLifecycle()
     val pendingChatPhoto by viewModel.pendingChatPhoto.collectAsStateWithLifecycle()
+    val pendingChatPhotoCaption by viewModel.pendingChatPhotoCaption.collectAsStateWithLifecycle()
     val isSendingChat by viewModel.isSendingChat.collectAsStateWithLifecycle()
+    val isJoiningRoom by viewModel.isJoiningRoom.collectAsStateWithLifecycle()
 
     val voiceNoteManager = remember(context, currentUserId) {
         VoiceNoteManager(context.applicationContext, scope)
@@ -132,6 +151,18 @@ fun MainScreen(
     DisposableEffect(voiceNoteManager) {
         onDispose { voiceNoteManager.release() }
     }
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> viewModel.setAppForeground(true)
+                Lifecycle.Event.ON_STOP -> viewModel.setAppForeground(false)
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     val recordingState by voiceNoteManager.recordingState.collectAsStateWithLifecycle()
     val playbackState by voiceNoteManager.playbackState.collectAsStateWithLifecycle()
 
@@ -142,7 +173,9 @@ fun MainScreen(
     var showRecapModal by remember { mutableStateOf(false) }
     var showOfficerModal by remember { mutableStateOf(false) }
     var showResetModal by remember { mutableStateOf(false) }
-    var lightboxImage by remember { mutableStateOf<String?>(null) }
+    var showRoomModal by remember { mutableStateOf(false) }
+    var showMembersModal by remember { mutableStateOf(false) }
+    var lightboxPayload by remember { mutableStateOf<LightboxPayload?>(null) }
 
     // Photo picking state
     var showPhotoSourcePicker by remember { mutableStateOf(false) }
@@ -250,30 +283,56 @@ fun MainScreen(
         }
     }
 
-    Scaffold(
-        containerColor = Slate100,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        snackbarHost = {
-            SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier.navigationBarsPadding()
-            )
-        }
-    ) { innerPadding ->
-        Column(
+    Box(modifier = Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(id = R.drawable.bg_bumi_papan_selaras),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            // COMMAND HEADER
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Navy950.copy(alpha = 0.22f),
+                            Slate100.copy(alpha = 0.28f),
+                            Navy950.copy(alpha = 0.18f)
+                        )
+                    )
+                )
+        )
+        Scaffold(
+            containerColor = Color.Transparent,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            snackbarHost = {
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier.navigationBarsPadding()
+                )
+            }
+        ) { innerPadding ->
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Brush.horizontalGradient(listOf(Navy950, Navy900, Navy800))
-                    )
-                    .statusBarsPadding()
+                    .fillMaxSize()
+                    .padding(innerPadding)
             ) {
+                // COMMAND HEADER
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(
+                                    Navy950.copy(alpha = 0.88f),
+                                    Navy900.copy(alpha = 0.88f),
+                                    Navy800.copy(alpha = 0.86f)
+                                )
+                            )
+                        )
+                        .statusBarsPadding()
+                ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -282,7 +341,7 @@ fun MainScreen(
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Title + Date + Online indicator
+                    // Title + Date + Real-Time Internet Indicator
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -313,11 +372,15 @@ fun MainScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                PulsingOnlineDot()
+                                PulsingConnectivityDot(isOnline = isInternetConnected)
                                 Text(
-                                    text = stringResource(R.string.status_online),
+                                    text = if (isInternetConnected) {
+                                        stringResource(R.string.status_online)
+                                    } else {
+                                        "Offline (Tanpa Internet)"
+                                    },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Emerald400,
+                                    color = if (isInternetConnected) Emerald400 else Red100,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text("•", color = Slate400, style = MaterialTheme.typography.bodySmall)
@@ -332,8 +395,11 @@ fun MainScreen(
                         }
                         IconButton(
                             onClick = {
-                                voiceNoteManager.release()
-                                signOutOfficer(credentialManager, scope)
+                                scope.launch {
+                                    viewModel.markOfflineBeforeSignOut()
+                                    voiceNoteManager.release()
+                                    signOutOfficer(credentialManager, scope)
+                                }
                             },
                             modifier = Modifier.testTag("sign_out_button")
                         ) {
@@ -345,7 +411,29 @@ fun MainScreen(
                         }
                     }
 
-                    // Officer Identity Strip
+                    // Offline Alert Strip when internet disconnects
+                    if (!isInternetConnected) {
+                        Surface(
+                            color = Red100,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(Icons.Default.WifiOff, contentDescription = null, tint = Red600, modifier = Modifier.size(16.dp))
+                                Text(
+                                    text = "Koneksi internet terputus. Aktifkan WiFi/Data untuk sinkronisasi Live Chat.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Red800
+                                )
+                            }
+                        }
+                    }
+
+                    // Officer Identity Strip with Online Profile Badge
                     Surface(
                         color = Navy950.copy(alpha = 0.65f),
                         shape = RoundedCornerShape(12.dp),
@@ -357,29 +445,30 @@ fun MainScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(Navy700)
-                                    .border(1.dp, Gold500.copy(alpha = 0.6f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = Gold400,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
+                            OfficerAvatarWithPresence(
+                                name = profile.name,
+                                isOnline = isInternetConnected,
+                                size = 38.dp,
+                                containerColor = Navy700,
+                                textColor = Gold400,
+                                borderColor = Gold500.copy(alpha = 0.6f),
+                                ringColor = Navy950
+                            )
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = profile.name,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = Color.White,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = profile.name,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = Color.White,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
+                                    OnlineStatusPill(isOnline = isInternetConnected)
+                                }
                                 Text(
                                     text = "NRP: ${profile.nrp} • ${profile.role}",
                                     style = MaterialTheme.typography.labelSmall,
@@ -509,8 +598,10 @@ fun MainScreen(
                             ReportTabScreen(
                                 formState = formState,
                                 reportsState = reportsState,
+                                reportFilter = reportFilter,
                                 onSelectCategory = viewModel::selectCategory,
                                 onTimeChange = viewModel::updateTimeInput,
+                                onReportDateChange = viewModel::updateReportDateInput,
                                 onSetTimeNow = viewModel::setCurrentTimeNow,
                                 onFormShiftChange = viewModel::updateFormShift,
                                 onFormStatusChange = viewModel::updateFormStatus,
@@ -521,8 +612,9 @@ fun MainScreen(
                                     pendingSlotIndex = slotIdx
                                     showPhotoSourcePicker = true
                                 },
+                                onPhotoCaptionChange = viewModel::updatePhotoCaptionAtSlot,
                                 onRemovePhotoAtSlot = viewModel::removePhotoAtSlot,
-                                onOpenLightbox = { lightboxImage = it },
+                                onOpenLightbox = { img, caption -> lightboxPayload = LightboxPayload(img, caption) },
                                 onSubmitReport = viewModel::submitReportItem,
                                 onDeleteReport = viewModel::deleteReportItem,
                                 onOpenResetConfirm = { showResetModal = true },
@@ -535,22 +627,39 @@ fun MainScreen(
                                         profile = profile,
                                         reports = reports
                                     )
-                                }
+                                },
+                                onFilterKeywordChange = viewModel::updateReportKeyword,
+                                onFilterHourChange = viewModel::updateReportFilterHour,
+                                onFilterDayChange = viewModel::updateReportFilterDay,
+                                onFilterMonthChange = viewModel::updateReportFilterMonth,
+                                onFilterYearChange = viewModel::updateReportFilterYear,
+                                onFilterToday = viewModel::filterReportsToday,
+                                onResetFilter = viewModel::resetReportFilter
                             )
                         }
                         MainTab.CHAT -> {
                             ChatTabScreen(
+                                currentUserId = currentUserId,
+                                isInternetConnected = isInternetConnected,
+                                activeRoomCode = activeRoomCode,
+                                activeChatRoom = activeChatRoom,
+                                roomMembers = roomMembers,
                                 chatState = chatState,
+                                chatFilter = chatFilter,
                                 chatTextInput = chatTextInput,
                                 pendingChatPhoto = pendingChatPhoto,
+                                pendingChatPhotoCaption = pendingChatPhotoCaption,
                                 isSending = isSendingChat,
                                 recordingState = recordingState,
                                 playbackState = playbackState,
+                                onOpenRoomModal = { showRoomModal = true },
+                                onOpenMembersModal = { showMembersModal = true },
                                 onChatTextChange = viewModel::updateChatTextInput,
                                 onRequestChatPhoto = {
                                     pendingPhotoTarget = PhotoTarget.CHAT_ATTACHMENT
                                     showPhotoSourcePicker = true
                                 },
+                                onPendingPhotoCaptionChange = viewModel::updatePendingChatPhotoCaption,
                                 onClearChatPhoto = { viewModel.setPendingChatPhoto(null) },
                                 onSendTextOrPhoto = viewModel::sendTextOrPhotoChat,
                                 onStartVoiceRecording = { launchVoiceRecordingFlow() },
@@ -574,12 +683,19 @@ fun MainScreen(
                                     )
                                 },
                                 onSimulateTeamReply = viewModel::simulateTeamReply,
-                                onOpenLightbox = { lightboxImage = it }
+                                onOpenLightbox = { img, caption -> lightboxPayload = LightboxPayload(img, caption) },
+                                onFilterKeywordChange = viewModel::updateChatFilterKeyword,
+                                onFilterHourChange = viewModel::updateChatFilterHour,
+                                onFilterDayChange = viewModel::updateChatFilterDay,
+                                onFilterMonthChange = viewModel::updateChatFilterMonth,
+                                onFilterYearChange = viewModel::updateChatFilterYear,
+                                onResetFilter = viewModel::resetChatFilter
                             )
                         }
                     }
                 }
             }
+        }
         }
     }
 
@@ -621,6 +737,36 @@ fun MainScreen(
         )
     }
 
+    if (showRoomModal) {
+        JoinOrCreateRoomDialog(
+            currentRoomCode = activeRoomCode,
+            isBusy = isJoiningRoom,
+            onGenerateCode = viewModel::generateRandomRoomCode,
+            onCopyCode = { code ->
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                clipboard?.setPrimaryClip(ClipData.newPlainText("Kode Ruang Live Chat Security BPS", code))
+                viewModel.emitToast("Kode ruang '$code' berhasil disalin!")
+            },
+            onJoinRoom = { code ->
+                viewModel.joinRoomByCode(code) { showRoomModal = false }
+            },
+            onCreateRoom = { code, title ->
+                viewModel.createAndJoinRoom(code, title) { showRoomModal = false }
+            },
+            onDismiss = { showRoomModal = false }
+        )
+    }
+
+    if (showMembersModal) {
+        RoomMembersDialog(
+            roomCode = activeRoomCode,
+            roomTitle = activeChatRoom?.title ?: "Channel Koordinasi Plot BPS",
+            members = roomMembers,
+            currentUserId = currentUserId,
+            onDismiss = { showMembersModal = false }
+        )
+    }
+
     if (showPhotoSourcePicker) {
         PhotoSourcePickerDialog(
             onDismiss = { showPhotoSourcePicker = false },
@@ -637,16 +783,17 @@ fun MainScreen(
         )
     }
 
-    lightboxImage?.let { imgBase64 ->
+    lightboxPayload?.let { payload ->
         PhotoLightboxDialog(
-            base64Image = imgBase64,
-            onDismiss = { lightboxImage = null }
+            base64Image = payload.base64,
+            caption = payload.caption,
+            onDismiss = { lightboxPayload = null }
         )
     }
 }
 
 @Composable
-private fun PulsingOnlineDot() {
+private fun PulsingConnectivityDot(isOnline: Boolean) {
     val transition = rememberInfiniteTransition(label = "online_pulse")
     val alpha by transition.animateFloat(
         initialValue = 0.4f,
@@ -660,9 +807,9 @@ private fun PulsingOnlineDot() {
     Box(
         modifier = Modifier
             .size(8.dp)
-            .alpha(alpha)
+            .alpha(if (isOnline) alpha else 1f)
             .clip(CircleShape)
-            .background(Emerald400)
+            .background(if (isOnline) Emerald400 else Red600)
     )
 }
 

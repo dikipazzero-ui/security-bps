@@ -5,6 +5,12 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.IgnoreExtraProperties
 import com.google.firebase.firestore.ServerTimestamp
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+
+const val DEFAULT_ROOM_CODE = "PLOT-BPS"
 
 enum class ReportCategory(
     val number: Int,
@@ -81,6 +87,9 @@ data class OfficerProfile(
     val nrp: String = "SEC-BPS-042",
     val role: String = "Danru Plot BPS",
     val activeShift: String = "Shift 1",
+    val activeRoomCode: String = DEFAULT_ROOM_CODE,
+    val onlineStatus: String = "online",
+    val lastSeenAt: Timestamp? = null,
     @ServerTimestamp val createdAt: Timestamp? = null,
     @ServerTimestamp val updatedAt: Timestamp? = null
 )
@@ -92,10 +101,12 @@ data class SecurityReport(
     val userId: String = "",
     val category: Long = 1L,
     val time: String = "07:05",
+    val reportDate: String = "",
     val shift: String = "Shift 1",
     val status: String = "Aman & Terkendali",
     val description: String = "",
     val photos: List<String> = emptyList(),
+    val photoCaptions: List<String> = emptyList(),
     val officerName: String = "",
     val officerNrp: String = "",
     @ServerTimestamp val createdAt: Timestamp? = null,
@@ -106,6 +117,71 @@ data class SecurityReport(
 
     val statusEnum: ReportStatus
         get() = ReportStatus.fromLabel(status)
+
+    fun resolvedHour(): Int? {
+        val fromTime = time.trim().substringBefore(":").toIntOrNull()
+        if (fromTime != null && fromTime in 0..23) return fromTime
+        val date = createdAt?.toDate() ?: return null
+        return Calendar.getInstance().apply { this.time = date }.get(Calendar.HOUR_OF_DAY)
+    }
+
+    fun resolvedYearMonthDay(): Triple<Int, Int, Int>? {
+        val parts = reportDate.trim().split("-")
+        if (parts.size == 3) {
+            val y = parts[0].toIntOrNull()
+            val m = parts[1].toIntOrNull()
+            val d = parts[2].toIntOrNull()
+            if (y != null && m != null && d != null && m in 1..12 && d in 1..31) {
+                return Triple(y, m, d)
+            }
+        }
+        val date = createdAt?.toDate() ?: return null
+        val cal = Calendar.getInstance().apply { this.time = date }
+        return Triple(
+            cal.get(Calendar.YEAR),
+            cal.get(Calendar.MONTH) + 1,
+            cal.get(Calendar.DAY_OF_MONTH)
+        )
+    }
+
+    fun formattedDateBadge(): String {
+        val ymd = resolvedYearMonthDay() ?: return ""
+        val months = IndonesianMonths.shortNames
+        val monthName = months.getOrElse(ymd.second - 1) { ymd.second.toString() }
+        return "${ymd.third.toString().padStart(2, '0')} $monthName ${ymd.first}"
+    }
+}
+
+@Keep
+@IgnoreExtraProperties
+data class ChatRoom(
+    @DocumentId val id: String = "",
+    val roomCode: String = DEFAULT_ROOM_CODE,
+    val title: String = "Channel Koordinasi Plot BPS",
+    val createdBy: String = "",
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null
+)
+
+@Keep
+@IgnoreExtraProperties
+data class RoomMember(
+    @DocumentId val id: String = "",
+    val userId: String = "",
+    val roomCode: String = DEFAULT_ROOM_CODE,
+    val name: String = "",
+    val nrp: String = "",
+    val role: String = "Danru Plot BPS",
+    val activeShift: String = "Shift 1",
+    val onlineStatus: String = "offline",
+    val lastSeenAt: Timestamp? = null,
+    val joinedAt: Timestamp? = null
+) {
+    fun isCurrentlyOnline(nowMillis: Long = System.currentTimeMillis()): Boolean {
+        if (onlineStatus != "online") return false
+        val seenMillis = lastSeenAt?.toDate()?.time ?: return true
+        return (nowMillis - seenMillis) <= 120_000L
+    }
 }
 
 @Keep
@@ -113,17 +189,110 @@ data class SecurityReport(
 data class ChatMessage(
     @DocumentId val id: String = "",
     val userId: String = "",
+    val roomCode: String = DEFAULT_ROOM_CODE,
     val senderName: String = "",
     val senderRole: String = "",
     val fromOfficer: Boolean = true,
     val time: String = "07:15",
     val text: String = "",
     val imageData: String? = null,
+    val imageCaption: String? = null,
     val audioType: String = "none", // "none", "recorded", "simulated"
     val audioData: String? = null,
     val audioDuration: String? = null,
     @ServerTimestamp val createdAt: Timestamp? = null
-)
+) {
+    fun resolvedHour(): Int? {
+        val fromTime = time.trim().substringBefore(":").toIntOrNull()
+        if (fromTime != null && fromTime in 0..23) return fromTime
+        val date = createdAt?.toDate() ?: return null
+        return Calendar.getInstance().apply { this.time = date }.get(Calendar.HOUR_OF_DAY)
+    }
+
+    fun resolvedYearMonthDay(): Triple<Int, Int, Int>? {
+        val date = createdAt?.toDate() ?: return null
+        val cal = Calendar.getInstance().apply { this.time = date }
+        return Triple(
+            cal.get(Calendar.YEAR),
+            cal.get(Calendar.MONTH) + 1,
+            cal.get(Calendar.DAY_OF_MONTH)
+        )
+    }
+
+    fun formattedDateBadge(): String {
+        val ymd = resolvedYearMonthDay() ?: return ""
+        val monthName = IndonesianMonths.shortNames.getOrElse(ymd.second - 1) { ymd.second.toString() }
+        return "${ymd.third.toString().padStart(2, '0')} $monthName ${ymd.first}"
+    }
+}
+
+data class TimeKeywordFilter(
+    val keyword: String = "",
+    val hour: Int? = null,
+    val day: Int? = null,
+    val month: Int? = null,
+    val year: Int? = null
+) {
+    val isActive: Boolean
+        get() = keyword.isNotBlank() || hour != null || day != null || month != null || year != null
+
+    fun matchesReport(report: SecurityReport): Boolean {
+        val q = keyword.trim().lowercase(Locale.getDefault())
+        if (q.isNotEmpty()) {
+            val matchesKeyword = report.description.lowercase(Locale.getDefault()).contains(q) ||
+                report.officerName.lowercase(Locale.getDefault()).contains(q) ||
+                report.officerNrp.lowercase(Locale.getDefault()).contains(q) ||
+                report.status.lowercase(Locale.getDefault()).contains(q) ||
+                report.shift.lowercase(Locale.getDefault()).contains(q) ||
+                report.time.lowercase(Locale.getDefault()).contains(q) ||
+                report.reportDate.lowercase(Locale.getDefault()).contains(q) ||
+                report.photoCaptions.any { it.lowercase(Locale.getDefault()).contains(q) }
+            if (!matchesKeyword) return false
+        }
+        if (hour != null && report.resolvedHour() != hour) return false
+        if (day != null || month != null || year != null) {
+            val ymd = report.resolvedYearMonthDay() ?: return false
+            if (year != null && ymd.first != year) return false
+            if (month != null && ymd.second != month) return false
+            if (day != null && ymd.third != day) return false
+        }
+        return true
+    }
+
+    fun matchesChatMessage(msg: ChatMessage): Boolean {
+        val q = keyword.trim().lowercase(Locale.getDefault())
+        if (q.isNotEmpty()) {
+            val matchesKeyword = msg.text.lowercase(Locale.getDefault()).contains(q) ||
+                msg.senderName.lowercase(Locale.getDefault()).contains(q) ||
+                msg.senderRole.lowercase(Locale.getDefault()).contains(q) ||
+                (msg.imageCaption?.lowercase(Locale.getDefault())?.contains(q) == true) ||
+                msg.time.lowercase(Locale.getDefault()).contains(q)
+            if (!matchesKeyword) return false
+        }
+        if (hour != null && msg.resolvedHour() != hour) return false
+        if (day != null || month != null || year != null) {
+            val ymd = msg.resolvedYearMonthDay() ?: return false
+            if (year != null && ymd.first != year) return false
+            if (month != null && ymd.second != month) return false
+            if (day != null && ymd.third != day) return false
+        }
+        return true
+    }
+}
+
+object IndonesianMonths {
+    val fullNames = listOf(
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    )
+    val shortNames = listOf(
+        "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+        "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
+    )
+}
+
+fun currentIsoDate(): String =
+    SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 
 sealed interface UiState<out T> {
     data object Loading : UiState<Nothing>

@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
@@ -51,6 +52,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -75,6 +77,7 @@ import com.example.data.model.ReportCategory
 import com.example.data.model.ReportStatus
 import com.example.data.model.SecurityReport
 import com.example.data.model.ShiftOption
+import com.example.data.model.TimeKeywordFilter
 import com.example.data.model.UiState
 import com.example.media.ImageUtils
 import com.example.ui.theme.Amber100
@@ -107,22 +110,40 @@ import com.example.ui.viewmodel.ReportFormState
 fun ReportTabScreen(
     formState: ReportFormState,
     reportsState: UiState<List<SecurityReport>>,
+    reportFilter: TimeKeywordFilter,
     onSelectCategory: (Int) -> Unit,
     onTimeChange: (String) -> Unit,
+    onReportDateChange: (String) -> Unit,
     onSetTimeNow: () -> Unit,
     onFormShiftChange: (String) -> Unit,
     onFormStatusChange: (ReportStatus) -> Unit,
     onDescriptionChange: (String) -> Unit,
     onFillTemplate: () -> Unit,
     onRequestPhotoForSlot: (Int) -> Unit,
+    onPhotoCaptionChange: (Int, String) -> Unit,
     onRemovePhotoAtSlot: (Int) -> Unit,
-    onOpenLightbox: (String) -> Unit,
+    onOpenLightbox: (base64: String, caption: String?) -> Unit,
     onSubmitReport: () -> Unit,
     onDeleteReport: (String) -> Unit,
     onOpenResetConfirm: () -> Unit,
     onOpenRecap: () -> Unit,
-    onPrintPdf: () -> Unit
+    onPrintPdf: () -> Unit,
+    onFilterKeywordChange: (String) -> Unit,
+    onFilterHourChange: (Int?) -> Unit,
+    onFilterDayChange: (Int?) -> Unit,
+    onFilterMonthChange: (Int?) -> Unit,
+    onFilterYearChange: (Int?) -> Unit,
+    onFilterToday: () -> Unit,
+    onResetFilter: () -> Unit
 ) {
+    val reportsList = (reportsState as? UiState.Success)?.data.orEmpty()
+    val filteredReports = remember(reportsList, reportFilter) {
+        reportsList.filter { reportFilter.matchesReport(it) }
+    }
+    val availableYears = remember(reportsList) {
+        reportsList.mapNotNull { it.resolvedYearMonthDay()?.first }.distinct()
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(14.dp),
@@ -132,7 +153,7 @@ fun ReportTabScreen(
         item {
             Card(
                 shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.92f)),
                 border = BorderStroke(1.dp, Slate200)
             ) {
                 Column(
@@ -155,7 +176,7 @@ fun ReportTabScreen(
                         )
                     }
                     Text(
-                        text = "Isi rincian per kategori, tentukan waktu & shift, serta lampirkan maksimal 4 foto bukti lapangan.",
+                        text = "Isi rincian per kategori, tentukan waktu & tanggal, lalu tambahkan foto beserta kolom keterangan di bawah setiap foto.",
                         style = MaterialTheme.typography.bodySmall,
                         color = Slate500
                     )
@@ -192,7 +213,7 @@ fun ReportTabScreen(
         item {
             Card(
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.92f)),
                 border = BorderStroke(1.dp, Slate200),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
@@ -247,16 +268,28 @@ fun ReportTabScreen(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        // Time + Kini button
+                        // Date + Time + Kini button
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.Bottom,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             OutlinedTextField(
+                                value = formState.reportDateInput,
+                                onValueChange = { if (it.length <= 10) onReportDateChange(it) },
+                                label = { Text("Tanggal (yyyy-MM-dd)") },
+                                leadingIcon = {
+                                    Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = Navy700)
+                                },
+                                singleLine = true,
+                                modifier = Modifier
+                                    .weight(1.2f)
+                                    .testTag("report_date_input")
+                            )
+                            OutlinedTextField(
                                 value = formState.timeInput,
                                 onValueChange = { if (it.length <= 10) onTimeChange(it) },
-                                label = { Text("Waktu Pelaksanaan (WIB)") },
+                                label = { Text("Jam (WIB)") },
                                 leadingIcon = {
                                     Icon(Icons.Default.Schedule, contentDescription = null, tint = Navy700)
                                 },
@@ -388,7 +421,7 @@ fun ReportTabScreen(
                             )
                         }
 
-                        // 4-Slot Photo Upload Box
+                        // 4-Slot Photo Upload Box + Caption Column Under Every Photo
                         val filledPhotoCount = formState.photoSlots.count { it != null }
                         Surface(
                             color = Slate50,
@@ -415,7 +448,7 @@ fun ReportTabScreen(
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Text(
-                                            text = "Dokumentasi Foto (Maks. 4)",
+                                            text = "Dokumentasi Foto & Keterangan (Maks. 4)",
                                             style = MaterialTheme.typography.labelMedium,
                                             color = Navy900
                                         )
@@ -435,39 +468,44 @@ fun ReportTabScreen(
                                 }
 
                                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                                    val columns = if (maxWidth >= 480.dp) 4 else 2
-                                    if (columns == 4) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            formState.photoSlots.forEachIndexed { idx, photo ->
-                                                PhotoSlotTile(
+                                    val columns = if (maxWidth >= 560.dp) 2 else 2
+                                    if (maxWidth < 330.dp) {
+                                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            for (idx in 0..3) {
+                                                val photo = formState.photoSlots[idx]
+                                                val caption = formState.photoCaptionSlots.getOrElse(idx) { "" }
+                                                PhotoSlotWithCaptionTile(
                                                     slotIndex = idx,
                                                     base64Photo = photo,
+                                                    caption = caption,
+                                                    onCaptionChange = { onPhotoCaptionChange(idx, it) },
                                                     onUploadClick = { onRequestPhotoForSlot(idx) },
                                                     onRemoveClick = { onRemovePhotoAtSlot(idx) },
-                                                    onPreviewClick = { if (photo != null) onOpenLightbox(photo) },
-                                                    modifier = Modifier.weight(1f)
+                                                    onPreviewClick = { if (photo != null) onOpenLightbox(photo, caption) },
+                                                    modifier = Modifier.fillMaxWidth()
                                                 )
                                             }
                                         }
                                     } else {
-                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                             for (rowStart in 0..2 step 2) {
                                                 Row(
                                                     modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalAlignment = Alignment.Top
                                                 ) {
-                                                    for (offset in 0..1) {
+                                                    for (offset in 0 until columns) {
                                                         val idx = rowStart + offset
                                                         val photo = formState.photoSlots[idx]
-                                                        PhotoSlotTile(
+                                                        val caption = formState.photoCaptionSlots.getOrElse(idx) { "" }
+                                                        PhotoSlotWithCaptionTile(
                                                             slotIndex = idx,
                                                             base64Photo = photo,
+                                                            caption = caption,
+                                                            onCaptionChange = { onPhotoCaptionChange(idx, it) },
                                                             onUploadClick = { onRequestPhotoForSlot(idx) },
                                                             onRemoveClick = { onRemovePhotoAtSlot(idx) },
-                                                            onPreviewClick = { if (photo != null) onOpenLightbox(photo) },
+                                                            onPreviewClick = { if (photo != null) onOpenLightbox(photo, caption) },
                                                             modifier = Modifier.weight(1f)
                                                         )
                                                     }
@@ -488,7 +526,7 @@ fun ReportTabScreen(
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Text(
-                                        text = "Ketuk kotak foto untuk kamera atau galeri. Otomatis dikompresi & diberi watermark.",
+                                        text = "Ketuk slot untuk upload foto, lalu isi kolom keterangan di bawah masing-masing foto.",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = Slate500
                                     )
@@ -548,7 +586,7 @@ fun ReportTabScreen(
             }
         }
 
-        // 3. Output List Grouped by 3 Categories
+        // 3. Filter & Search Panel + Output List Grouped by 3 Categories
         when (reportsState) {
             is UiState.Loading -> {
                 item {
@@ -579,13 +617,31 @@ fun ReportTabScreen(
                 }
             }
             is UiState.Success -> {
-                val reports = reportsState.data
+                item(key = "report_filter_panel") {
+                    SearchAndTimeFilterPanel(
+                        title = "Cari & Saring Laporan (Jam / Hari / Bulan / Tahun)",
+                        filter = reportFilter,
+                        availableYears = availableYears,
+                        totalCount = reportsList.size,
+                        filteredCount = filteredReports.size,
+                        testTagPrefix = "report",
+                        onKeywordChange = onFilterKeywordChange,
+                        onHourChange = onFilterHourChange,
+                        onDayChange = onFilterDayChange,
+                        onMonthChange = onFilterMonthChange,
+                        onYearChange = onFilterYearChange,
+                        onSelectToday = onFilterToday,
+                        onReset = onResetFilter
+                    )
+                }
+
                 ReportCategory.entries.forEach { category ->
                     item(key = "cat_card_${category.number}") {
-                        val catItems = reports.filter { it.category.toInt() == category.number }
+                        val catItems = filteredReports.filter { it.category.toInt() == category.number }
                         CategoryReportSectionCard(
                             category = category,
                             items = catItems,
+                            isFiltered = reportFilter.isActive,
                             onDeleteReport = onDeleteReport,
                             onOpenLightbox = onOpenLightbox
                         )
@@ -663,108 +719,146 @@ private fun StatusDot(status: ReportStatus) {
 }
 
 @Composable
-private fun PhotoSlotTile(
+private fun PhotoSlotWithCaptionTile(
     slotIndex: Int,
     base64Photo: String?,
+    caption: String,
+    onCaptionChange: (String) -> Unit,
     onUploadClick: () -> Unit,
     onRemoveClick: () -> Unit,
     onPreviewClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (base64Photo != null) {
-        val imageBitmap = remember(base64Photo) { ImageUtils.decodeBase64ToImageBitmap(base64Photo) }
-        Box(
-            modifier = modifier
-                .aspectRatio(1f)
-                .clip(RoundedCornerShape(12.dp))
-                .border(2.dp, Gold500, RoundedCornerShape(12.dp))
-                .background(Navy900)
-                .clickable(onClick = onPreviewClick)
-        ) {
-            if (imageBitmap != null) {
-                Image(
-                    bitmap = imageBitmap,
-                    contentDescription = "Foto ${slotIndex + 1}",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            Surface(
-                color = Navy950.copy(alpha = 0.8f),
-                shape = RoundedCornerShape(6.dp),
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(6.dp)
-            ) {
-                Text(
-                    text = "Foto ${slotIndex + 1}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Gold400,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                )
-            }
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        if (base64Photo != null) {
+            val imageBitmap = remember(base64Photo) { ImageUtils.decodeBase64ToImageBitmap(base64Photo) }
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(4.dp)
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(Red600)
-                    .clickable(onClick = onRemoveClick),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .aspectRatio(1.1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(2.dp, Gold500, RoundedCornerShape(12.dp))
+                    .background(Navy900)
+                    .clickable(onClick = onPreviewClick)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Hapus Foto ${slotIndex + 1}",
-                    tint = Color.White,
-                    modifier = Modifier.size(15.dp)
-                )
-            }
-        }
-    } else {
-        Surface(
-            onClick = onUploadClick,
-            shape = RoundedCornerShape(12.dp),
-            color = Color.White,
-            border = BorderStroke(1.5.dp, Slate200),
-            modifier = modifier
-                .aspectRatio(1f)
-                .testTag("photo_slot_$slotIndex")
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
+                if (imageBitmap != null) {
+                    Image(
+                        bitmap = imageBitmap,
+                        contentDescription = "Foto ${slotIndex + 1}",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                Surface(
+                    color = Navy950.copy(alpha = 0.8f),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                ) {
+                    Text(
+                        text = "Foto ${slotIndex + 1}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Gold400,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(28.dp)
                         .clip(CircleShape)
-                        .background(Slate100),
+                        .background(Red600)
+                        .clickable(onClick = onRemoveClick),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.CameraAlt,
-                        contentDescription = null,
-                        tint = Navy700,
-                        modifier = Modifier.size(16.dp)
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Hapus Foto ${slotIndex + 1}",
+                        tint = Color.White,
+                        modifier = Modifier.size(15.dp)
                     )
                 }
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "Slot Foto ${slotIndex + 1}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Slate700,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "Ketuk upload",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Slate400,
-                    textAlign = TextAlign.Center
-                )
+            }
+
+            // Caption field directly below the uploaded photo
+            OutlinedTextField(
+                value = caption,
+                onValueChange = { if (it.length <= 200) onCaptionChange(it) },
+                placeholder = {
+                    Text(
+                        text = "Keterangan foto ${slotIndex + 1}...",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                },
+                label = {
+                    Text(
+                        text = "Keterangan Foto ${slotIndex + 1}",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                },
+                maxLines = 2,
+                textStyle = MaterialTheme.typography.bodySmall,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedBorderColor = Gold500,
+                    unfocusedBorderColor = Slate200
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("photo_caption_input_$slotIndex")
+            )
+        } else {
+            Surface(
+                onClick = onUploadClick,
+                shape = RoundedCornerShape(12.dp),
+                color = Color.White,
+                border = BorderStroke(1.5.dp, Slate200),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1.1f)
+                    .testTag("photo_slot_$slotIndex")
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Slate100),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = null,
+                            tint = Navy700,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Slot Foto ${slotIndex + 1}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Slate700,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "Ketuk upload",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Slate400,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
@@ -775,12 +869,13 @@ private fun PhotoSlotTile(
 private fun CategoryReportSectionCard(
     category: ReportCategory,
     items: List<SecurityReport>,
+    isFiltered: Boolean,
     onDeleteReport: (String) -> Unit,
-    onOpenLightbox: (String) -> Unit
+    onOpenLightbox: (base64: String, caption: String?) -> Unit
 ) {
     Card(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.92f)),
         border = BorderStroke(1.dp, Slate200)
     ) {
         Column {
@@ -852,7 +947,11 @@ private fun CategoryReportSectionCard(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "Belum ada rincian kegiatan pada Kategori ${category.number}.",
+                            text = if (isFiltered) {
+                                "Tidak ada rincian Kategori ${category.number} yang cocok dengan kata kunci/filter waktu."
+                            } else {
+                                "Belum ada rincian kegiatan pada Kategori ${category.number}."
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = Slate400,
                             textAlign = TextAlign.Center,
@@ -878,13 +977,14 @@ private fun CategoryReportSectionCard(
 private fun ReportItemCard(
     report: SecurityReport,
     onDelete: () -> Unit,
-    onOpenLightbox: (String) -> Unit
+    onOpenLightbox: (base64: String, caption: String?) -> Unit
 ) {
     val (statusBg, statusFg) = when (report.statusEnum) {
         ReportStatus.AMAN -> Emerald100 to Emerald800
         ReportStatus.PEMANTAUAN -> Amber100 to Amber800
         ReportStatus.TINDAK_LANJUT -> Red100 to Red800
     }
+    val dateBadge = remember(report.reportDate, report.createdAt) { report.formattedDateBadge() }
 
     Surface(
         color = Slate50,
@@ -915,6 +1015,17 @@ private fun ReportItemCard(
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
+                    }
+                    if (dateBadge.isNotBlank()) {
+                        Surface(color = Color.White, shape = RoundedCornerShape(6.dp), border = BorderStroke(1.dp, Slate200)) {
+                            Text(
+                                text = dateBadge,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Slate700,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
                     }
                     Surface(color = Navy100, shape = RoundedCornerShape(6.dp)) {
                         Text(
@@ -955,7 +1066,7 @@ private fun ReportItemCard(
             )
 
             Text(
-                text = "Petugas: ${report.officerName}",
+                text = "Petugas: ${report.officerName} (${report.officerNrp})",
                 style = MaterialTheme.typography.bodySmall,
                 color = Slate400
             )
@@ -978,33 +1089,64 @@ private fun ReportItemCard(
                         color = Slate500
                     )
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    report.photos.take(4).forEachIndexed { idx, base64 ->
-                        val bmp = remember(base64) { ImageUtils.decodeBase64ToImageBitmap(base64) }
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .aspectRatio(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .border(1.dp, Slate200, RoundedCornerShape(10.dp))
-                                .background(Slate100)
-                                .clickable { onOpenLightbox(base64) }
+
+                // Display photos 2 per row with each photo's caption directly underneath
+                val photos = report.photos.take(4)
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    for (rowStart in photos.indices step 2) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.Top
                         ) {
-                            if (bmp != null) {
-                                Image(
-                                    bitmap = bmp,
-                                    contentDescription = "Bukti Foto ${idx + 1}",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
+                            for (offset in 0..1) {
+                                val idx = rowStart + offset
+                                if (idx < photos.size) {
+                                    val base64 = photos[idx]
+                                    val caption = report.photoCaptions.getOrNull(idx)?.trim().orEmpty()
+                                    val bmp = remember(base64) { ImageUtils.decodeBase64ToImageBitmap(base64) }
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(1.25f)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .border(1.dp, Slate200, RoundedCornerShape(10.dp))
+                                                .background(Slate100)
+                                                .clickable { onOpenLightbox(base64, caption.ifBlank { null }) }
+                                        ) {
+                                            if (bmp != null) {
+                                                Image(
+                                                    bitmap = bmp,
+                                                    contentDescription = caption.ifBlank { "Bukti Foto ${idx + 1}" },
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            }
+                                        }
+                                        // Caption box directly under each photo
+                                        Surface(
+                                            color = Color.White,
+                                            shape = RoundedCornerShape(8.dp),
+                                            border = BorderStroke(1.dp, Slate200),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text(
+                                                text = caption.ifBlank { "Foto ${idx + 1}: Tanpa keterangan" },
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (caption.isNotBlank()) Slate800 else Slate400,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
                             }
                         }
-                    }
-                    repeat((4 - report.photos.size).coerceAtLeast(0)) {
-                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }

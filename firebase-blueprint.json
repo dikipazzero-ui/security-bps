@@ -32,6 +32,20 @@
           "enum": ["Shift 1", "Shift 2", "Shift 3"],
           "description": "Shift tugas aktif saat ini"
         },
+        "activeRoomCode": {
+          "type": "string",
+          "description": "Kode ruang Live Chat yang sedang diikuti (opsional)"
+        },
+        "onlineStatus": {
+          "type": "string",
+          "enum": ["online", "offline"],
+          "description": "Status koneksi online petugas (opsional)"
+        },
+        "lastSeenAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu aktivitas online terakhir (FieldValue.serverTimestamp())"
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time",
@@ -71,6 +85,10 @@
           "type": "string",
           "description": "Waktu pelaksanaan kegiatan (format HH:mm)"
         },
+        "reportDate": {
+          "type": "string",
+          "description": "Tanggal laporan format yyyy-MM-dd untuk penyaringan hari/bulan/tahun"
+        },
         "shift": {
           "type": "string",
           "enum": ["Shift 1", "Shift 2", "Shift 3"],
@@ -92,6 +110,10 @@
         "photos": {
           "type": "array",
           "description": "Maksimal 4 foto dokumentasi terkompresi dalam format base64 JPEG"
+        },
+        "photoCaptions": {
+          "type": "array",
+          "description": "Keterangan masing-masing foto dokumentasi (maksimal 4 item)"
         },
         "officerName": {
           "type": "string",
@@ -128,12 +150,16 @@
     },
     "ChatMessage": {
       "title": "ChatMessage",
-      "description": "Pesan teks, foto kondisi, atau voice note di Channel Koordinasi Plot BPS.",
+      "description": "Pesan teks, foto kondisi beserta keterangan, atau voice note di ruang Live Chat.",
       "type": "object",
       "properties": {
         "userId": {
           "type": "string",
-          "description": "Firebase Auth UID pemilik riwayat chat"
+          "description": "Firebase Auth UID pengirim pesan"
+        },
+        "roomCode": {
+          "type": "string",
+          "description": "Kode ruang Live Chat tempat pesan dikirim"
         },
         "senderName": {
           "type": "string",
@@ -145,7 +171,7 @@
         },
         "fromOfficer": {
           "type": "boolean",
-          "description": "Penanda apakah pesan dikirim oleh petugas pengguna aplikasi"
+          "description": "Penanda pesan dikirim oleh petugas"
         },
         "time": {
           "type": "string",
@@ -158,6 +184,10 @@
         "imageData": {
           "type": "string",
           "description": "Lampiran foto terkompresi base64 JPEG (opsional)"
+        },
+        "imageCaption": {
+          "type": "string",
+          "description": "Keterangan foto yang dilampirkan pada pesan chat (opsional)"
         },
         "audioType": {
           "type": "string",
@@ -188,6 +218,106 @@
         "audioType",
         "createdAt"
       ]
+    },
+    "ChatRoom": {
+      "title": "ChatRoom",
+      "description": "Ruang koordinasi Live Chat multi-petugas yang diakses dengan kode ruang tertentu.",
+      "type": "object",
+      "properties": {
+        "roomCode": {
+          "type": "string",
+          "description": "Kode unik ruang koordinasi (contoh: PLOT-BPS)"
+        },
+        "title": {
+          "type": "string",
+          "description": "Nama ruang koordinasi"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "Firebase Auth UID pembuat ruang"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembuatan ruang (FieldValue.serverTimestamp())"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembaruan ruang (FieldValue.serverTimestamp())"
+        }
+      },
+      "required": [
+        "roomCode",
+        "title",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "RoomMember": {
+      "title": "RoomMember",
+      "description": "Profil dan status online real-time anggota dalam ruang Live Chat.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID anggota"
+        },
+        "roomCode": {
+          "type": "string",
+          "description": "Kode ruang Live Chat"
+        },
+        "name": {
+          "type": "string",
+          "description": "Nama petugas"
+        },
+        "nrp": {
+          "type": "string",
+          "description": "NRP petugas"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "Danru Plot BPS",
+            "Anggota Pos Utama BPS",
+            "Anggota Patroli Gedung BPS",
+            "Korlap Security BPS"
+          ],
+          "description": "Jabatan petugas"
+        },
+        "activeShift": {
+          "type": "string",
+          "enum": ["Shift 1", "Shift 2", "Shift 3"],
+          "description": "Shift aktif petugas"
+        },
+        "onlineStatus": {
+          "type": "string",
+          "enum": ["online", "offline"],
+          "description": "Status kehadiran online di aplikasi"
+        },
+        "lastSeenAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu heartbeat online terakhir (FieldValue.serverTimestamp())"
+        },
+        "joinedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu bergabung ke ruang (FieldValue.serverTimestamp())"
+        }
+      },
+      "required": [
+        "userId",
+        "roomCode",
+        "name",
+        "nrp",
+        "role",
+        "activeShift",
+        "onlineStatus",
+        "lastSeenAt",
+        "joinedAt"
+      ]
     }
   },
   "firestore": {
@@ -207,7 +337,25 @@
       "schema": {
         "$ref": "#/entities/ChatMessage"
       },
-      "description": "Pesan koordinasi Live Chat & Voice Note Plot BPS"
+      "description": "Riwayat chat pribadi (legacy)"
+    },
+    "/chat_rooms/{roomCode}": {
+      "schema": {
+        "$ref": "#/entities/ChatRoom"
+      },
+      "description": "Ruang Live Chat berbasis kode akses untuk koordinasi real-time antar petugas"
+    },
+    "/chat_rooms/{roomCode}/members/{userId}": {
+      "schema": {
+        "$ref": "#/entities/RoomMember"
+      },
+      "description": "Daftar anggota dan status online real-time dalam ruang Live Chat"
+    },
+    "/chat_rooms/{roomCode}/messages/{messageId}": {
+      "schema": {
+        "$ref": "#/entities/ChatMessage"
+      },
+      "description": "Pesan teks, foto berketerangan, dan Voice Note dalam ruang Live Chat"
     }
   }
 }

@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,24 +16,33 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -54,15 +64,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.data.model.DEFAULT_ROOM_CODE
 import com.example.data.model.OfficerProfile
 import com.example.data.model.OfficerRoles
+import com.example.data.model.RoomMember
 import com.example.media.ImageUtils
 import com.example.ui.theme.Emerald600
 import com.example.ui.theme.Gold400
 import com.example.ui.theme.Gold500
+import com.example.ui.theme.Navy100
+import com.example.ui.theme.Navy700
 import com.example.ui.theme.Navy800
 import com.example.ui.theme.Navy900
 import com.example.ui.theme.Navy950
@@ -70,6 +86,7 @@ import com.example.ui.theme.Red100
 import com.example.ui.theme.Red600
 import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
+import com.example.ui.theme.Slate400
 import com.example.ui.theme.Slate50
 import com.example.ui.theme.Slate500
 import com.example.ui.theme.Slate700
@@ -140,7 +157,7 @@ fun WhatsAppRecapDialog(
                     Surface(
                         color = Slate50,
                         shape = RoundedCornerShape(12.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                        border = BorderStroke(1.dp, Slate200),
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 180.dp, max = 340.dp)
@@ -377,6 +394,7 @@ fun ResetShiftConfirmDialog(
 @Composable
 fun PhotoLightboxDialog(
     base64Image: String,
+    caption: String? = null,
     onDismiss: () -> Unit
 ) {
     val imageBitmap = remember(base64Image) {
@@ -396,31 +414,53 @@ fun PhotoLightboxDialog(
             contentAlignment = Alignment.Center
         ) {
             Column(
-                horizontalAlignment = Alignment.End,
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.18f),
-                        contentColor = Color.White
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Tutup Foto")
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White.copy(alpha = 0.18f),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Tutup Foto")
+                    }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 if (imageBitmap != null) {
                     Image(
                         bitmap = imageBitmap,
-                        contentDescription = "Dokumentasi Lapangan",
+                        contentDescription = caption?.ifBlank { "Dokumentasi Lapangan" } ?: "Dokumentasi Lapangan",
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f, fill = false)
                             .clip(RoundedCornerShape(16.dp))
                     )
+                }
+                if (!caption.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Surface(
+                        color = Navy900.copy(alpha = 0.9f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Gold500.copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = caption,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                        )
+                    }
                 }
             }
         }
@@ -473,7 +513,7 @@ fun PhotoSourcePickerDialog(
                     onClick = onPickGallery,
                     shape = RoundedCornerShape(12.dp),
                     color = Slate100,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                    border = BorderStroke(1.dp, Slate200),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("pick_gallery_option")
@@ -499,4 +539,384 @@ fun PhotoSourcePickerDialog(
             }
         }
     )
+}
+
+@Composable
+fun JoinOrCreateRoomDialog(
+    currentRoomCode: String,
+    isBusy: Boolean,
+    onGenerateCode: () -> String,
+    onCopyCode: (String) -> Unit,
+    onJoinRoom: (String) -> Unit,
+    onCreateRoom: (code: String, title: String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var modeJoin by remember { mutableStateOf(true) }
+    var joinCodeInput by remember { mutableStateOf("") }
+    var createCodeInput by remember { mutableStateOf(onGenerateCode()) }
+    var createTitleInput by remember { mutableStateOf("") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = Color.White,
+            shadowElevation = 12.dp
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Navy900)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.Key, contentDescription = null, tint = Gold400)
+                        Text(
+                            text = "Ruang Live Chat (Kode)",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Color.White)
+                    }
+                }
+
+                Column(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Current room code banner
+                    Surface(
+                        color = Slate50,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Slate200),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Kode Ruang Aktif Saat Ini",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Slate500
+                                )
+                                Text(
+                                    text = currentRoomCode,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Navy900
+                                )
+                            }
+                            OutlinedButton(
+                                onClick = { onCopyCode(currentRoomCode) },
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Salin", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+
+                    // Mode Toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            onClick = { modeJoin = true },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (modeJoin) Navy900 else Slate100,
+                            border = BorderStroke(1.dp, if (modeJoin) Gold500 else Slate200),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Login,
+                                    contentDescription = null,
+                                    tint = if (modeJoin) Gold400 else Slate700,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Gabung Kode",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (modeJoin) Color.White else Slate700
+                                )
+                            }
+                        }
+                        Surface(
+                            onClick = { modeJoin = false },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (!modeJoin) Navy900 else Slate100,
+                            border = BorderStroke(1.dp, if (!modeJoin) Gold500 else Slate200),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.AddCircle,
+                                    contentDescription = null,
+                                    tint = if (!modeJoin) Gold400 else Slate700,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Buat Ruang",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (!modeJoin) Color.White else Slate700
+                                )
+                            }
+                        }
+                    }
+
+                    if (modeJoin) {
+                        Text(
+                            text = "Masukkan kode ruang yang dibagikan rekan atau Danru untuk terhubung online secara real-time.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500
+                        )
+                        OutlinedTextField(
+                            value = joinCodeInput,
+                            onValueChange = { joinCodeInput = it.uppercase().take(24) },
+                            label = { Text("Kode Ruang (contoh: PLOT-BPS)") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("join_room_code_input")
+                        )
+                        if (currentRoomCode != DEFAULT_ROOM_CODE) {
+                            TextButton(
+                                onClick = { onJoinRoom(DEFAULT_ROOM_CODE) },
+                                enabled = !isBusy
+                            ) {
+                                Text("Kembali ke Ruang Utama ($DEFAULT_ROOM_CODE)")
+                            }
+                        }
+                        Button(
+                            onClick = { onJoinRoom(joinCodeInput) },
+                            enabled = !isBusy && joinCodeInput.trim().length >= 3,
+                            colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("confirm_join_room_button")
+                        ) {
+                            if (isBusy) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Gold400, strokeWidth = 2.dp)
+                            } else {
+                                Text("Gabung ke Ruang Live Chat", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = "Buat ruang koordinasi baru lalu bagikan kodenya ke anggota regu yang bertugas.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Slate500
+                        )
+                        OutlinedTextField(
+                            value = createTitleInput,
+                            onValueChange = { if (it.length <= 60) createTitleInput = it },
+                            label = { Text("Nama Ruang (mis. Regu Shift 2 BPS)") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("create_room_title_input")
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = createCodeInput,
+                                onValueChange = { createCodeInput = it.uppercase().take(24) },
+                                label = { Text("Kode Ruang (3-24 karakter)") },
+                                singleLine = true,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("create_room_code_input")
+                            )
+                            OutlinedButton(
+                                onClick = { createCodeInput = onGenerateCode() },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.height(54.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Acak Kode")
+                            }
+                        }
+                        Button(
+                            onClick = { onCreateRoom(createCodeInput, createTitleInput) },
+                            enabled = !isBusy && createCodeInput.trim().length >= 3 && createTitleInput.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("confirm_create_room_button")
+                        ) {
+                            if (isBusy) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Gold400, strokeWidth = 2.dp)
+                            } else {
+                                Text("Buat & Gabung Ruang", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RoomMembersDialog(
+    roomCode: String,
+    roomTitle: String,
+    members: List<RoomMember>,
+    currentUserId: String,
+    onDismiss: () -> Unit
+) {
+    val onlineCount = members.count { it.isCurrentlyOnline() }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = Color.White,
+            shadowElevation = 12.dp
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Navy900)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Groups, contentDescription = null, tint = Gold400)
+                        Column {
+                            Text(
+                                text = "Anggota Ruang ($roomCode)",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "$onlineCount online dari ${members.size} tergabung",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Gold400
+                            )
+                        }
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Color.White)
+                    }
+                }
+
+                if (members.isEmpty()) {
+                    Text(
+                        text = "Belum ada anggota terdaftar di ruang $roomTitle.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Slate500,
+                        modifier = Modifier.padding(20.dp)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 380.dp)
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(members, key = { it.userId }) { member ->
+                            val online = member.isCurrentlyOnline()
+                            Surface(
+                                color = Slate50,
+                                shape = RoundedCornerShape(14.dp),
+                                border = BorderStroke(1.dp, if (online) Emerald600.copy(alpha = 0.35f) else Slate200)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    OfficerAvatarWithPresence(
+                                        name = member.name,
+                                        isOnline = online,
+                                        size = 42.dp,
+                                        containerColor = if (online) Navy800 else Slate200,
+                                        textColor = if (online) Gold400 else Slate700,
+                                        borderColor = if (online) Gold500 else Slate400,
+                                        ringColor = Slate50
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(
+                                                text = member.name + if (member.userId == currentUserId) " (Anda)" else "",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = Navy900,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        Text(
+                                            text = "${member.role} • ${member.activeShift}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Slate500,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "NRP: ${member.nrp}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Navy700
+                                        )
+                                    }
+                                    OnlineStatusPill(isOnline = online)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = Slate200)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Tutup")
+                    }
+                }
+            }
+        }
+    }
 }
