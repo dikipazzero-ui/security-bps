@@ -26,17 +26,17 @@ jobs:
           if [ -n "$GOOGLE_SERVICES_JSON" ]; then
             printf '%s\n' "$GOOGLE_SERVICES_JSON" > app/google-services.json
           fi
-          if [ ! -f app/google-services.json ]; then
-            echo "ERROR: app/google-services.json tidak ditemukan. Tambahkan GitHub Secret GOOGLE_SERVICES_JSON."
+          if [ ! -f app/google-services.json ] || ! grep -q '"project_info"' app/google-services.json; then
+            echo "ERROR: Isi GitHub Secret GOOGLE_SERVICES_JSON tidak valid atau kosong."
             exit 1
           fi
 
           if [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
-            printf '%s' "$DEBUG_KEYSTORE_BASE64" | tr -d '\n\r ' | base64 -d > debug.keystore
+            printf '%s' "$DEBUG_KEYSTORE_BASE64" | tr -cd 'A-Za-z0-9+/=' | base64 -d > debug.keystore
           elif [ -f debug.keystore.base64 ]; then
-            base64 -d debug.keystore.base64 > debug.keystore
+            tr -cd 'A-Za-z0-9+/=' < debug.keystore.base64 | base64 -d > debug.keystore
           else
-            echo "ERROR: debug.keystore.base64 tidak ditemukan. Tambahkan GitHub Secret DEBUG_KEYSTORE_BASE64."
+            echo "ERROR: GitHub Secret DEBUG_KEYSTORE_BASE64 belum diisi."
             exit 1
           fi
 
