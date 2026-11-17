@@ -2,11 +2,16 @@ package com.example.data.firebase
 
 import android.content.Context
 import com.example.R
+import com.example.data.model.ActivitySheetTemplates
+import com.example.data.model.ActivityTableRow
 import com.example.data.model.ChatMessage
 import com.example.data.model.ChatRoom
 import com.example.data.model.DEFAULT_ROOM_CODE
+import com.example.data.model.DailyActivitySheet
+import com.example.data.model.InventoryRow
 import com.example.data.model.OfficerProfile
 import com.example.data.model.OfficerRoles
+import com.example.data.model.PersonnelRow
 import com.example.data.model.ReportStatus
 import com.example.data.model.RoomMember
 import com.example.data.model.SecurityReport
@@ -92,6 +97,30 @@ class SecurityRepository(
             .map { snapshot ->
                 snapshot.toObjects(
                     SecurityReport::class.java,
+                    DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
+                )
+            }
+            .catch { error ->
+                val firestoreError = generateSequence(error) { it.cause }
+                    .filterIsInstance<FirebaseFirestoreException>()
+                    .firstOrNull()
+                if (firestoreError == null && error is CancellationException) throw error
+                val exceptionToLog = firestoreError ?: (error as? Exception)
+                if (exceptionToLog != null && auth.currentUser?.uid == userId) {
+                    handleFirestoreError(exceptionToLog, OperationType.LIST, path)
+                }
+                throw error
+            }
+    }
+
+    fun observeActivitySheets(userId: String): Flow<List<DailyActivitySheet>> {
+        val path = "users/$userId/activity_sheets"
+        return db.collection("users").document(userId).collection("activity_sheets")
+            .orderBy("updatedAt", Query.Direction.DESCENDING)
+            .snapshots()
+            .map { snapshot ->
+                snapshot.toObjects(
+                    DailyActivitySheet::class.java,
                     DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
                 )
             }
@@ -262,6 +291,26 @@ class SecurityRepository(
                     resolvedRoom = DEFAULT_ROOM_CODE
                     ensureDefaultChatRoomExists(uid)
                 }
+            }
+
+            // Ensure at least one starter DailyActivitySheet exists matching BPS logbook format
+            val sheetsCol = profileRef.collection("activity_sheets")
+            val existingSheets = sheetsCol.limit(1).get().await()
+            if (existingSheets.isEmpty) {
+                val starterShift = resolvedProfile.activeShift
+                val starterPayload = buildActivitySheetPayload(
+                    uid = uid,
+                    docNumber = "001",
+                    sheetDate = currentIsoDate(),
+                    shift = starterShift,
+                    personnelRows = ActivitySheetTemplates.starterPersonnelRows(resolvedProfile.name),
+                    inventoryRows = ActivitySheetTemplates.defaultInventoryRows,
+                    activityRows = ActivitySheetTemplates.starterActivityRows(starterShift),
+                    officerName = resolvedProfile.name,
+                    officerNrp = resolvedProfile.nrp,
+                    includeCreatedAt = true
+                )
+                sheetsCol.document("init_sheet_1").set(starterPayload).await()
             }
 
             // Join & mark online inside the active shared room
@@ -817,5 +866,137 @@ class SecurityRepository(
             fromOfficer = false,
             text = pick.third
         )
+    }
+
+    private fun buildActivitySheetPayload(
+        uid: String,
+        docNumber: String,
+        sheetDate: String,
+        shift: String,
+        personnelRows: List<PersonnelRow>,
+        inventoryRows: List<InventoryRow>,
+        activityRows: List<ActivityTableRow>,
+        officerName: String,
+        officerNrp: String,
+        includeCreatedAt: Boolean
+    ): Map<String, Any> {
+        val cleanDocNum = docNumber.trim().take(40)
+        val cleanDate = sheetDate.trim().ifBlank { currentIsoDate() }
+        val cleanShift = if (shift in ShiftOption.entries.map { it.label }) shift else ShiftOption.SHIFT_1.label
+        val cleanOfficer = officerName.trim().ifBlank { "Petugas Security" }.take(80)
+        val cleanNrp = officerNrp.trim().ifBlank { "SEC-BPS" }.take(40)
+
+        require(cleanDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) { "Format tanggal harus yyyy-MM-dd." }
+        require(personnelRows.size <= 30) { "Maksimal 30 baris personel." }
+        require(inventoryRows.size <= 50) { "Maksimal 50 baris inventaris." }
+        require(activityRows.size <= 60) { "Maksimal 60 baris uraian kegiatan." }
+
+        val personnelMaps = personnelRows.map { row ->
+            mapOf(
+                "nama" to row.nama.trim().take(80),
+                "jabatan" to row.jabatan.trim().take(40),
+                "plot" to row.plot.trim().take(24),
+                "kehadiran" to row.kehadiran.trim().take(20),
+                "ket" to row.ket.trim().take(120)
+            )
+        }
+        val inventoryMaps = inventoryRows.map { row ->
+            mapOf(
+                "inventaris" to row.inventaris.trim().take(120),
+                "jumlah" to row.jumlah.trim().take(40),
+                "kondisi" to row.kondisi.trim().take(40),
+                "keterangan" to row.keterangan.trim().take(200)
+            )
+        }
+        val activityMaps = activityRows.map { row ->
+            mapOf(
+                "jam" to row.jam.trim().take(16),
+                "uraian" to row.uraian.trim().take(1000)
+            )
+        }
+
+        val map = mutableMapOf<String, Any>(
+            "userId" to uid,
+            "docNumber" to cleanDocNum,
+            "sheetDate" to cleanDate,
+            "shift" to cleanShift,
+            "personnelRows" to personnelMaps,
+            "inventoryRows" to inventoryMaps,
+            "activityRows" to activityMaps,
+            "officerName" to cleanOfficer,
+            "officerNrp" to cleanNrp,
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+        if (includeCreatedAt) {
+            map["createdAt"] = FieldValue.serverTimestamp()
+        }
+        return map
+    }
+
+    suspend fun saveActivitySheet(sheet: DailyActivitySheet): Result<String> {
+        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/activity_sheets"
+        return try {
+            val uid = requireUserId()
+            val col = db.collection("users").document(uid).collection("activity_sheets")
+            val isNew = sheet.id.isBlank()
+            val docRef = if (isNew) col.document() else col.document(sheet.id)
+            path = docRef.path
+
+            val exists = if (isNew) false else docRef.get().await().exists()
+            if (!exists) {
+                val payload = buildActivitySheetPayload(
+                    uid = uid,
+                    docNumber = sheet.docNumber,
+                    sheetDate = sheet.sheetDate,
+                    shift = sheet.shift,
+                    personnelRows = sheet.personnelRows,
+                    inventoryRows = sheet.inventoryRows,
+                    activityRows = sheet.activityRows,
+                    officerName = sheet.officerName,
+                    officerNrp = sheet.officerNrp,
+                    includeCreatedAt = true
+                )
+                docRef.set(payload).await()
+            } else {
+                val updatePayload = buildActivitySheetPayload(
+                    uid = uid,
+                    docNumber = sheet.docNumber,
+                    sheetDate = sheet.sheetDate,
+                    shift = sheet.shift,
+                    personnelRows = sheet.personnelRows,
+                    inventoryRows = sheet.inventoryRows,
+                    activityRows = sheet.activityRows,
+                    officerName = sheet.officerName,
+                    officerNrp = sheet.officerNrp,
+                    includeCreatedAt = false
+                ).toMutableMap().apply {
+                    remove("userId")
+                }
+                docRef.update(updatePayload).await()
+            }
+            Result.success(docRef.id)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.WRITE, path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteActivitySheet(sheetId: String): Result<Unit> {
+        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/activity_sheets/$sheetId"
+        return try {
+            val uid = requireUserId()
+            require(sheetId.isNotBlank()) { "ID lembar tabel tidak valid." }
+            val docRef = db.collection("users").document(uid).collection("activity_sheets").document(sheetId)
+            path = docRef.path
+            docRef.delete().await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.DELETE, path)
+            Result.failure(e)
+        }
     }
 }

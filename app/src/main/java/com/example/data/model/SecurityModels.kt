@@ -278,6 +278,179 @@ data class TimeKeywordFilter(
         }
         return true
     }
+
+    fun matchesActivityRow(row: ActivityTableRow, sheetDate: String): Boolean {
+        val q = keyword.trim().lowercase(Locale.getDefault())
+        if (q.isNotEmpty()) {
+            val matchesKeyword = row.jam.lowercase(Locale.getDefault()).contains(q) ||
+                row.uraian.lowercase(Locale.getDefault()).contains(q) ||
+                sheetDate.lowercase(Locale.getDefault()).contains(q)
+            if (!matchesKeyword) return false
+        }
+        if (hour != null) {
+            val rowHour = row.resolvedHour() ?: return false
+            if (rowHour != hour) return false
+        }
+        if (day != null || month != null || year != null) {
+            val ymd = parseIsoDateTriple(sheetDate) ?: return false
+            if (year != null && ymd.first != year) return false
+            if (month != null && ymd.second != month) return false
+            if (day != null && ymd.third != day) return false
+        }
+        return true
+    }
+
+    fun matchesSheetHeader(sheet: DailyActivitySheet): Boolean {
+        val q = keyword.trim().lowercase(Locale.getDefault())
+        if (q.isNotEmpty()) {
+            val inMeta = sheet.docNumber.lowercase(Locale.getDefault()).contains(q) ||
+                sheet.sheetDate.lowercase(Locale.getDefault()).contains(q) ||
+                sheet.shift.lowercase(Locale.getDefault()).contains(q) ||
+                sheet.officerName.lowercase(Locale.getDefault()).contains(q)
+            val inPersonnel = sheet.personnelRows.any {
+                it.nama.lowercase(Locale.getDefault()).contains(q) ||
+                    it.jabatan.lowercase(Locale.getDefault()).contains(q) ||
+                    it.plot.lowercase(Locale.getDefault()).contains(q) ||
+                    it.kehadiran.lowercase(Locale.getDefault()).contains(q) ||
+                    it.ket.lowercase(Locale.getDefault()).contains(q)
+            }
+            val inInventory = sheet.inventoryRows.any {
+                it.inventaris.lowercase(Locale.getDefault()).contains(q) ||
+                    it.kondisi.lowercase(Locale.getDefault()).contains(q) ||
+                    it.keterangan.lowercase(Locale.getDefault()).contains(q)
+            }
+            val inActivities = sheet.activityRows.any {
+                it.jam.lowercase(Locale.getDefault()).contains(q) ||
+                    it.uraian.lowercase(Locale.getDefault()).contains(q)
+            }
+            if (!inMeta && !inPersonnel && !inInventory && !inActivities) return false
+        }
+        if (day != null || month != null || year != null) {
+            val ymd = parseIsoDateTriple(sheet.sheetDate) ?: return false
+            if (year != null && ymd.first != year) return false
+            if (month != null && ymd.second != month) return false
+            if (day != null && ymd.third != day) return false
+        }
+        if (hour != null) {
+            if (sheet.activityRows.none { it.resolvedHour() == hour }) return false
+        }
+        return true
+    }
+}
+
+@Keep
+@IgnoreExtraProperties
+data class PersonnelRow(
+    val nama: String = "",
+    val jabatan: String = "ANGGOTA",
+    val plot: String = "BPS",
+    val kehadiran: String = "Hadir",
+    val ket: String = ""
+)
+
+@Keep
+@IgnoreExtraProperties
+data class InventoryRow(
+    val inventaris: String = "",
+    val jumlah: String = "1",
+    val kondisi: String = "Baik",
+    val keterangan: String = "Lengkap"
+)
+
+@Keep
+@IgnoreExtraProperties
+data class ActivityTableRow(
+    val jam: String = "",
+    val uraian: String = ""
+) {
+    fun resolvedHour(): Int? {
+        val cleaned = jam.trim().replace(".", ":")
+        val h = cleaned.substringBefore(":").toIntOrNull()
+        return if (h != null && h in 0..23) h else null
+    }
+}
+
+@Keep
+@IgnoreExtraProperties
+data class DailyActivitySheet(
+    @DocumentId val id: String = "",
+    val userId: String = "",
+    val docNumber: String = "",
+    val sheetDate: String = currentIsoDate(),
+    val shift: String = ShiftOption.SHIFT_1.label,
+    val personnelRows: List<PersonnelRow> = emptyList(),
+    val inventoryRows: List<InventoryRow> = emptyList(),
+    val activityRows: List<ActivityTableRow> = emptyList(),
+    val officerName: String = "",
+    val officerNrp: String = "",
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null
+) {
+    fun formattedDisplayDate(): String {
+        val ymd = parseIsoDateTriple(sheetDate) ?: return sheetDate
+        return try {
+            val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(sheetDate)
+            if (parsed != null) {
+                SimpleDateFormat("EEEE, dd/MM/yyyy", Locale("id", "ID")).format(parsed)
+            } else {
+                "${ymd.third.toString().padStart(2, '0')}/${ymd.second.toString().padStart(2, '0')}/${ymd.first}"
+            }
+        } catch (_: Exception) {
+            sheetDate
+        }
+    }
+}
+
+object ActivitySheetTemplates {
+    val defaultInventoryRows: List<InventoryRow> = listOf(
+        InventoryRow("B. Jurnal * B. Tamu * B. Inventaris", "1 * 1 * 1", "Baik", "Lengkap"),
+        InventoryRow("HT * Charger * Senter", "6 * 4 * 1", "Baik", "Lengkap"),
+        InventoryRow("Kipas Angin * Jam Dinding", "1 * 1", "Baik", "Lengkap"),
+        InventoryRow("Telepon * Hp Call Center", "1 * 1", "Baik", "Lengkap"),
+        InventoryRow("Pompa Air * Pemanas Air", "1 * 1", "Baik", "Lengkap"),
+        InventoryRow("Galon Air * Appar * Cermin", "2 * 1 * 1", "Baik", "Lengkap"),
+        InventoryRow("Lampu Lalin * Rompi Lalin", "2 * 5", "Baik", "Lengkap"),
+        InventoryRow("Lampu Rotari * Rambu Stop", "3 * 2", "Baik", "Lengkap"),
+        InventoryRow("Sapu * Pel Lantai", "1 * 1", "Baik", "Lengkap"),
+        InventoryRow("Papan Tulis * Meja * Kursi", "1 * 1 * 7", "Baik", "Lengkap"),
+        InventoryRow("Sepatu Boot * Mantel / Jas Hujan", "7 * 1", "Baik", "Lengkap"),
+        InventoryRow("Bolpoin * Penggaris", "1 * 1", "Baik", "Lengkap")
+    )
+
+    fun starterPersonnelRows(officerName: String): List<PersonnelRow> = listOf(
+        PersonnelRow(officerName.ifBlank { "DANRU JAGA" }, "DANRU", "B", "Hadir", ""),
+        PersonnelRow("KA. SHIFT", "KA. SHIF", "P", "Hadir", ""),
+        PersonnelRow("ANGGOTA 1", "ANGGOTA", "S", "Hadir", ""),
+        PersonnelRow("ANGGOTA 2", "ANGGOTA", "S", "Hadir", "")
+    )
+
+    fun starterActivityRows(shift: String): List<ActivityTableRow> {
+        val startJam = when (shift) {
+            ShiftOption.SHIFT_2.label -> "15.00"
+            ShiftOption.SHIFT_3.label -> "23.00"
+            else -> "07.00"
+        }
+        return listOf(
+            ActivityTableRow(
+                jam = startJam,
+                uraian = "Menerima tugas dan tanggung jawab $shift dalam keadaan aman. Barang inventaris lengkap siap pakai."
+            ),
+            ActivityTableRow(
+                jam = if (shift == ShiftOption.SHIFT_2.label) "15.30" else if (shift == ShiftOption.SHIFT_3.label) "23.30" else "07.30",
+                uraian = "Petugas jaga melaksanakan standby di Portal utama BPS. Situasi terpantau aman kondusif."
+            )
+        )
+    }
+}
+
+fun parseIsoDateTriple(isoDate: String): Triple<Int, Int, Int>? {
+    val parts = isoDate.trim().split("-")
+    if (parts.size != 3) return null
+    val y = parts[0].toIntOrNull() ?: return null
+    val m = parts[1].toIntOrNull() ?: return null
+    val d = parts[2].toIntOrNull() ?: return null
+    if (m !in 1..12 || d !in 1..31) return null
+    return Triple(y, m, d)
 }
 
 object IndonesianMonths {

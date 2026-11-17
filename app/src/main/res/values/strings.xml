@@ -3,8 +3,9 @@
     <string name="header_title">LAPORAN HARIAN SECURITY - PLOT BPS</string>
     <string name="status_online">Siaga Online</string>
     <string name="shift_active_label">Shift Tugas Aktif</string>
-    <string name="tab_laporan">Laporan Harian</string>
-    <string name="tab_chat">Live Chat &amp; VN</string>
+    <string name="tab_laporan">Laporan</string>
+    <string name="tab_tabel">Tabel</string>
+    <string name="tab_chat">Live Chat</string>
     <string name="auth_title">Portal Petugas Security BPS</string>
     <string name="auth_subtitle">Masuk dengan akun Google untuk sinkronisasi laporan harian 3 kategori, dokumentasi foto, dan channel koordinasi Plot BPS.</string>
     <string name="sign_in_google">Sign in with Google</string>

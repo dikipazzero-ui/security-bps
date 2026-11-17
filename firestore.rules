@@ -113,6 +113,23 @@ service cloud.firestore {
              data.createdAt is timestamp && data.createdAt <= request.time;
     }
 
+    function isValidActivitySheet(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.docNumber is string && data.docNumber.size() <= 40 &&
+             data.sheetDate is string && data.sheetDate.size() == 10 && data.sheetDate.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+             data.shift in ['Shift 1', 'Shift 2', 'Shift 3'] &&
+             data.personnelRows is list && data.personnelRows.size() <= 30 &&
+             (data.personnelRows.size() == 0 || data.personnelRows[0] is map) &&
+             data.inventoryRows is list && data.inventoryRows.size() <= 50 &&
+             (data.inventoryRows.size() == 0 || data.inventoryRows[0] is map) &&
+             data.activityRows is list && data.activityRows.size() <= 60 &&
+             (data.activityRows.size() == 0 || data.activityRows[0] is map) &&
+             data.officerName is string && data.officerName.size() >= 1 && data.officerName.size() <= 80 &&
+             data.officerNrp is string && data.officerNrp.size() >= 1 && data.officerNrp.size() <= 40 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
     match /users/{userId} {
       allow get: if isOwner(userId) && isValidId(userId);
       allow list: if false;
@@ -167,6 +184,28 @@ service cloud.firestore {
 
         allow update: if false;
         allow delete: if isOwner(userId) && isValidId(userId) && isValidId(messageId);
+      }
+
+      match /activity_sheets/{sheetId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(sheetId);
+        allow list: if isOwner(userId) && isValidId(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(sheetId) &&
+                         incoming().keys().hasAll(['userId', 'docNumber', 'sheetDate', 'shift', 'personnelRows', 'inventoryRows', 'activityRows', 'officerName', 'officerNrp', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'docNumber', 'sheetDate', 'shift', 'personnelRows', 'inventoryRows', 'activityRows', 'officerName', 'officerNrp', 'createdAt', 'updatedAt']) &&
+                         isValidActivitySheet(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(sheetId) &&
+                         isValidActivitySheet(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['docNumber', 'sheetDate', 'shift', 'personnelRows', 'inventoryRows', 'activityRows', 'officerName', 'officerNrp', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(sheetId);
       }
     }
 

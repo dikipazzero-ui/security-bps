@@ -336,4 +336,76 @@ test("Cross-user isolation: Alice cannot read or write Bob's private profile or 
   await assertFails(aliceDb.collection("users").get());
   await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("reports").get());
   await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("reports").doc("bob_rep").get());
+  await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("activity_sheets").get());
+});
+
+test("Authenticated owner: DailyActivitySheet CRUD succeeds and rejects invalid date/ghost fields", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const created = new Date(Date.now() - 10000);
+
+  await assertSucceeds(
+    aliceDb.collection("users").doc(ALICE_UID).collection("activity_sheets").doc("sheet_1").set({
+      userId: ALICE_UID,
+      docNumber: "001/BPS",
+      sheetDate: "2026-11-18",
+      shift: "Shift 2",
+      personnelRows: [
+        { nama: "Bapak Siswandi", jabatan: "DANRU", plot: "B", kehadiran: "Hadir", ket: "" }
+      ],
+      inventoryRows: [
+        { inventaris: "B. Jurnal * B. Tamu * B. Inventaris", jumlah: "1 * 1 * 1", kondisi: "Baik", keterangan: "Lengkap" }
+      ],
+      activityRows: [
+        { jam: "15.00", uraian: "Menerima tugas dan tanggung jawab kepada shif II dalam keadaan aman." }
+      ],
+      officerName: "Hendra Wijaya",
+      officerNrp: "SEC-BPS-042",
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  await assertSucceeds(
+    aliceDb.collection("users").doc(ALICE_UID).collection("activity_sheets").doc("sheet_1").update({
+      docNumber: "002/BPS",
+      activityRows: [
+        { jam: "15.00", uraian: "Serah terima aman" },
+        { jam: "15.30", uraian: "Standby di Portal utama BPS" }
+      ],
+      updatedAt: new Date(Date.now() - 1000),
+    })
+  );
+
+  await assertSucceeds(
+    aliceDb.collection("users").doc(ALICE_UID).collection("activity_sheets").orderBy("updatedAt", "desc").get()
+  );
+
+  // Reject invalid date format
+  await assertFails(
+    aliceDb.collection("users").doc(ALICE_UID).collection("activity_sheets").doc("sheet_bad").set({
+      userId: ALICE_UID,
+      docNumber: "001",
+      sheetDate: "18/11/2026",
+      shift: "Shift 2",
+      personnelRows: [],
+      inventoryRows: [],
+      activityRows: [],
+      officerName: "Hendra Wijaya",
+      officerNrp: "SEC-BPS-042",
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  // Reject ghost field
+  await assertFails(
+    aliceDb.collection("users").doc(ALICE_UID).collection("activity_sheets").doc("sheet_1").update({
+      approvedByAdmin: true,
+      updatedAt: new Date(Date.now() - 500),
+    })
+  );
+
+  await assertSucceeds(
+    aliceDb.collection("users").doc(ALICE_UID).collection("activity_sheets").doc("sheet_1").delete()
+  );
 });

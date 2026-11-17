@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -135,9 +136,12 @@ fun MainScreen(
     val roomMembers by viewModel.roomMembersState.collectAsStateWithLifecycle()
     val profileState by viewModel.profileState.collectAsStateWithLifecycle()
     val reportsState by viewModel.reportsState.collectAsStateWithLifecycle()
+    val activitySheetsState by viewModel.activitySheetsState.collectAsStateWithLifecycle()
+    val selectedSheetId by viewModel.selectedSheetId.collectAsStateWithLifecycle()
     val chatState by viewModel.chatState.collectAsStateWithLifecycle()
     val formState by viewModel.formState.collectAsStateWithLifecycle()
     val reportFilter by viewModel.reportFilter.collectAsStateWithLifecycle()
+    val tableFilter by viewModel.tableFilter.collectAsStateWithLifecycle()
     val chatFilter by viewModel.chatFilter.collectAsStateWithLifecycle()
     val chatTextInput by viewModel.chatTextInput.collectAsStateWithLifecycle()
     val pendingChatPhoto by viewModel.pendingChatPhoto.collectAsStateWithLifecycle()
@@ -169,6 +173,7 @@ fun MainScreen(
     val dateLabel = remember { currentIndonesianDate() }
     val profile = (profileState as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
     val reports = (reportsState as? UiState.Success)?.data.orEmpty()
+    val activitySheets = (activitySheetsState as? UiState.Success)?.data.orEmpty()
 
     var showRecapModal by remember { mutableStateOf(false) }
     var showOfficerModal by remember { mutableStateOf(false) }
@@ -189,7 +194,7 @@ fun MainScreen(
         }
     }
 
-    BackHandler(enabled = activeTab == MainTab.CHAT) {
+    BackHandler(enabled = activeTab != MainTab.LAPORAN) {
         viewModel.switchTab(MainTab.LAPORAN)
     }
 
@@ -545,7 +550,7 @@ fun MainScreen(
                     }
                 }
 
-                // 2-Tab Switcher
+                // 3-Tab Switcher
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -562,6 +567,18 @@ fun MainScreen(
                         modifier = Modifier
                             .weight(1f)
                             .testTag("tab_laporan")
+                    )
+                    TabHeaderButton(
+                        selected = activeTab == MainTab.TABEL,
+                        icon = Icons.Default.TableChart,
+                        label = stringResource(R.string.tab_tabel),
+                        badgeCount = activitySheets.size,
+                        badgeContainerColor = Gold500,
+                        badgeContentColor = Navy950,
+                        onClick = { viewModel.switchTab(MainTab.TABEL) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("tab_tabel")
                     )
                     TabHeaderButton(
                         selected = activeTab == MainTab.CHAT,
@@ -635,6 +652,45 @@ fun MainScreen(
                                 onFilterYearChange = viewModel::updateReportFilterYear,
                                 onFilterToday = viewModel::filterReportsToday,
                                 onResetFilter = viewModel::resetReportFilter
+                            )
+                        }
+                        MainTab.TABEL -> {
+                            TableReportTabScreen(
+                                sheetsState = activitySheetsState,
+                                selectedSheetId = selectedSheetId,
+                                tableFilter = tableFilter,
+                                defaultShift = profile.activeShift,
+                                onSelectSheet = viewModel::selectActivitySheet,
+                                onCreateSheet = viewModel::createNewActivitySheet,
+                                onUpdateHeader = viewModel::updateSheetHeader,
+                                onUpsertPersonnel = viewModel::upsertPersonnelRow,
+                                onDeletePersonnel = viewModel::deletePersonnelRow,
+                                onUpsertInventory = viewModel::upsertInventoryRow,
+                                onDeleteInventory = viewModel::deleteInventoryRow,
+                                onLoadDefaultInventory = viewModel::loadDefaultInventoryTemplate,
+                                onUpsertActivity = viewModel::upsertActivityRow,
+                                onDeleteActivity = viewModel::deleteActivityRow,
+                                onDeleteSheet = viewModel::deleteActiveActivitySheet,
+                                onCopyWhatsApp = { sheet ->
+                                    val text = viewModel.buildTableWhatsAppRecap(sheet, profile)
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                    clipboard?.setPrimaryClip(ClipData.newPlainText("Tabel Pelaporan Security BPS", text))
+                                    viewModel.emitToast("Format Tabel Kegiatan siap tempel WhatsApp berhasil disalin!")
+                                },
+                                onPrintPdf = { sheet ->
+                                    PdfReportPrinter.printActivityTableSheet(
+                                        context = context,
+                                        sheet = sheet,
+                                        profile = profile
+                                    )
+                                },
+                                onFilterKeywordChange = viewModel::updateTableKeyword,
+                                onFilterHourChange = viewModel::updateTableFilterHour,
+                                onFilterDayChange = viewModel::updateTableFilterDay,
+                                onFilterMonthChange = viewModel::updateTableFilterMonth,
+                                onFilterYearChange = viewModel::updateTableFilterYear,
+                                onFilterToday = viewModel::filterTableToday,
+                                onResetFilter = viewModel::resetTableFilter
                             )
                         }
                         MainTab.CHAT -> {

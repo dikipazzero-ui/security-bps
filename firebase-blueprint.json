@@ -318,6 +318,73 @@
         "lastSeenAt",
         "joinedAt"
       ]
+    },
+    "DailyActivitySheet": {
+      "title": "DailyActivitySheet",
+      "description": "Lembar tabel pelaporan kegiatan harian Security Plot BPS berisi tabel personel, inventaris, dan uraian kegiatan per jam.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID pemilik lembar tabel"
+        },
+        "docNumber": {
+          "type": "string",
+          "description": "Nomor dokumen lembar laporan (opsional)"
+        },
+        "sheetDate": {
+          "type": "string",
+          "description": "Tanggal lembar kegiatan format yyyy-MM-dd"
+        },
+        "shift": {
+          "type": "string",
+          "enum": ["Shift 1", "Shift 2", "Shift 3"],
+          "description": "Shift bertugas pada lembar tabel"
+        },
+        "personnelRows": {
+          "type": "array",
+          "description": "Daftar baris tabel personel (nama, jabatan, plot, kehadiran, ket)"
+        },
+        "inventoryRows": {
+          "type": "array",
+          "description": "Daftar baris tabel inventaris pos (inventaris, jumlah, kondisi, keterangan)"
+        },
+        "activityRows": {
+          "type": "array",
+          "description": "Daftar baris tabel uraian kegiatan per jam (jam, uraian)"
+        },
+        "officerName": {
+          "type": "string",
+          "description": "Nama petugas penyusun lembar"
+        },
+        "officerNrp": {
+          "type": "string",
+          "description": "NRP petugas penyusun lembar"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembuatan lembar (FieldValue.serverTimestamp())"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembaruan terakhir (FieldValue.serverTimestamp())"
+        }
+      },
+      "required": [
+        "userId",
+        "docNumber",
+        "sheetDate",
+        "shift",
+        "personnelRows",
+        "inventoryRows",
+        "activityRows",
+        "officerName",
+        "officerNrp",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -356,6 +423,12 @@
         "$ref": "#/entities/ChatMessage"
       },
       "description": "Pesan teks, foto berketerangan, dan Voice Note dalam ruang Live Chat"
+    },
+    "/users/{userId}/activity_sheets/{sheetId}": {
+      "schema": {
+        "$ref": "#/entities/DailyActivitySheet"
+      },
+      "description": "Lembar tabel pelaporan kegiatan (Personel, Inventaris, dan Uraian Kegiatan per jam)"
     }
   }
 }

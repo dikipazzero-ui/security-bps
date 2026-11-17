@@ -5,10 +5,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.NetworkMonitor
 import com.example.data.firebase.SecurityRepository
+import com.example.data.model.ActivitySheetTemplates
+import com.example.data.model.ActivityTableRow
 import com.example.data.model.ChatMessage
 import com.example.data.model.ChatRoom
 import com.example.data.model.DEFAULT_ROOM_CODE
+import com.example.data.model.DailyActivitySheet
+import com.example.data.model.InventoryRow
 import com.example.data.model.OfficerProfile
+import com.example.data.model.PersonnelRow
 import com.example.data.model.ReportCategory
 import com.example.data.model.ReportStatus
 import com.example.data.model.RoomMember
@@ -43,6 +48,7 @@ import java.util.Locale
 
 enum class MainTab {
     LAPORAN,
+    TABEL,
     CHAT
 }
 
@@ -84,6 +90,12 @@ class SecurityViewModel(
 
     private val _reportFilter = MutableStateFlow(TimeKeywordFilter())
     val reportFilter: StateFlow<TimeKeywordFilter> = _reportFilter.asStateFlow()
+
+    private val _tableFilter = MutableStateFlow(TimeKeywordFilter())
+    val tableFilter: StateFlow<TimeKeywordFilter> = _tableFilter.asStateFlow()
+
+    private val _selectedSheetId = MutableStateFlow<String?>(null)
+    val selectedSheetId: StateFlow<String?> = _selectedSheetId.asStateFlow()
 
     private val _chatFilter = MutableStateFlow(TimeKeywordFilter())
     val chatFilter: StateFlow<TimeKeywordFilter> = _chatFilter.asStateFlow()
@@ -151,6 +163,32 @@ class SecurityViewModel(
             val rootError = firestoreError ?: error
             Log.w(TAG, "Error observing reports", rootError)
             emit(UiState.Error(rootError.localizedMessage ?: "Gagal memuat laporan harian."))
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            initialValue = UiState.Loading
+        )
+
+    val activitySheetsState: StateFlow<UiState<List<DailyActivitySheet>>> = repository.observeActivitySheets(currentUserId)
+        .map<List<DailyActivitySheet>, UiState<List<DailyActivitySheet>>> { UiState.Success(it) }
+        .onEach { state ->
+            if (state is UiState.Success) {
+                val list = state.data
+                val cur = _selectedSheetId.value
+                if (list.isNotEmpty() && (cur == null || list.none { it.id == cur })) {
+                    _selectedSheetId.value = list.first().id
+                }
+            }
+        }
+        .catch { error ->
+            val firestoreError = generateSequence(error) { it.cause }
+                .filterIsInstance<FirebaseFirestoreException>()
+                .firstOrNull()
+            if (firestoreError == null && error is CancellationException) throw error
+            val rootError = firestoreError ?: error
+            Log.w(TAG, "Error observing activity sheets", rootError)
+            emit(UiState.Error(rootError.localizedMessage ?: "Gagal memuat tabel pelaporan kegiatan."))
         }
         .stateIn(
             scope = viewModelScope,
@@ -664,6 +702,257 @@ class SecurityViewModel(
         }
         sb.appendLine("====================================")
         sb.append("Demikian laporan situasi Plot BPS dilaporkan. Komandan & Korlap mohon arahannya. Selamat bertugas!")
+        return sb.toString()
+    }
+
+    // --- Activity Table Sheet Actions ---
+
+    fun selectActivitySheet(sheetId: String) {
+        _selectedSheetId.value = sheetId
+    }
+
+    fun updateTableKeyword(keyword: String) {
+        _tableFilter.update { it.copy(keyword = keyword) }
+    }
+
+    fun updateTableFilterHour(hour: Int?) {
+        _tableFilter.update { it.copy(hour = hour) }
+    }
+
+    fun updateTableFilterDay(day: Int?) {
+        _tableFilter.update { it.copy(day = day) }
+    }
+
+    fun updateTableFilterMonth(month: Int?) {
+        _tableFilter.update { it.copy(month = month) }
+    }
+
+    fun updateTableFilterYear(year: Int?) {
+        _tableFilter.update { it.copy(year = year) }
+    }
+
+    fun filterTableToday() {
+        val cal = Calendar.getInstance()
+        _tableFilter.update {
+            it.copy(
+                day = cal.get(Calendar.DAY_OF_MONTH),
+                month = cal.get(Calendar.MONTH) + 1,
+                year = cal.get(Calendar.YEAR)
+            )
+        }
+    }
+
+    fun resetTableFilter() {
+        _tableFilter.value = TimeKeywordFilter()
+    }
+
+    private fun currentActiveSheet(): DailyActivitySheet? {
+        val list = (activitySheetsState.value as? UiState.Success)?.data.orEmpty()
+        val id = _selectedSheetId.value
+        return list.firstOrNull { it.id == id } ?: list.firstOrNull()
+    }
+
+    fun createNewActivitySheet(
+        sheetDate: String,
+        shift: String,
+        docNumber: String,
+        includeDefaultTemplate: Boolean,
+        onSuccess: () -> Unit = {}
+    ) {
+        val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
+        val cleanDate = sheetDate.trim().ifBlank { currentIsoDate() }
+        if (!cleanDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
+            _toastEvents.tryEmit("Format tanggal harus yyyy-MM-dd (contoh: 2026-11-18).")
+            return
+        }
+        val newSheet = DailyActivitySheet(
+            id = "",
+            userId = currentUserId,
+            docNumber = docNumber.trim().take(40),
+            sheetDate = cleanDate,
+            shift = shift,
+            personnelRows = if (includeDefaultTemplate) ActivitySheetTemplates.starterPersonnelRows(profile.name) else emptyList(),
+            inventoryRows = if (includeDefaultTemplate) ActivitySheetTemplates.defaultInventoryRows else emptyList(),
+            activityRows = if (includeDefaultTemplate) ActivitySheetTemplates.starterActivityRows(shift) else emptyList(),
+            officerName = profile.name,
+            officerNrp = profile.nrp
+        )
+        viewModelScope.launch {
+            val result = repository.saveActivitySheet(newSheet)
+            if (result.isSuccess) {
+                _selectedSheetId.value = result.getOrThrow()
+                _toastEvents.tryEmit("Lembar tabel baru ($cleanDate • $shift) berhasil dibuat.")
+                onSuccess()
+            } else {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal membuat lembar tabel.")
+            }
+        }
+    }
+
+    private fun saveMutatedSheet(successToast: String, mutator: (DailyActivitySheet) -> DailyActivitySheet) {
+        val current = currentActiveSheet() ?: return
+        val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
+        val updated = mutator(current).copy(
+            officerName = profile.name,
+            officerNrp = profile.nrp
+        )
+        viewModelScope.launch {
+            val result = repository.saveActivitySheet(updated)
+            if (result.isSuccess) {
+                if (successToast.isNotBlank()) _toastEvents.tryEmit(successToast)
+            } else {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menyimpan perubahan tabel.")
+            }
+        }
+    }
+
+    fun updateSheetHeader(sheetDate: String, shift: String, docNumber: String) {
+        val cleanDate = sheetDate.trim().ifBlank { currentIsoDate() }
+        if (!cleanDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
+            _toastEvents.tryEmit("Format tanggal harus yyyy-MM-dd.")
+            return
+        }
+        saveMutatedSheet("Header lembar diperbarui.") { sheet ->
+            sheet.copy(
+                sheetDate = cleanDate,
+                shift = shift,
+                docNumber = docNumber.trim().take(40)
+            )
+        }
+    }
+
+    fun upsertPersonnelRow(editIndex: Int?, row: PersonnelRow) {
+        if (row.nama.trim().isEmpty()) {
+            _toastEvents.tryEmit("Nama anggota tidak boleh kosong.")
+            return
+        }
+        saveMutatedSheet(if (editIndex == null) "Anggota ditambahkan ke tabel." else "Data anggota diperbarui.") { sheet ->
+            val list = sheet.personnelRows.toMutableList()
+            if (editIndex != null && editIndex in list.indices) {
+                list[editIndex] = row
+            } else {
+                list.add(row)
+            }
+            sheet.copy(personnelRows = list)
+        }
+    }
+
+    fun deletePersonnelRow(index: Int) {
+        saveMutatedSheet("Baris anggota dihapus.") { sheet ->
+            val list = sheet.personnelRows.toMutableList()
+            if (index in list.indices) list.removeAt(index)
+            sheet.copy(personnelRows = list)
+        }
+    }
+
+    fun upsertInventoryRow(editIndex: Int?, row: InventoryRow) {
+        if (row.inventaris.trim().isEmpty()) {
+            _toastEvents.tryEmit("Nama barang inventaris tidak boleh kosong.")
+            return
+        }
+        saveMutatedSheet(if (editIndex == null) "Inventaris ditambahkan." else "Data inventaris diperbarui.") { sheet ->
+            val list = sheet.inventoryRows.toMutableList()
+            if (editIndex != null && editIndex in list.indices) {
+                list[editIndex] = row
+            } else {
+                list.add(row)
+            }
+            sheet.copy(inventoryRows = list)
+        }
+    }
+
+    fun deleteInventoryRow(index: Int) {
+        saveMutatedSheet("Baris inventaris dihapus.") { sheet ->
+            val list = sheet.inventoryRows.toMutableList()
+            if (index in list.indices) list.removeAt(index)
+            sheet.copy(inventoryRows = list)
+        }
+    }
+
+    fun loadDefaultInventoryTemplate() {
+        saveMutatedSheet("12 item inventaris standar Pos BPS dimuat.") { sheet ->
+            sheet.copy(inventoryRows = ActivitySheetTemplates.defaultInventoryRows)
+        }
+    }
+
+    fun upsertActivityRow(editIndex: Int?, row: ActivityTableRow) {
+        if (row.uraian.trim().isEmpty()) {
+            _toastEvents.tryEmit("Uraian kegiatan tidak boleh kosong.")
+            return
+        }
+        val cleanJam = row.jam.trim().ifBlank { currentFormattedTime().replace(":", ".") }
+        val cleanRow = row.copy(jam = cleanJam)
+        saveMutatedSheet(if (editIndex == null) "Kegiatan ditambahkan ke tabel." else "Uraian kegiatan diperbarui.") { sheet ->
+            val list = sheet.activityRows.toMutableList()
+            if (editIndex != null && editIndex in list.indices) {
+                list[editIndex] = cleanRow
+            } else {
+                list.add(cleanRow)
+            }
+            sheet.copy(activityRows = list)
+        }
+    }
+
+    fun deleteActivityRow(index: Int) {
+        saveMutatedSheet("Baris uraian kegiatan dihapus.") { sheet ->
+            val list = sheet.activityRows.toMutableList()
+            if (index in list.indices) list.removeAt(index)
+            sheet.copy(activityRows = list)
+        }
+    }
+
+    fun deleteActiveActivitySheet() {
+        val current = currentActiveSheet() ?: return
+        if (current.id.isBlank()) return
+        viewModelScope.launch {
+            val result = repository.deleteActivitySheet(current.id)
+            if (result.isSuccess) {
+                _toastEvents.tryEmit("Lembar tabel (${current.sheetDate}) berhasil dihapus.")
+            } else {
+                _toastEvents.tryEmit("Gagal menghapus lembar tabel.")
+            }
+        }
+    }
+
+    fun buildTableWhatsAppRecap(sheet: DailyActivitySheet, profile: OfficerProfile): String {
+        val sb = StringBuilder()
+        sb.appendLine("*BUKU JURNAL / TABEL PELAPORAN SECURITY BPS*")
+        sb.appendLine("Tanggal : ${sheet.formattedDisplayDate()}")
+        sb.appendLine("Shift   : ${sheet.shift}")
+        if (sheet.docNumber.isNotBlank()) sb.appendLine("No. Dok : ${sheet.docNumber}")
+        sb.appendLine("Penyusun: ${profile.name} (${profile.nrp})")
+        sb.appendLine("====================================")
+        sb.appendLine()
+        sb.appendLine("*1. DAFTAR PERSONEL JAGA*")
+        if (sheet.personnelRows.isEmpty()) {
+            sb.appendLine("   - Kosong")
+        } else {
+            sheet.personnelRows.forEachIndexed { idx, p ->
+                val ketSuffix = if (p.ket.isNotBlank()) " | Ket: ${p.ket}" else ""
+                sb.appendLine("   ${idx + 1}. ${p.nama} (${p.jabatan}) • Plot ${p.plot} • ${p.kehadiran}$ketSuffix")
+            }
+        }
+        sb.appendLine()
+        sb.appendLine("*2. DAFTAR INVENTARIS POS*")
+        if (sheet.inventoryRows.isEmpty()) {
+            sb.appendLine("   - Kosong")
+        } else {
+            sheet.inventoryRows.forEachIndexed { idx, inv ->
+                val ketSuffix = if (inv.keterangan.isNotBlank()) " (${inv.keterangan})" else ""
+                sb.appendLine("   ${idx + 1}. ${inv.inventaris} | Jml: ${inv.jumlah} | ${inv.kondisi}$ketSuffix")
+            }
+        }
+        sb.appendLine()
+        sb.appendLine("*3. URAIAN KEGIATAN*")
+        if (sheet.activityRows.isEmpty()) {
+            sb.appendLine("   - Belum ada uraian kegiatan.")
+        } else {
+            sheet.activityRows.forEachIndexed { idx, act ->
+                sb.appendLine("   ${idx + 1}. [${act.jam} WIB] ${act.uraian}")
+            }
+        }
+        sb.appendLine()
+        sb.append("====================================")
         return sb.toString()
     }
 

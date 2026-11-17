@@ -17,6 +17,7 @@ import android.print.pdf.PrintedPdfDocument
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
+import com.example.data.model.DailyActivitySheet
 import com.example.data.model.OfficerProfile
 import com.example.data.model.ReportCategory
 import com.example.data.model.SecurityReport
@@ -39,6 +40,27 @@ object PdfReportPrinter {
             activeShift = activeShift,
             profile = profile,
             reports = reports
+        )
+        printManager.print(
+            jobName,
+            adapter,
+            PrintAttributes.Builder()
+                .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                .build()
+        )
+    }
+
+    fun printActivityTableSheet(
+        context: Context,
+        sheet: DailyActivitySheet,
+        profile: OfficerProfile
+    ) {
+        val printManager = context.getSystemService(Context.PRINT_SERVICE) as? PrintManager ?: return
+        val jobName = "Tabel_Kegiatan_BPS_${sheet.sheetDate}_${sheet.shift.replace(" ", "_")}"
+        val adapter = SecurityTablePrintAdapter(
+            context = context,
+            sheet = sheet,
+            profile = profile
         )
         printManager.print(
             jobName,
@@ -268,6 +290,227 @@ private class SecurityReportPrintAdapter(
             callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
         } catch (e: Exception) {
             callback.onWriteFailed(e.localizedMessage ?: "Gagal menulis PDF.")
+        } finally {
+            doc.close()
+            pdfDocument = null
+        }
+    }
+
+    override fun onFinish() {
+        pdfDocument?.close()
+        pdfDocument = null
+    }
+}
+
+private class SecurityTablePrintAdapter(
+    private val context: Context,
+    private val sheet: DailyActivitySheet,
+    private val profile: OfficerProfile
+) : PrintDocumentAdapter() {
+
+    private var pdfDocument: PrintedPdfDocument? = null
+
+    override fun onLayout(
+        oldAttributes: PrintAttributes?,
+        newAttributes: PrintAttributes,
+        cancellationSignal: CancellationSignal?,
+        callback: LayoutResultCallback,
+        extras: Bundle?
+    ) {
+        pdfDocument = PrintedPdfDocument(context, newAttributes)
+        if (cancellationSignal?.isCanceled == true) {
+            callback.onLayoutCancelled()
+            return
+        }
+        val info = PrintDocumentInfo.Builder("Tabel_Pelaporan_Security_BPS_${sheet.sheetDate}.pdf")
+            .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+            .setPageCount(PrintDocumentInfo.PAGE_COUNT_UNKNOWN)
+            .build()
+        callback.onLayoutFinished(info, true)
+    }
+
+    override fun onWrite(
+        pages: Array<out PageRange>,
+        destination: ParcelFileDescriptor,
+        cancellationSignal: CancellationSignal?,
+        callback: WriteResultCallback
+    ) {
+        val doc = pdfDocument ?: run {
+            callback.onWriteFailed("Dokumen PDF tabel gagal dibuat.")
+            return
+        }
+
+        try {
+            val pageWidth = 595
+            val pageHeight = 842
+            val margin = 28f
+            val tableWidth = pageWidth - margin * 2
+
+            var pageNumber = 1
+            var page = doc.startPage(pageNumber - 1)
+            var canvas = page.canvas
+            var y = margin
+
+            fun startNewPage() {
+                doc.finishPage(page)
+                pageNumber++
+                page = doc.startPage(pageNumber - 1)
+                canvas = page.canvas
+                y = margin
+            }
+
+            fun ensureSpace(neededHeight: Float) {
+                if (y + neededHeight > pageHeight - margin) {
+                    startNewPage()
+                }
+            }
+
+            val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(15, 23, 42)
+                textSize = 13f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            val metaPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(30, 41, 59)
+                textSize = 9f
+            }
+            val headerFill = Paint().apply {
+                color = Color.rgb(15, 23, 42)
+                style = Paint.Style.FILL
+            }
+            val headerText = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(251, 191, 36)
+                textSize = 8.5f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            val cellText = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(15, 23, 42)
+                textSize = 8.5f
+            }
+            val cellStroke = Paint().apply {
+                color = Color.rgb(100, 116, 139)
+                style = Paint.Style.STROKE
+                strokeWidth = 0.8f
+            }
+
+            fun drawRowCells(
+                colWidths: FloatArray,
+                values: List<String>,
+                isHeader: Boolean
+            ) {
+                val layouts = values.mapIndexed { idx, txt ->
+                    val w = (colWidths[idx] - 8f).toInt().coerceAtLeast(10)
+                    StaticLayout.Builder.obtain(
+                        txt,
+                        0,
+                        txt.length,
+                        if (isHeader) headerText else cellText,
+                        w
+                    ).setAlignment(Layout.Alignment.ALIGN_NORMAL).build()
+                }
+                val rowHeight = (layouts.maxOfOrNull { it.height } ?: 12) + 10f
+                ensureSpace(rowHeight + 2f)
+
+                var x = margin
+                layouts.forEachIndexed { idx, layout ->
+                    val colW = colWidths[idx]
+                    if (isHeader) {
+                        canvas.drawRect(x, y, x + colW, y + rowHeight, headerFill)
+                    }
+                    canvas.drawRect(x, y, x + colW, y + rowHeight, cellStroke)
+                    canvas.save()
+                    canvas.translate(x + 4f, y + 5f)
+                    layout.draw(canvas)
+                    canvas.restore()
+                    x += colW
+                }
+                y += rowHeight
+            }
+
+            // Document Header matching handwritten logbook sheet
+            canvas.drawText("BUKU JURNAL / TABEL PELAPORAN KEGIATAN SECURITY BPS", margin, y + 12f, titlePaint)
+            y += 18f
+            canvas.drawText(
+                "Hari/Tanggal: ${sheet.formattedDisplayDate()}   |   Shift: ${sheet.shift}   |   No: ${sheet.docNumber.ifBlank { "-" }}",
+                margin,
+                y + 10f,
+                metaPaint
+            )
+            y += 14f
+            canvas.drawText("Penyusun: ${profile.name} (${profile.nrp}) — ${profile.role}", margin, y + 10f, metaPaint)
+            y += 16f
+
+            // Table 1: Personnel
+            val pCols = floatArrayOf(
+                tableWidth * 0.06f,
+                tableWidth * 0.32f,
+                tableWidth * 0.18f,
+                tableWidth * 0.10f,
+                tableWidth * 0.12f,
+                tableWidth * 0.22f
+            )
+            drawRowCells(pCols, listOf("NO", "NAMA", "JABATAN", "PLOT", "H / T", "KET"), isHeader = true)
+            if (sheet.personnelRows.isEmpty()) {
+                drawRowCells(pCols, listOf("-", "Belum ada data personel", "-", "-", "-", "-"), isHeader = false)
+            } else {
+                sheet.personnelRows.forEachIndexed { idx, p ->
+                    drawRowCells(
+                        pCols,
+                        listOf("${idx + 1}", p.nama, p.jabatan, p.plot, p.kehadiran, p.ket),
+                        isHeader = false
+                    )
+                }
+            }
+            y += 10f
+
+            // Table 2: Inventory
+            val iCols = floatArrayOf(
+                tableWidth * 0.06f,
+                tableWidth * 0.36f,
+                tableWidth * 0.15f,
+                tableWidth * 0.14f,
+                tableWidth * 0.29f
+            )
+            drawRowCells(iCols, listOf("NO", "INVENTARIS", "JUMLAH", "KONDISI", "KETERANGAN"), isHeader = true)
+            if (sheet.inventoryRows.isEmpty()) {
+                drawRowCells(iCols, listOf("-", "Belum ada data inventaris", "-", "-", "-"), isHeader = false)
+            } else {
+                sheet.inventoryRows.forEachIndexed { idx, inv ->
+                    drawRowCells(
+                        iCols,
+                        listOf("${idx + 1}", inv.inventaris, inv.jumlah, inv.kondisi, inv.keterangan),
+                        isHeader = false
+                    )
+                }
+            }
+            y += 10f
+
+            // Table 3: Activity Log
+            val aCols = floatArrayOf(
+                tableWidth * 0.06f,
+                tableWidth * 0.14f,
+                tableWidth * 0.80f
+            )
+            drawRowCells(aCols, listOf("NO", "JAM", "URAIAN KEGIATAN"), isHeader = true)
+            if (sheet.activityRows.isEmpty()) {
+                drawRowCells(aCols, listOf("-", "-", "Belum ada uraian kegiatan"), isHeader = false)
+            } else {
+                sheet.activityRows.forEachIndexed { idx, act ->
+                    drawRowCells(
+                        aCols,
+                        listOf("${idx + 1}", act.jam, act.uraian),
+                        isHeader = false
+                    )
+                }
+            }
+
+            doc.finishPage(page)
+            FileOutputStream(destination.fileDescriptor).use { out ->
+                doc.writeTo(out)
+            }
+            callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
+        } catch (e: Exception) {
+            callback.onWriteFailed(e.localizedMessage ?: "Gagal menulis PDF tabel.")
         } finally {
             doc.close()
             pdfDocument = null
