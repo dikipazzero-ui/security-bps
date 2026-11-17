@@ -1,0 +1,126 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidOfficerProfile(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+             data.nrp is string && data.nrp.size() >= 1 && data.nrp.size() <= 40 &&
+             data.role in ['Danru Plot BPS', 'Anggota Pos Utama BPS', 'Anggota Patroli Gedung BPS', 'Korlap Security BPS'] &&
+             data.activeShift in ['Shift 1', 'Shift 2', 'Shift 3'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidSecurityReport(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.category is int && data.category >= 1 && data.category <= 3 &&
+             data.time is string && data.time.size() >= 4 && data.time.size() <= 10 &&
+             data.shift in ['Shift 1', 'Shift 2', 'Shift 3'] &&
+             data.status in ['Aman & Terkendali', 'Dalam Pemantauan', 'Perlu Tindak Lanjut'] &&
+             data.description is string && data.description.size() >= 1 && data.description.size() <= 2000 &&
+             data.photos is list && data.photos.size() <= 4 &&
+             (data.photos.size() == 0 || (data.photos[0] is string && data.photos[0].size() <= 200000)) &&
+             data.officerName is string && data.officerName.size() >= 1 && data.officerName.size() <= 80 &&
+             data.officerNrp is string && data.officerNrp.size() >= 1 && data.officerNrp.size() <= 40 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidChatMessage(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 80 &&
+             data.senderRole is string && data.senderRole.size() >= 1 && data.senderRole.size() <= 80 &&
+             data.fromOfficer is bool &&
+             data.time is string && data.time.size() >= 4 && data.time.size() <= 10 &&
+             data.text is string && data.text.size() <= 2000 &&
+             data.audioType in ['none', 'recorded', 'simulated'] &&
+             (!('imageData' in data) || (data.imageData is string && data.imageData.size() <= 200000)) &&
+             (!('audioData' in data) || (data.audioData is string && data.audioData.size() <= 250000)) &&
+             (!('audioDuration' in data) || (data.audioDuration is string && data.audioDuration.size() <= 20)) &&
+             (data.text.size() > 0 || ('imageData' in data && data.imageData.size() > 0) || data.audioType != 'none') &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll(['userId', 'name', 'nrp', 'role', 'activeShift', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'name', 'nrp', 'role', 'activeShift', 'createdAt', 'updatedAt']) &&
+                       isValidOfficerProfile(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidOfficerProfile(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'nrp', 'role', 'activeShift', 'updatedAt']);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /reports/{reportId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(reportId);
+        allow list: if isOwner(userId) && isValidId(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(reportId) &&
+                         incoming().keys().hasAll(['userId', 'category', 'time', 'shift', 'status', 'description', 'photos', 'officerName', 'officerNrp', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'category', 'time', 'shift', 'status', 'description', 'photos', 'officerName', 'officerNrp', 'createdAt', 'updatedAt']) &&
+                         isValidSecurityReport(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(reportId) &&
+                         isValidSecurityReport(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['category', 'time', 'shift', 'status', 'description', 'photos', 'officerName', 'officerNrp', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(reportId);
+      }
+
+      match /chat_messages/{messageId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(messageId);
+        allow list: if isOwner(userId) && isValidId(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(messageId) &&
+                         incoming().keys().hasAll(['userId', 'senderName', 'senderRole', 'fromOfficer', 'time', 'text', 'audioType', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'senderName', 'senderRole', 'fromOfficer', 'time', 'text', 'imageData', 'audioType', 'audioData', 'audioDuration', 'createdAt']) &&
+                         isValidChatMessage(incoming(), userId);
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(messageId);
+      }
+    }
+  }
+}

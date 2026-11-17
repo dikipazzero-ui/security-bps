@@ -1,0 +1,6 @@
+{
+  "name": "Security BPS",
+  "description": "Aplikasi Laporan Harian Security Plot BPS dengan 3 kategori tugas, dokumentasi foto, rekap WhatsApp, cetak PDF, serta Live Chat & Voice Note koordinasi tim.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

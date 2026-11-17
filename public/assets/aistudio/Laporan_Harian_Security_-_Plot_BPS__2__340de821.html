@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laporan Harian Security - Plot BPS</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome untuk Ikon Keamanan & UI -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        navy: {
+                            50: '#f0f4f8',
+                            100: '#d9e2ec',
+                            200: '#bcccdc',
+                            700: '#1e3a8a',
+                            800: '#172554',
+                            900: '#0f172a',
+                            950: '#090e1a',
+                        },
+                        gold: {
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar & Animasi */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 9999px;
+        }
+        
+        /* Animasi Gelombang Suara saat Merekam Voice Note */
+        @keyframes pulseWave {
+            0%, 100% { transform: scaleY(0.4); }
+            50% { transform: scaleY(1.2); }
+        }
+        .wave-bar {
+            animation: pulseWave 0.8s infinite ease-in-out;
+        }
+        .wave-bar:nth-child(2) { animation-delay: 0.15s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.3s; }
+        .wave-bar:nth-child(4) { animation-delay: 0.45s; }
+        .wave-bar:nth-child(5) { animation-delay: 0.2s; }
+
+        /* Pengaturan Cetak / PDF */
+        @media print {
+            body {
+                background-color: white !important;
+                color: black !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            .print-card {
+                border: 1px solid #cbd5e1 !important;
+                box-shadow: none !important;
+                break-inside: avoid;
+                margin-bottom: 12px !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- Toast Notification Container (Pengganti alert) -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+    <!-- HEADER UTAMA & IDENTITAS PLOT -->
+    <header class="bg-gradient-to-r from-navy-950 via-navy-900 to-navy-800 text-white shadow-lg border-b-4 border-gold-500 sticky top-0 z-30 no-print">
+        <div class="max-w-5xl mx-auto px-4 py-3 sm:py-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <!-- Logo & Judul -->
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center text-navy-950 shadow-md shrink-0">
+                        <i class="fa-solid fa-shield-halved text-xl sm:text-2xl"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-base sm:text-lg md:text-xl font-extrabold tracking-wide text-white leading-tight">
+                                LAPORAN HARIAN SECURITY - PLOT BPS
+                            </h1>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-300 mt-0.5">
+                            <span class="flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <span class="text-emerald-300 font-medium">Siaga Online</span>
+                            </span>
+                            <span>•</span>
+                            <span id="current-date-display" class="font-medium text-gold-400">Memuat tanggal...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Identitas Petugas Aktif (Editable) -->
+                <div class="bg-navy-950/60 border border-navy-700/80 rounded-xl px-3 py-2 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-full bg-navy-700 border border-gold-500/50 flex items-center justify-center text-gold-400 font-bold text-xs">
+                            <i class="fa-solid fa-user-shield"></i>
+                        </div>
+                        <div class="text-xs">
+                            <div class="flex items-center gap-1.5">
+                                <span id="officer-name-display" class="font-bold text-white">Bripka (Purn) Hendra Wijaya</span>
+                                <button onclick="openOfficerModal()" title="Ubah Data Petugas" class="text-gold-400 hover:text-gold-300 p-1">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                            </div>
+                            <div class="text-slate-400">NRP/ID: <span id="officer-nrp-display" class="text-slate-200 font-mono">SEC-BPS-042</span> • <span id="officer-role-display" class="text-gold-400">Danru Plot BPS</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bar Pilihan Shift Global -->
+            <div class="mt-3 pt-2.5 border-t border-navy-700/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-regular fa-clock text-gold-400"></i> Shift Tugas Aktif:
+                </span>
+                <div class="grid grid-cols-3 gap-1.5 sm:gap-2 w-full sm:w-auto">
+                    <button type="button" onclick="setGlobalShift('Shift 1')" id="btn-shift-1" class="shift-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border text-center">
+                        <div>Shift 1</div>
+                        <div class="text-[10px] opacity-80">07.00 - 15.00</div>
+                    </button>
+                    <button type="button" onclick="setGlobalShift('Shift 2')" id="btn-shift-2" class="shift-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border text-center">
+                        <div>Shift 2</div>
+                        <div class="text-[10px] opacity-80">15.00 - 23.00</div>
+                    </button>
+                    <button type="button" onclick="setGlobalShift('Shift 3')" id="btn-shift-3" class="shift-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border text-center">
+                        <div>Shift 3</div>
+                        <div class="text-[10px] opacity-80">23.00 - 07.00</div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- NAVIGASI 2 TAB UTAMA -->
+        <div class="bg-navy-950/90 border-t border-navy-800">
+            <div class="max-w-5xl mx-auto px-4 flex">
+                <button onclick="switchTab('laporan')" id="tab-btn-laporan" class="flex-1 sm:flex-none sm:px-6 py-3 text-xs sm:text-sm font-bold border-b-2 border-gold-500 text-gold-400 flex items-center justify-center gap-2 transition-colors">
+                    <i class="fa-solid fa-clipboard-list"></i>
+                    <span>Laporan Harian (3 Kategori)</span>
+                    <span id="report-count-badge" class="bg-gold-500 text-navy-950 text-[11px] font-extrabold px-2 py-0.5 rounded-full">0</span>
+                </button>
+                <button onclick="switchTab('chat')" id="tab-btn-chat" class="flex-1 sm:flex-none sm:px-6 py-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-white flex items-center justify-center gap-2 transition-colors relative">
+                    <i class="fa-solid fa-walkie-talkie"></i>
+                    <span>Live Chat & Voice Note</span>
+                    <span id="chat-unread-badge" class="bg-red-500 text-white text-[11px] font-extrabold px-2 py-0.5 rounded-full animate-bounce">2</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- KOP SURAT KHUSUS PRINT / PDF -->
+    <div class="hidden print-only max-w-4xl mx-auto w-full px-6 pt-6 pb-4 border-b-2 border-slate-800 mb-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-bold uppercase tracking-wide">LAPORAN HARIAN SATUAN PENGAMANAN (SECURITY)</h1>
+                <h2 class="text-base font-semibold text-slate-700">PLOT PENGAMANAN: BADAN PUSAT STATISTIK (BPS)</h2>
+            </div>
+            <div class="text-right text-xs">
+                <p><strong>Tanggal:</strong> <span id="print-date"></span></p>
+                <p><strong>Shift Aktif:</strong> <span id="print-shift"></span></p>
+                <p><strong>Petugas:</strong> <span id="print-officer"></span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 py-5">
+
+        <!-- ========================================================= -->
+        <!-- TAB 1: LAPORAN HARIAN (3 KATEGORI)                        -->
+        <!-- ========================================================= -->
+        <section id="view-laporan" class="space-y-6">
+            
+            <!-- Panduan Singkat & Tombol Aksi Cepat -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
+                <div>
+                    <h2 class="text-sm sm:text-base font-bold text-navy-900 flex items-center gap-2">
+                        <i class="fa-solid fa-file-shield text-gold-500"></i>
+                        Input Rincian Kegiatan (3 Kategori Wajib)
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Isi rincian per kategori, tentukan waktu & shift, serta lampirkan maksimal 4 foto bukti lapangan.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="openRecapModal()" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 transition">
+                        <i class="fa-brands fa-whatsapp text-sm"></i> Rekap & Salin WA
+                    </button>
+                    <button onclick="window.print()" class="px-3.5 py-2 rounded-xl bg-navy-800 hover:bg-navy-900 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-print"></i> Cetak / PDF
+                    </button>
+                </div>
+            </div>
+
+            <!-- FORM INPUT RINCIAN KEGIATAN BERDASARKAN 3 KATEGORI -->
+            <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden no-print">
+                <!-- Selector 3 Kategori Utama -->
+                <div class="bg-navy-900 p-3 sm:p-4">
+                    <label class="block text-xs font-bold text-gold-400 uppercase tracking-wider mb-2">
+                        Pilih Kategori Laporan Harian (1 - 3):
+                    </label>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2" id="category-selector-grid">
+                        <button type="button" onclick="selectCategory(1)" id="cat-card-1" class="cat-select-btn text-left p-3 rounded-xl border-2 transition-all flex items-start gap-2.5">
+                            <span class="w-6 h-6 rounded-lg bg-gold-500 text-navy-950 font-extrabold text-xs flex items-center justify-center shrink-0 mt-0.5">1</span>
+                            <div>
+                                <div class="text-xs font-bold leading-snug">Apel Serah Terima & Inventaris</div>
+                                <div class="text-[11px] opacity-75 mt-0.5">Pengecekan personil, HT, kunci & buku mutasi</div>
+                            </div>
+                        </button>
+                        <button type="button" onclick="selectCategory(2)" id="cat-card-2" class="cat-select-btn text-left p-3 rounded-xl border-2 transition-all flex items-start gap-2.5">
+                            <span class="w-6 h-6 rounded-lg bg-gold-500 text-navy-950 font-extrabold text-xs flex items-center justify-center shrink-0 mt-0.5">2</span>
+                            <div>
+                                <div class="text-xs font-bold leading-snug">Patroli Area Gedung & Lingkungan BPS</div>
+                                <div class="text-[11px] opacity-75 mt-0.5">Kontrol ruang server, arsip, parkir & pagar keliling</div>
+                            </div>
+                        </button>
+                        <button type="button" onclick="selectCategory(3)" id="cat-card-3" class="cat-select-btn text-left p-3 rounded-xl border-2 transition-all flex items-start gap-2.5">
+                            <span class="w-6 h-6 rounded-lg bg-gold-500 text-navy-950 font-extrabold text-xs flex items-center justify-center shrink-0 mt-0.5">3</span>
+                            <div>
+                                <div class="text-xs font-bold leading-snug">Pelayanan Tamu & Situasi Kamtibmas</div>
+                                <div class="text-[11px] opacity-75 mt-0.5">Pemeriksaan tamu/kendaraan & kejadian menonjol</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Form Isian Rincian Kegiatan -->
+                <form id="report-form" onsubmit="handleAddReportItem(event)" class="p-4 sm:p-5 space-y-4">
+                    <!-- Baris 1: Keterangan Waktu, Shift & Status Kondisi -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">
+                                <i class="fa-regular fa-clock text-navy-700 mr-1"></i> Waktu Pelaksanaan
+                            </label>
+                            <div class="flex gap-1.5">
+                                <input type="time" id="input-time" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-navy-900 focus:outline-none focus:ring-2 focus:ring-gold-500">
+                                <button type="button" onclick="setCurrentTimeInput()" title="Set Jam Sekarang" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold border border-slate-300 shrink-0">
+                                    Kini
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">
+                                <i class="fa-solid fa-business-time text-navy-700 mr-1"></i> Keterangan Shift
+                            </label>
+                            <select id="input-shift" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-navy-900 bg-white focus:outline-none focus:ring-2 focus:ring-gold-500">
+                                <option value="Shift 1">Shift 1 (07.00 - 15.00)</option>
+                                <option value="Shift 2">Shift 2 (15.00 - 23.00)</option>
+                                <option value="Shift 3">Shift 3 (23.00 - 07.00)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">
+                                <i class="fa-solid fa-circle-check text-navy-700 mr-1"></i> Status Kondisi
+                            </label>
+                            <select id="input-status" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-navy-900 bg-white focus:outline-none focus:ring-2 focus:ring-gold-500">
+                                <option value="Aman & Terkendali">🟢 Aman & Terkendali</option>
+                                <option value="Dalam Pemantauan">🟡 Dalam Pemantauan</option>
+                                <option value="Perlu Tindak Lanjut">🔴 Perlu Tindak Lanjut</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Baris 2: Rincian Kegiatan -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label for="input-description" class="block text-xs font-bold text-slate-700">
+                                <i class="fa-solid fa-pen-nib text-navy-700 mr-1"></i> Rincian Kegiatan / Kejadian Lapangan
+                            </label>
+                            <button type="button" onclick="fillTemplateText()" class="text-[11px] font-semibold text-navy-700 hover:text-gold-600 underline">
+                                + Isi Template Contoh
+                            </button>
+                        </div>
+                        <textarea id="input-description" rows="3" required placeholder="Tuliskan detail pelaksanaan tugas, lokasi pengecekan di area BPS, jumlah personil/tamu, atau temuan lapangan..." class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-gold-500"></textarea>
+                    </div>
+
+                    <!-- Baris 3: Upload Dokumentasi Foto (Maksimal 4 Foto) -->
+                    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                        <div class="flex items-center justify-between mb-2.5">
+                            <label class="text-xs font-bold text-navy-900 flex items-center gap-1.5">
+                                <i class="fa-solid fa-camera text-gold-600"></i>
+                                Dokumentasi Foto Lapangan (Maksimal 4 Foto)
+                            </label>
+                            <span id="photo-slot-counter" class="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-navy-100 text-navy-800">
+                                0 / 4 Foto
+                            </span>
+                        </div>
+
+                        <!-- Grid 4 Slot Kotak Foto -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="photo-slots-container">
+                            <!-- Di-render melalui JavaScript -->
+                        </div>
+                        <input type="file" id="hidden-photo-input" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoFileSelected(event)">
+                        <p class="text-[11px] text-slate-500 mt-2">
+                            <i class="fa-solid fa-circle-info mr-1"></i> Ketuk kotak foto untuk mengambil gambar kamera atau memilih dari galeri. Otomatis dikompresi agar ringan.
+                        </p>
+                    </div>
+
+                    <!-- Tombol Submit -->
+                    <div class="pt-1 flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <button type="button" onclick="confirmResetShiftData()" class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-rotate-left"></i> Reset Data Shift
+                        </button>
+                        <button type="submit" class="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-navy-800 to-navy-950 hover:from-navy-700 hover:to-navy-900 text-gold-400 font-extrabold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 transition transform active:scale-[0.99]">
+                            <i class="fa-solid fa-plus-circle"></i>
+                            <span>Simpan / Tambah Rincian ke Laporan</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- DAFTAR HASIL LAPORAN TERSTRUKTUR DALAM 3 KATEGORI -->
+            <div class="space-y-5" id="report-categories-output">
+                <!-- Kategori 1 List -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print-card">
+                    <div class="bg-navy-900 text-white px-4 py-3 flex items-center justify-between border-b-2 border-gold-500">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-6 h-6 rounded-md bg-gold-500 text-navy-950 font-extrabold text-xs flex items-center justify-center">1</span>
+                            <h3 class="text-xs sm:text-sm font-bold tracking-wide">KATEGORI 1: APEL SERAH TERIMA & PENGECEKAN INVENTARIS</h3>
+                        </div>
+                        <span id="badge-count-cat-1" class="text-[11px] bg-navy-800 text-gold-400 px-2.5 py-0.5 rounded-full font-bold">0 Rincian</span>
+                    </div>
+                    <div id="list-cat-1" class="p-4 space-y-3">
+                        <!-- Items render here -->
+                    </div>
+                </div>
+
+                <!-- Kategori 2 List -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print-card">
+                    <div class="bg-navy-900 text-white px-4 py-3 flex items-center justify-between border-b-2 border-gold-500">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-6 h-6 rounded-md bg-gold-500 text-navy-950 font-extrabold text-xs flex items-center justify-center">2</span>
+                            <h3 class="text-xs sm:text-sm font-bold tracking-wide">KATEGORI 2: PATROLI AREA GEDUNG & LINGKUNGAN BPS</h3>
+                        </div>
+                        <span id="badge-count-cat-2" class="text-[11px] bg-navy-800 text-gold-400 px-2.5 py-0.5 rounded-full font-bold">0 Rincian</span>
+                    </div>
+                    <div id="list-cat-2" class="p-4 space-y-3">
+                        <!-- Items render here -->
+                    </div>
+                </div>
+
+                <!-- Kategori 3 List -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print-card">
+                    <div class="bg-navy-900 text-white px-4 py-3 flex items-center justify-between border-b-2 border-gold-500">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-6 h-6 rounded-md bg-gold-500 text-navy-950 font-extrabold text-xs flex items-center justify-center">3</span>
+                            <h3 class="text-xs sm:text-sm font-bold tracking-wide">KATEGORI 3: PELAYANAN TAMU, PENGAWASAN & SITUASI KAMTIBMAS</h3>
+                        </div>
+                        <span id="badge-count-cat-3" class="text-[11px] bg-navy-800 text-gold-400 px-2.5 py-0.5 rounded-full font-bold">0 Rincian</span>
+                    </div>
+                    <div id="list-cat-3" class="p-4 space-y-3">
+                        <!-- Items render here -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- TAB 2: LIVE CHAT & VOICE NOTE                             -->
+        <!-- ========================================================= -->
+        <section id="view-chat" class="hidden flex flex-col h-[calc(100vh-215px)] min-h-[500px] bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden no-print">
+            <!-- Header Ruang Koordinasi -->
+            <div class="bg-navy-900 text-white px-4 py-3 flex items-center justify-between border-b border-navy-800 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-gold-500/20 border border-gold-500 text-gold-400 flex items-center justify-center">
+                        <i class="fa-solid fa-tower-broadcast"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            Channel Koordinasi Plot BPS
+                            <span class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full">4 Personil Aktif</span>
+                        </h3>
+                        <p class="text-[11px] text-slate-300">Danru, Pos Depan, Patroli Belakang & Korlap BPS</p>
+                    </div>
+                </div>
+                <button onclick="simulateIncomingReply()" title="Simulasi Balasan Rekan Jaga" class="text-[11px] bg-navy-800 hover:bg-navy-700 text-gold-400 border border-gold-500/30 px-2.5 py-1.5 rounded-lg font-semibold transition">
+                    <i class="fa-solid fa-reply mr-1"></i> Tes Respon Tim
+                </button>
+            </div>
+
+            <!-- Area Daftar Pesan Chat -->
+            <div id="chat-messages-container" class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-100/80">
+                <!-- Pesan di-render melalui JavaScript -->
+            </div>
+
+            <!-- Preview Lampiran Foto Sebelum Dikirim -->
+            <div id="chat-image-preview-bar" class="hidden bg-navy-50 border-t border-slate-200 px-4 py-2 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <img id="chat-preview-img" src="" alt="Preview" class="w-12 h-12 object-cover rounded-lg border border-slate-300">
+                    <div class="text-xs">
+                        <div class="font-bold text-navy-900">Foto siap dikirim ke grup</div>
+                        <div class="text-slate-500">Tambahkan keterangan atau langsung kirim</div>
+                    </div>
+                </div>
+                <button onclick="clearChatImageAttachment()" class="text-red-500 hover:text-red-700 p-1.5 text-sm">
+                    <i class="fa-solid fa-circle-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Bar Perekaman Voice Note (Muncul saat tombol Mic ditekan) -->
+            <div id="voice-recording-bar" class="hidden bg-red-50 border-t border-red-200 px-4 py-3 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <span class="w-3 h-3 rounded-full bg-red-600 animate-ping"></span>
+                    <div class="flex items-end gap-1 h-5">
+                        <span class="w-1 h-3 bg-red-500 rounded-full wave-bar"></span>
+                        <span class="w-1 h-5 bg-red-600 rounded-full wave-bar"></span>
+                        <span class="w-1 h-2 bg-red-500 rounded-full wave-bar"></span>
+                        <span class="w-1 h-4 bg-red-600 rounded-full wave-bar"></span>
+                        <span class="w-1 h-3 bg-red-500 rounded-full wave-bar"></span>
+                    </div>
+                    <span id="voice-timer" class="font-mono text-sm font-bold text-red-700">00:00</span>
+                    <span id="voice-mode-label" class="text-xs text-red-600 hidden sm:inline">Merekam suara...</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="cancelVoiceRecording()" class="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-600 hover:bg-slate-100 text-xs font-bold">
+                        Batal
+                    </button>
+                    <button type="button" onclick="stopAndSendVoiceNote()" class="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-paper-plane"></i> Kirim VN
+                    </button>
+                </div>
+            </div>
+
+            <!-- Input Chat Utama -->
+            <form id="chat-input-form" onsubmit="handleSendChatMessage(event)" class="bg-white border-t border-slate-200 p-2.5 sm:p-3 flex items-center gap-2 shrink-0">
+                <!-- Tombol Lampirkan Foto Chat -->
+                <button type="button" onclick="document.getElementById('chat-photo-input').click()" title="Lampirkan Foto Kondisi" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-navy-800 flex items-center justify-center shrink-0 transition">
+                    <i class="fa-solid fa-camera text-base"></i>
+                </button>
+                <input type="file" id="chat-photo-input" accept="image/*" class="hidden" onchange="handleChatPhotoSelect(event)">
+
+                <!-- Input Teks -->
+                <input type="text" id="chat-text-input" placeholder="Tulis laporan cepat atau koordinasi..." class="flex-1 bg-slate-100 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-gold-500">
+
+                <!-- Tombol Rekam Voice Note -->
+                <button type="button" id="btn-start-voice" onclick="startVoiceRecording()" title="Rekam Voice Note (Pesan Suara)" class="w-10 h-10 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 flex items-center justify-center shrink-0 transition">
+                    <i class="fa-solid fa-microphone text-base"></i>
+                </button>
+
+                <!-- Tombol Kirim Pesan -->
+                <button type="submit" class="px-4 h-10 rounded-xl bg-navy-900 hover:bg-navy-800 text-gold-400 font-bold text-sm flex items-center justify-center gap-1.5 shrink-0 transition">
+                    <span class="hidden sm:inline">Kirim</span>
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </form>
+        </section>
+    </main>
+
+    <!-- ========================================================= -->
+    <!-- MODAL 1: REKAP & SALIN FORMAT WHATSAPP                    -->
+    <!-- ========================================================= -->
+    <div id="recap-modal" class="fixed inset-0 bg-navy-950/75 backdrop-blur-xs z-50 hidden items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-navy-900 text-white px-5 py-3.5 flex items-center justify-between border-b-2 border-gold-500">
+                <h3 class="font-bold text-sm sm:text-base flex items-center gap-2">
+                    <i class="fa-brands fa-whatsapp text-emerald-400 text-lg"></i>
+                    Rekap Laporan Siap Kirim WhatsApp
+                </h3>
+                <button onclick="closeRecapModal()" class="text-slate-300 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1">
+                <p class="text-xs text-slate-500 mb-2">Format teks di bawah ini disusun otomatis dari 3 kategori laporan harian Plot BPS:</p>
+                <textarea id="whatsapp-recap-text" readonly rows="13" class="w-full rounded-xl bg-slate-50 border border-slate-300 p-3 text-xs font-mono text-slate-800 focus:outline-none"></textarea>
+            </div>
+            <div class="bg-slate-50 px-5 py-3 border-t border-slate-200 flex items-center justify-end gap-2">
+                <button onclick="closeRecapModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-100">
+                    Tutup
+                </button>
+                <button onclick="copyWhatsAppText()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-regular fa-copy"></i> Salin Teks Laporan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MODAL 2: EDIT IDENTITAS PETUGAS                           -->
+    <!-- ========================================================= -->
+    <div id="officer-modal" class="fixed inset-0 bg-navy-950/75 backdrop-blur-xs z-50 hidden items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="bg-navy-900 text-white px-5 py-3.5 flex items-center justify-between border-b-2 border-gold-500">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-id-badge text-gold-400"></i>
+                    Identitas Petugas Security BPS
+                </h3>
+                <button onclick="closeOfficerModal()" class="text-slate-300 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form onsubmit="saveOfficerProfile(event)" class="p-4 space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Nama Lengkap Petugas</label>
+                    <input type="text" id="edit-officer-name" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">NRP / Nomor ID Anggota</label>
+                    <input type="text" id="edit-officer-nrp" required class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Jabatan / Plot Tugas</label>
+                    <select id="edit-officer-role" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white">
+                        <option value="Danru Plot BPS">Danru Plot BPS</option>
+                        <option value="Anggota Pos Utama BPS">Anggota Pos Utama BPS</option>
+                        <option value="Anggota Patroli Gedung BPS">Anggota Patroli Gedung BPS</option>
+                        <option value="Korlap Security BPS">Korlap Security BPS</option>
+                    </select>
+                </div>
+                <div class="pt-2 flex justify-end gap-2">
+                    <button type="button" onclick="closeOfficerModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold">Batal</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-navy-900 text-gold-400 text-xs font-bold">Simpan Identitas</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MODAL 3: KONFIRMASI RESET DATA SHIFT                      -->
+    <!-- ========================================================= -->
+    <div id="reset-modal" class="fixed inset-0 bg-navy-950/75 backdrop-blur-xs z-50 hidden items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-2xl max-w-sm w-full shadow-2xl border border-slate-200 overflow-hidden p-5 text-center">
+            <div class="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-3 text-xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 class="font-bold text-base text-navy-900">Reset Data Laporan Shift?</h3>
+            <p class="text-xs text-slate-500 mt-1">Semua rincian kegiatan dan foto pada laporan saat ini akan dihapus untuk memulai pergantian shift baru.</p>
+            <div class="mt-4 flex gap-2 justify-center">
+                <button onclick="closeResetModal()" class="flex-1 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700">Batal</button>
+                <button onclick="executeResetShiftData()" class="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold">Ya, Reset Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MODAL 4: LIGHTBOX PREVIEW FOTO FULLSCREEN                 -->
+    <!-- ========================================================= -->
+    <div id="lightbox-modal" onclick="closeLightbox()" class="fixed inset-0 bg-black/90 z-50 hidden items-center justify-center p-4 no-print">
+        <div class="relative max-w-3xl w-full flex flex-col items-center">
+            <button onclick="closeLightbox()" class="self-end mb-2 text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg text-xs font-bold">
+                <i class="fa-solid fa-xmark mr-1"></i> Tutup Foto
+            </button>
+            <img id="lightbox-img" src="" alt="Dokumentasi Lapangan" class="max-h-[80vh] w-auto rounded-xl border-2 border-gold-500 shadow-2xl">
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- JAVASCRIPT LOGIC                                          -->
+    <!-- ========================================================= -->
+    <script>
+        // --- KONSTANTA & KONFIGURASI ---
+        const STORAGE_KEY_REPORTS = 'bps_sec_reports_v1';
+        const STORAGE_KEY_CHAT = 'bps_sec_chat_v1';
+        const STORAGE_KEY_PROFILE = 'bps_sec_profile_v1';
+        const STORAGE_KEY_SHIFT = 'bps_sec_active_shift_v1';
+
+        const CATEGORY_NAMES = {
+            1: 'Apel Serah Terima & Pengecekan Inventaris',
+            2: 'Patroli Area Gedung & Lingkungan BPS',
+            3: 'Pelayanan Tamu, Pengawasan & Situasi Kamtibmas'
+        };
+
+        const CATEGORY_TEMPLATES = {
+            1: 'Melaksanakan apel serah terima tugas jaga di Pos Utama BPS. Pengecekan inventaris: 3 unit HT berfungsi baik, 1 buku mutasi, kunci ruang server & ruang arsip lengkap. Personil lengkap dan siap bertugas.',
+            2: 'Melaksanakan patroli keliling area gedung utama BPS, ruang server lantai 2, gudang arsip, area parkir kendaraan dinas, serta pagar keliling. Pintu terkunci rapat, instalasi listrik & AC aman, situasi terkendali.',
+            3: 'Melakukan pemeriksaan dan pendataan tamu dinas di lobi utama BPS serta pengaturan lalu lintas keluar masuk kendaraan. Tidak ditemukan hal mencurigakan, situasi kamtibmas aman dan kondusif.'
+        };
+
+        // --- STATE APLIKASI ---
+        let state = {
+            activeTab: 'laporan',
+            globalShift: 'Shift 1',
+            selectedCategory: 1,
+            currentPhotoSlots: [null, null, null, null], // 4 slot foto untuk form aktif
+            activeSlotIndexToUpload: 0,
+            officer: {
+                name: 'Hendra Wijaya',
+                nrp: 'SEC-BPS-042',
+                role: 'Danru Plot BPS'
+            },
+            reports: [],
+            chatMessages: [],
+            chatPendingPhoto: null,
+            unreadChatCount: 2
+        };
+
+        // --- VARIABEL PEREKAMAN SUARA (VOICE NOTE) ---
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let recordingStartTime = null;
+        let recordingTimerInterval = null;
+        let isSimulatedRecording = false;
+
+        // --- INISIALISASI SAAT HALAMAN DIMUAT ---
+        window.addEventListener('DOMContentLoaded', () => {
+            initDateDisplay();
+            loadStateFromStorage();
+            setCurrentTimeInput();
+            renderOfficerProfile();
+            updateShiftUI();
+            selectCategory(state.selectedCategory);
+            renderPhotoSlots();
+            renderAllReports();
+            renderChatMessages();
+            updateUnreadBadge();
+        });
+
+        function initDateDisplay() {
+            const now = new Date();
+            const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+            const formatted = now.toLocaleDateString('id-ID', options);
+            document.getElementById('current-date-display').textContent = formatted;
+            document.getElementById('print-date').textContent = formatted;
+        }
+
+        function setCurrentTimeInput() {
+            const now = new Date();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('input-time').value = `${hh}:${mm}`;
+        }
+
+        // --- LOCAL STORAGE HANDLERS ---
+        function loadStateFromStorage() {
+            try {
+                const savedProfile = localStorage.getItem(STORAGE_KEY_PROFILE);
+                if (savedProfile) state.officer = JSON.parse(savedProfile);
+
+                const savedShift = localStorage.getItem(STORAGE_KEY_SHIFT);
+                if (savedShift) state.globalShift = savedShift;
+
+                const savedReports = localStorage.getItem(STORAGE_KEY_REPORTS);
+                if (savedReports) {
+                    state.reports = JSON.parse(savedReports);
+                } else {
+                    // Contoh 1 data awal agar petugas langsung melihat gambaran format
+                    state.reports = [
+                        {
+                            id: 'init-1',
+                            category: 1,
+                            time: '07:05',
+                            shift: 'Shift 1',
+                            status: 'Aman & Terkendali',
+                            description: 'Apel serah terima jaga pagi di Pos Utama Plot BPS dari petugas Shift 3 ke Shift 1. Pengecekan inventaris HT (3 unit), kunci-kunci ruangan, dan buku mutasi lengkap dalam kondisi baik.',
+                            photos: [],
+                            officerName: state.officer.name,
+                            createdAt: new Date().toISOString()
+                        }
+                    ];
+                }
+
+                const savedChat = localStorage.getItem(STORAGE_KEY_CHAT);
+                if (savedChat) {
+                    state.chatMessages = JSON.parse(savedChat);
+                } else {
+                    state.chatMessages = getDefaultChatHistory();
+                }
+            } catch (e) {
+                console.error('Gagal memuat localStorage:', e);
+            }
+        }
+
+        function saveReportsToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(state.reports));
+            } catch (e) {
+                showToast('Memori browser penuh! Hapus beberapa foto lama jika gagal menyimpan.', 'error');
+            }
+        }
+
+        function saveChatToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(state.chatMessages));
+            } catch (e) {
+                console.warn('Gagal menyimpan riwayat chat ke localStorage:', e);
+            }
+        }
+
+        // --- IDENTITAS PETUGAS & SHIFT ---
+        function renderOfficerProfile() {
+            document.getElementById('officer-name-display').textContent = state.officer.name;
+            document.getElementById('officer-nrp-display').textContent = state.officer.nrp;
+            document.getElementById('officer-role-display').textContent = state.officer.role;
+            document.getElementById('print-officer').textContent = `${state.officer.name} (${state.officer.nrp}) - ${state.officer.role}`;
+        }
+
+        function openOfficerModal() {
+            document.getElementById('edit-officer-name').value = state.officer.name;
+            document.getElementById('edit-officer-nrp').value = state.officer.nrp;
+            document.getElementById('edit-officer-role').value = state.officer.role;
+            document.getElementById('officer-modal').classList.remove('hidden');
+            document.getElementById('officer-modal').classList.add('flex');
+        }
+
+        function closeOfficerModal() {
+            document.getElementById('officer-modal').classList.add('hidden');
+            document.getElementById('officer-modal').classList.remove('flex');
+        }
+
+        function saveOfficerProfile(e) {
+            e.preventDefault();
+            state.officer.name = document.getElementById('edit-officer-name').value.trim();
+            state.officer.nrp = document.getElementById('edit-officer-nrp').value.trim();
+            state.officer.role = document.getElementById('edit-officer-role').value;
+            localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(state.officer));
+            renderOfficerProfile();
+            closeOfficerModal();
+            showToast('Identitas petugas berhasil diperbarui.', 'success');
+        }
+
+        function setGlobalShift(shiftName) {
+            state.globalShift = shiftName;
+            localStorage.setItem(STORAGE_KEY_SHIFT, shiftName);
+            document.getElementById('input-shift').value = shiftName;
+            updateShiftUI();
+            showToast(`Shift aktif diatur ke ${shiftName}`, 'info');
+        }
+
+        function updateShiftUI() {
+            document.getElementById('print-shift').textContent = state.globalShift;
+            document.getElementById('input-shift').value = state.globalShift;
+
+            const map = { 'Shift 1': 'btn-shift-1', 'Shift 2': 'btn-shift-2', 'Shift 3': 'btn-shift-3' };
+            Object.entries(map).forEach(([shift, btnId]) => {
+                const btn = document.getElementById(btnId);
+                if (shift === state.globalShift) {
+                    btn.className = 'shift-btn px-2.5 py-1.5 rounded-lg text-xs font-extrabold transition-all border border-gold-400 bg-gold-500 text-navy-950 shadow-sm text-center';
+                } else {
+                    btn.className = 'shift-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border border-navy-700 bg-navy-900/80 text-slate-300 hover:bg-navy-800 text-center';
+                }
+            });
+        }
+
+        // --- NAVIGASI TAB ---
+        function switchTab(tabName) {
+            state.activeTab = tabName;
+            const viewLaporan = document.getElementById('view-laporan');
+            const viewChat = document.getElementById('view-chat');
+            const btnLaporan = document.getElementById('tab-btn-laporan');
+            const btnChat = document.getElementById('tab-btn-chat');
+
+            if (tabName === 'laporan') {
+                viewLaporan.classList.remove('hidden');
+                viewChat.classList.add('hidden');
+                btnLaporan.className = 'flex-1 sm:flex-none sm:px-6 py-3 text-xs sm:text-sm font-bold border-b-2 border-gold-500 text-gold-400 flex items-center justify-center gap-2 transition-colors';
+                btnChat.className = 'flex-1 sm:flex-none sm:px-6 py-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-white flex items-center justify-center gap-2 transition-colors relative';
+            } else {
+                viewLaporan.classList.add('hidden');
+                viewChat.classList.remove('hidden');
+                btnChat.className = 'flex-1 sm:flex-none sm:px-6 py-3 text-xs sm:text-sm font-bold border-b-2 border-gold-500 text-gold-400 flex items-center justify-center gap-2 transition-colors relative';
+                btnLaporan.className = 'flex-1 sm:flex-none sm:px-6 py-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-white flex items-center justify-center gap-2 transition-colors';
+                
+                // Reset notifikasi belum dibaca
+                state.unreadChatCount = 0;
+                updateUnreadBadge();
+                scrollChatToBottom();
+            }
+        }
+
+        function updateUnreadBadge() {
+            const badge = document.getElementById('chat-unread-badge');
+            if (state.unreadChatCount > 0) {
+                badge.textContent = state.unreadChatCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        // --- TAB 1: LOGIKA 3 KATEGORI & 4 FOTO PER RINCIAN ---
+        function selectCategory(catNum) {
+            state.selectedCategory = catNum;
+            for (let i = 1; i <= 3; i++) {
+                const card = document.getElementById(`cat-card-${i}`);
+                if (i === catNum) {
+                    card.className = 'cat-select-btn text-left p-3 rounded-xl border-2 border-gold-400 bg-navy-800 text-white shadow-md transition-all flex items-start gap-2.5';
+                } else {
+                    card.className = 'cat-select-btn text-left p-3 rounded-xl border-2 border-navy-800 bg-navy-950/60 text-slate-300 hover:border-navy-700 transition-all flex items-start gap-2.5';
+                }
+            }
+        }
+
+        function fillTemplateText() {
+            const textarea = document.getElementById('input-description');
+            textarea.value = CATEGORY_TEMPLATES[state.selectedCategory] || '';
+            textarea.focus();
+        }
+
+        // Render 4 Slot Kotak Foto pada Form
+        function renderPhotoSlots() {
+            const container = document.getElementById('photo-slots-container');
+            container.innerHTML = '';
+
+            let filledCount = 0;
+            state.currentPhotoSlots.forEach((photoData, index) => {
+                if (photoData) filledCount++;
+
+                const slotDiv = document.createElement('div');
+                if (photoData) {
+                    slotDiv.className = 'relative aspect-square rounded-xl overflow-hidden border-2 border-gold-500 bg-slate-900 group shadow-xs';
+                    slotDiv.innerHTML = `
+                        <img src="${photoData}" alt="Foto ${index + 1}" class="w-full h-full object-cover cursor-pointer" onclick="openLightbox('${photoData}')">
+                        <span class="absolute top-1.5 left-1.5 bg-navy-950/80 text-gold-400 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                            Foto ${index + 1}
+                        </span>
+                        <button type="button" onclick="removePhotoFromSlot(${index})" title="Hapus Foto" class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center text-xs shadow">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    `;
+                } else {
+                    slotDiv.className = 'aspect-square rounded-xl border-2 border-dashed border-slate-300 hover:border-gold-500 bg-white hover:bg-amber-50/40 flex flex-col items-center justify-center cursor-pointer transition p-2 text-center';
+                    slotDiv.onclick = () => triggerPhotoUpload(index);
+                    slotDiv.innerHTML = `
+                        <div class="w-8 h-8 rounded-full bg-slate-100 text-navy-700 flex items-center justify-center mb-1">
+                            <i class="fa-solid fa-camera text-sm"></i>
+                        </div>
+                        <span class="text-[11px] font-bold text-slate-700">Slot Foto ${index + 1}</span>
+                        <span class="text-[10px] text-slate-400">Ketuk upload</span>
+                    `;
+                }
+                container.appendChild(slotDiv);
+            });
+
+            document.getElementById('photo-slot-counter').textContent = `${filledCount} / 4 Foto`;
+        }
+
+        function triggerPhotoUpload(slotIndex) {
+            state.activeSlotIndexToUpload = slotIndex;
+            const input = document.getElementById('hidden-photo-input');
+            input.value = '';
+            input.click();
+        }
+
+        function handlePhotoFileSelected(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            compressImageToDataURL(file, 800, 0.72, (compressedDataUrl) => {
+                state.currentPhotoSlots[state.activeSlotIndexToUpload] = compressedDataUrl;
+                renderPhotoSlots();
+                showToast(`Foto slot ${state.activeSlotIndexToUpload + 1} berhasil ditambahkan.`, 'success');
+            });
+        }
+
+        function removePhotoFromSlot(index) {
+            state.currentPhotoSlots[index] = null;
+            renderPhotoSlots();
+        }
+
+        // Kompresi Gambar via Canvas agar Hemat Penyimpanan localStorage
+        function compressImageToDataURL(file, maxWidth, quality, callback) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Watermark Timestamp & Plot BPS tipis di pojok kanan bawah foto
+                    ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+                    ctx.fillRect(0, height - 22, width, 22);
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.font = 'bold 11px Inter, sans-serif';
+                    const nowStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                    ctx.fillText(`SECURITY PLOT BPS • ${state.globalShift} • ${nowStr} WIB`, 8, height - 7);
+
+                    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    callback(dataUrl);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Simpan Rincian Kegiatan ke Daftar Laporan
+        function handleAddReportItem(event) {
+            event.preventDefault();
+            const timeVal = document.getElementById('input-time').value;
+            const shiftVal = document.getElementById('input-shift').value;
+            const statusVal = document.getElementById('input-status').value;
+            const descVal = document.getElementById('input-description').value.trim();
+
+            if (!descVal) {
+                showToast('Mohon isi rincian kegiatan terlebih dahulu.', 'error');
+                return;
+            }
+
+            const validPhotos = state.currentPhotoSlots.filter(p => p !== null);
+
+            const newItem = {
+                id: 'rep-' + Date.now(),
+                category: state.selectedCategory,
+                time: timeVal,
+                shift: shiftVal,
+                status: statusVal,
+                description: descVal,
+                photos: validPhotos,
+                officerName: state.officer.name,
+                createdAt: new Date().toISOString()
+            };
+
+            state.reports.unshift(newItem);
+            saveReportsToStorage();
+
+            // Reset Form Input
+            document.getElementById('input-description').value = '';
+            state.currentPhotoSlots = [null, null, null, null];
+            setCurrentTimeInput();
+            renderPhotoSlots();
+            renderAllReports();
+
+            showToast(`Rincian berhasil ditambahkan ke Kategori ${state.selectedCategory}!`, 'success');
+        }
+
+        function deleteReportItem(id) {
+            state.reports = state.reports.filter(item => item.id !== id);
+            saveReportsToStorage();
+            renderAllReports();
+            showToast('Rincian kegiatan dihapus dari laporan.', 'info');
+        }
+
+        // Render Semua Item Laporan ke 3 Kotak Kategori
+        function renderAllReports() {
+            document.getElementById('report-count-badge').textContent = state.reports.length;
+
+            [1, 2, 3].forEach(catNum => {
+                const listContainer = document.getElementById(`list-cat-${catNum}`);
+                const countBadge = document.getElementById(`badge-count-cat-${catNum}`);
+                const catItems = state.reports.filter(r => r.category === catNum);
+
+                countBadge.textContent = `${catItems.length} Rincian`;
+
+                if (catItems.length === 0) {
+                    listContainer.innerHTML = `
+                        <div class="text-center py-6 px-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/70">
+                            <p class="text-xs text-slate-400 font-medium">Belum ada rincian kegiatan pada Kategori ${catNum}.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                listContainer.innerHTML = catItems.map((item, idx) => {
+                    let statusBadgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+                    if (item.status === 'Dalam Pemantauan') statusBadgeClass = 'bg-amber-100 text-amber-800 border-amber-200';
+                    if (item.status === 'Perlu Tindak Lanjut') statusBadgeClass = 'bg-red-100 text-red-800 border-red-200';
+
+                    const photosHTML = item.photos && item.photos.length > 0 ? `
+                        <div class="mt-3 pt-2.5 border-t border-slate-100">
+                            <div class="text-[11px] font-bold text-slate-500 mb-1.5 flex items-center gap-1">
+                                <i class="fa-solid fa-images text-gold-600"></i> Dokumentasi Foto (${item.photos.length}/4):
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                ${item.photos.map((photo, pIdx) => `
+                                    <div class="aspect-video sm:aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-100 relative group">
+                                        <img src="${photo}" alt="Bukti ${pIdx + 1}" onclick="openLightbox('${photo}')" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform">
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : '';
+
+                    return `
+                        <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white transition shadow-2xs">
+                            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <span class="px-2.5 py-0.5 rounded-md bg-navy-900 text-gold-400 text-[11px] font-extrabold">
+                                        ${item.shift}
+                                    </span>
+                                    <span class="px-2.5 py-0.5 rounded-md bg-navy-100 text-navy-900 text-[11px] font-bold font-mono">
+                                        <i class="fa-regular fa-clock mr-1"></i>${item.time} WIB
+                                    </span>
+                                    <span class="px-2.5 py-0.5 rounded-md border text-[11px] font-bold ${statusBadgeClass}">
+                                        ${item.status}
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-2 no-print">
+                                    <span class="text-[11px] text-slate-400">Oleh: ${item.officerName}</span>
+                                    <button onclick="deleteReportItem('${item.id}')" title="Hapus Rincian" class="text-slate-400 hover:text-red-600 p-1 text-xs transition">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-line">${escapeHTML(item.description)}</p>
+                            ${photosHTML}
+                        </div>
+                    `;
+                }).join('');
+            });
+        }
+
+        // --- REKAP WHATSAPP & RESET SHIFT ---
+        function openRecapModal() {
+            const dateStr = document.getElementById('current-date-display').textContent;
+            let text = `*LAPORAN HARIAN SECURITY - PLOT BPS*\n`;
+            text += `📅 Tanggal : ${dateStr}\n`;
+            text += `⏰ Shift   : ${state.globalShift}\n`;
+            text += `👮 Petugas : ${state.officer.name} (${state.officer.nrp})\n`;
+            text += `====================================\n\n`;
+
+            [1, 2, 3].forEach(catNum => {
+                const catItems = state.reports.filter(r => r.category === catNum);
+                text += `*${catNum}. ${CATEGORY_NAMES[catNum].toUpperCase()}*\n`;
+                if (catItems.length === 0) {
+                    text += `   - Nihil / Belum ada rincian diinput.\n\n`;
+                } else {
+                    catItems.forEach((item, i) => {
+                        text += `   ${i + 1}) [${item.time} WIB | ${item.shift}] (${item.status})\n`;
+                        text += `      ${item.description}\n`;
+                        if (item.photos && item.photos.length > 0) {
+                            text += `      📸 Lampiran: ${item.photos.length} Foto Dokumentasi\n`;
+                        }
+                    });
+                    text += `\n`;
+                }
+            });
+
+            text += `====================================\n`;
+            text += `Demikian laporan situasi Plot BPS dilaporkan. Komandan & Korlap mohon arahannya. Selamat bertugas!`;
+
+            document.getElementById('whatsapp-recap-text').value = text;
+            document.getElementById('recap-modal').classList.remove('hidden');
+            document.getElementById('recap-modal').classList.add('flex');
+        }
+
+        function closeRecapModal() {
+            document.getElementById('recap-modal').classList.add('hidden');
+            document.getElementById('recap-modal').classList.remove('flex');
+        }
+
+        function copyWhatsAppText() {
+            const textarea = document.getElementById('whatsapp-recap-text');
+            textarea.select();
+            textarea.setSelectionRange(0, 99999);
+            try {
+                document.execCommand('copy');
+                showToast('Format laporan WhatsApp berhasil disalin ke clipboard!', 'success');
+            } catch (err) {
+                showToast('Gagal menyalin teks, silakan salin manual dari kotak.', 'error');
+            }
+        }
+
+        function confirmResetShiftData() {
+            document.getElementById('reset-modal').classList.remove('hidden');
+            document.getElementById('reset-modal').classList.add('flex');
+        }
+
+        function closeResetModal() {
+            document.getElementById('reset-modal').classList.add('hidden');
+            document.getElementById('reset-modal').classList.remove('flex');
+        }
+
+        function executeResetShiftData() {
+            state.reports = [];
+            saveReportsToStorage();
+            renderAllReports();
+            closeResetModal();
+            showToast('Data laporan shift berhasil direset bersih.', 'info');
+        }
+
+        // --- TAB 2: LIVE CHAT & VOICE NOTE ---
+        function getDefaultChatHistory() {
+            return [
+                {
+                    id: 'msg-1',
+                    senderName: 'Bapak Suroto',
+                    senderRole: 'Korlap Security BPS',
+                    isMe: false,
+                    time: '07:15',
+                    text: 'Selamat pagi rekan-rekan Plot BPS. Mohon monitor area lobi utama dan parkiran tamu hari ini ada agenda rapat pimpinan BPS.',
+                    image: null,
+                    audioUrl: null,
+                    audioDuration: null
+                },
+                {
+                    id: 'msg-2',
+                    senderName: 'Rizky Pratama',
+                    senderRole: 'Pos Gerbang Depan',
+                    isMe: false,
+                    time: '07:22',
+                    text: 'Siap monitor Komandan! Barrier gate dan pos depan sudah steril, tamu mulai berdatangan dan diarahkan sesuai SOP.',
+                    image: null,
+                    audioUrl: null,
+                    audioDuration: null
+                },
+                {
+                    id: 'msg-3',
+                    senderName: 'Dedi Kurniawan',
+                    senderRole: 'Patroli Gedung Belakang',
+                    isMe: false,
+                    time: '07:30',
+                    text: 'Laporan suara pengecekan area genset & ruang arsip belakang dalam keadaan aman terkendali.',
+                    image: null,
+                    audioUrl: 'simulated-beep',
+                    audioDuration: '00:08'
+                }
+            ];
+        }
+
+        function renderChatMessages() {
+            const container = document.getElementById('chat-messages-container');
+            container.innerHTML = state.chatMessages.map(msg => {
+                const alignClass = msg.isMe ? 'justify-end' : 'justify-start';
+                const bubbleClass = msg.isMe
+                    ? 'bg-navy-900 text-white rounded-2xl rounded-tr-xs border border-navy-800'
+                    : 'bg-white text-slate-800 rounded-2xl rounded-tl-xs border border-slate-200 shadow-2xs';
+                const nameColor = msg.isMe ? 'text-gold-400' : 'text-navy-800';
+                const roleBadge = msg.isMe
+                    ? 'bg-gold-500/20 text-gold-300'
+                    : 'bg-slate-100 text-slate-600';
+
+                let attachmentHTML = '';
+                if (msg.image) {
+                    attachmentHTML += `
+                        <div class="mt-2 rounded-xl overflow-hidden border ${msg.isMe ? 'border-navy-700' : 'border-slate-200'}">
+                            <img src="${msg.image}" alt="Foto Chat" onclick="openLightbox('${msg.image}')" class="max-h-52 w-full object-cover cursor-pointer">
+                        </div>
+                    `;
+                }
+
+                if (msg.audioUrl) {
+                    if (msg.audioUrl === 'simulated-beep') {
+                        // Pemutar Voice Note Simulasi (jika tanpa mic fisik)
+                        attachmentHTML += `
+                            <div class="mt-2 p-2.5 rounded-xl ${msg.isMe ? 'bg-navy-800 border border-navy-700' : 'bg-amber-50 border border-amber-200'} flex items-center gap-2.5">
+                                <button type="button" onclick="playSimulatedVoiceNote(this)" class="w-8 h-8 rounded-full bg-gold-500 text-navy-950 flex items-center justify-center shrink-0 shadow-xs">
+                                    <i class="fa-solid fa-play text-xs"></i>
+                                </button>
+                                <div class="flex-1">
+                                    <div class="text-[11px] font-bold ${msg.isMe ? 'text-gold-400' : 'text-navy-900'}">Pesan Suara (Voice Note)</div>
+                                    <div class="w-full h-1.5 bg-slate-300/40 rounded-full mt-1 overflow-hidden">
+                                        <div class="vn-progress h-full bg-gold-500 w-0 transition-all duration-300"></div>
+                                    </div>
+                                </div>
+                                <span class="text-[11px] font-mono opacity-80">${msg.audioDuration || '00:06'}</span>
+                            </div>
+                        `;
+                    } else {
+                        // Pemutar Audio Sungguhan dari MediaRecorder
+                        attachmentHTML += `
+                            <div class="mt-2 p-2 rounded-xl ${msg.isMe ? 'bg-navy-800' : 'bg-slate-100'}">
+                                <div class="text-[10px] font-bold mb-1 flex items-center justify-between ${msg.isMe ? 'text-gold-400' : 'text-navy-800'}">
+                                    <span><i class="fa-solid fa-microphone-lines mr-1"></i> Voice Note</span>
+                                    <span>${msg.audioDuration || ''}</span>
+                                </div>
+                                <audio controls src="${msg.audioUrl}" class="w-full h-8 max-w-[240px]"></audio>
+                            </div>
+                        `;
+                    }
+                }
+
+                return `
+                    <div class="flex ${alignClass}">
+                        <div class="max-w-[85%] sm:max-w-[72%] ${bubbleClass} px-3.5 py-2.5">
+                            <div class="flex items-center justify-between gap-3 mb-1">
+                                <span class="text-xs font-extrabold ${nameColor}">${escapeHTML(msg.senderName)}</span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded font-semibold ${roleBadge}">${escapeHTML(msg.senderRole)}</span>
+                            </div>
+                            ${msg.text ? `<p class="text-xs sm:text-sm leading-relaxed whitespace-pre-line">${escapeHTML(msg.text)}</p>` : ''}
+                            ${attachmentHTML}
+                            <div class="text-[10px] text-right mt-1 opacity-70 font-mono">
+                                ${msg.time} WIB ${msg.isMe ? '<i class="fa-solid fa-check-double text-gold-400 ml-0.5"></i>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            scrollChatToBottom();
+        }
+
+        function scrollChatToBottom() {
+            const container = document.getElementById('chat-messages-container');
+            setTimeout(() => {
+                container.scrollTop = container.scrollHeight;
+            }, 50);
+        }
+
+        function handleChatPhotoSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            compressImageToDataURL(file, 700, 0.7, (dataUrl) => {
+                state.chatPendingPhoto = dataUrl;
+                document.getElementById('chat-preview-img').src = dataUrl;
+                document.getElementById('chat-image-preview-bar').classList.remove('hidden');
+            });
+        }
+
+        function clearChatImageAttachment() {
+            state.chatPendingPhoto = null;
+            document.getElementById('chat-photo-input').value = '';
+            document.getElementById('chat-image-preview-bar').classList.add('hidden');
+        }
+
+        function handleSendChatMessage(event) {
+            event.preventDefault();
+            const input = document.getElementById('chat-text-input');
+            const text = input.value.trim();
+
+            if (!text && !state.chatPendingPhoto) return;
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+            state.chatMessages.push({
+                id: 'msg-' + Date.now(),
+                senderName: state.officer.name,
+                senderRole: state.officer.role,
+                isMe: true,
+                time: timeStr,
+                text: text,
+                image: state.chatPendingPhoto,
+                audioUrl: null,
+                audioDuration: null
+            });
+
+            input.value = '';
+            clearChatImageAttachment();
+            saveChatToStorage();
+            renderChatMessages();
+        }
+
+        // --- LOGIKA PEREKAMAN VOICE NOTE (WEB AUDIO / MEDIARECORDER + FALLBACK) ---
+        async function startVoiceRecording() {
+            if (isRecording) return;
+
+            isRecording = true;
+            recordingStartTime = Date.now();
+            audioChunks = [];
+            isSimulatedRecording = false;
+
+            document.getElementById('voice-recording-bar').classList.remove('hidden');
+            document.getElementById('chat-input-form').classList.add('hidden');
+            updateVoiceTimer();
+            recordingTimerInterval = setInterval(updateVoiceTimer, 500);
+
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('MediaDevices tidak didukung');
+                }
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    stream.getTracks().forEach(track => track.stop());
+                    if (!isRecording) return; // Jika dibatalkan
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const durationStr = document.getElementById('voice-timer').textContent;
+                    finalizeSendVoiceNote(audioUrl, durationStr);
+                };
+
+                mediaRecorder.start();
+                document.getElementById('voice-mode-label').textContent = 'Merekam suara mikrofon...';
+            } catch (err) {
+                // Fallback simulasi jika izin mikrofon diblokir oleh browser/iframe
+                isSimulatedRecording = true;
+                document.getElementById('voice-mode-label').textContent = 'Mode Simulasi Suara (Mic diblokir)...';
+            }
+        }
+
+        function updateVoiceTimer() {
+            const elapsedSec = Math.floor((Date.now() - recordingStartTime) / 1000);
+            const mins = String(Math.floor(elapsedSec / 60)).padStart(2, '0');
+            const secs = String(elapsedSec % 60).padStart(2, '0');
+            document.getElementById('voice-timer').textContent = `${mins}:${secs}`;
+        }
+
+        function cancelVoiceRecording() {
+            isRecording = false;
+            clearInterval(recordingTimerInterval);
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            resetVoiceUI();
+            showToast('Perekaman pesan suara dibatalkan.', 'info');
+        }
+
+        function stopAndSendVoiceNote() {
+            if (!isRecording) return;
+            clearInterval(recordingTimerInterval);
+            const durationStr = document.getElementById('voice-timer').textContent;
+
+            if (isSimulatedRecording) {
+                isRecording = false;
+                finalizeSendVoiceNote('simulated-beep', durationStr === '00:00' ? '00:04' : durationStr);
+            } else if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop(); // Akan memicu onstop -> finalizeSendVoiceNote
+            }
+        }
+
+        function finalizeSendVoiceNote(audioUrl, durationStr) {
+            isRecording = false;
+            resetVoiceUI();
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+            state.chatMessages.push({
+                id: 'vn-' + Date.now(),
+                senderName: state.officer.name,
+                senderRole: state.officer.role,
+                isMe: true,
+                time: timeStr,
+                text: '',
+                image: null,
+                audioUrl: audioUrl,
+                audioDuration: durationStr
+            });
+
+            // Simpan ke storage (catatan: blob URL hanya berlaku sesi aktif, simulasi tetap tersimpan)
+            if (audioUrl === 'simulated-beep') saveChatToStorage();
+            renderChatMessages();
+            showToast('Voice Note berhasil dikirim ke ruang koordinasi!', 'success');
+        }
+
+        function resetVoiceUI() {
+            document.getElementById('voice-recording-bar').classList.add('hidden');
+            document.getElementById('chat-input-form').classList.remove('hidden');
+            document.getElementById('voice-timer').textContent = '00:00';
+        }
+
+        // Pemutar suara sintetis ringan via Web Audio API untuk simulasi Voice Note
+        function playSimulatedVoiceNote(btn) {
+            const icon = btn.querySelector('i');
+            const progressBar = btn.parentElement.querySelector('.vn-progress');
+
+            icon.className = 'fa-solid fa-volume-high text-xs animate-pulse';
+            progressBar.style.width = '100%';
+
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioCtx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(520, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(680, ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.4);
+            } catch (e) {}
+
+            setTimeout(() => {
+                icon.className = 'fa-solid fa-play text-xs';
+                progressBar.style.width = '0%';
+            }, 2200);
+        }
+
+        // Simulasi Balasan dari Rekan Jaga BPS
+        function simulateIncomingReply() {
+            const replies = [
+                { name: 'Bapak Suroto', role: 'Korlap Security BPS', text: 'Terima kasih laporannya, lanjutkan pemantauan berkala di seluruh titik Plot BPS.' },
+                { name: 'Rizky Pratama', role: 'Pos Gerbang Depan', text: 'Copy Danru! Gerbang utama terpantau aman, situasi kondusif.' },
+                { name: 'Dedi Kurniawan', role: 'Patroli Gedung Belakang', text: 'Siap laksanakan, area parkir belakang & ruang genset sudah dicek.' }
+            ];
+            const pick = replies[Math.floor(Math.random() * replies.length)];
+            const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+            state.chatMessages.push({
+                id: 'msg-' + Date.now(),
+                senderName: pick.name,
+                senderRole: pick.role,
+                isMe: false,
+                time: timeStr,
+                text: pick.text,
+                image: null,
+                audioUrl: null,
+                audioDuration: null
+            });
+
+            saveChatToStorage();
+            renderChatMessages();
+            if (state.activeTab !== 'chat') {
+                state.unreadChatCount++;
+                updateUnreadBadge();
+            }
+        }
+
+        // --- LIGHTBOX & TOAST HELPER ---
+        function openLightbox(imgSrc) {
+            document.getElementById('lightbox-img').src = imgSrc;
+            document.getElementById('lightbox-modal').classList.remove('hidden');
+            document.getElementById('lightbox-modal').classList.add('flex');
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox-modal').classList.add('hidden');
+            document.getElementById('lightbox-modal').classList.remove('flex');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+
+            let colors = 'bg-navy-900 text-white border-gold-500';
+            let icon = 'fa-circle-info text-gold-400';
+            if (type === 'success') {
+                colors = 'bg-emerald-900 text-white border-emerald-400';
+                icon = 'fa-circle-check text-emerald-400';
+            } else if (type === 'error') {
+                colors = 'bg-red-900 text-white border-red-400';
+                icon = 'fa-circle-exclamation text-red-400';
+            }
+
+            toast.className = `${colors} border-l-4 px-4 py-3 rounded-xl shadow-lg text-xs font-semibold flex items-center gap-2.5 pointer-events-auto transition-all duration-300`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-sm"></i><span>${escapeHTML(message)}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-8px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag]));
+        }
+    </script>
+</body>
+</html>

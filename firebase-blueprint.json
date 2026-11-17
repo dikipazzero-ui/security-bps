@@ -1,0 +1,213 @@
+{
+  "entities": {
+    "OfficerProfile": {
+      "title": "OfficerProfile",
+      "description": "Profil petugas security Plot BPS yang aktif bertugas.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID pemilik profil"
+        },
+        "name": {
+          "type": "string",
+          "description": "Nama lengkap petugas security"
+        },
+        "nrp": {
+          "type": "string",
+          "description": "NRP atau nomor ID anggota security"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "Danru Plot BPS",
+            "Anggota Pos Utama BPS",
+            "Anggota Patroli Gedung BPS",
+            "Korlap Security BPS"
+          ],
+          "description": "Jabatan atau plot tugas di lingkungan BPS"
+        },
+        "activeShift": {
+          "type": "string",
+          "enum": ["Shift 1", "Shift 2", "Shift 3"],
+          "description": "Shift tugas aktif saat ini"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembuatan profil (FieldValue.serverTimestamp())"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembaruan terakhir (FieldValue.serverTimestamp())"
+        }
+      },
+      "required": [
+        "userId",
+        "name",
+        "nrp",
+        "role",
+        "activeShift",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SecurityReport": {
+      "title": "SecurityReport",
+      "description": "Rincian laporan harian security Plot BPS dalam salah satu dari 3 kategori wajib.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID petugas pembuat laporan"
+        },
+        "category": {
+          "type": "integer",
+          "enum": [1, 2, 3],
+          "description": "Kategori laporan: 1 (Apel & Inventaris), 2 (Patroli BPS), 3 (Pelayanan Tamu & Kamtibmas)"
+        },
+        "time": {
+          "type": "string",
+          "description": "Waktu pelaksanaan kegiatan (format HH:mm)"
+        },
+        "shift": {
+          "type": "string",
+          "enum": ["Shift 1", "Shift 2", "Shift 3"],
+          "description": "Keterangan shift pelaksanaan tugas"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "Aman & Terkendali",
+            "Dalam Pemantauan",
+            "Perlu Tindak Lanjut"
+          ],
+          "description": "Status kondisi lapangan"
+        },
+        "description": {
+          "type": "string",
+          "description": "Rincian kegiatan atau kejadian lapangan"
+        },
+        "photos": {
+          "type": "array",
+          "description": "Maksimal 4 foto dokumentasi terkompresi dalam format base64 JPEG"
+        },
+        "officerName": {
+          "type": "string",
+          "description": "Nama petugas pelapor"
+        },
+        "officerNrp": {
+          "type": "string",
+          "description": "NRP/ID petugas pelapor"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembuatan laporan (FieldValue.serverTimestamp())"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembaruan laporan (FieldValue.serverTimestamp())"
+        }
+      },
+      "required": [
+        "userId",
+        "category",
+        "time",
+        "shift",
+        "status",
+        "description",
+        "photos",
+        "officerName",
+        "officerNrp",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Pesan teks, foto kondisi, atau voice note di Channel Koordinasi Plot BPS.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID pemilik riwayat chat"
+        },
+        "senderName": {
+          "type": "string",
+          "description": "Nama pengirim pesan"
+        },
+        "senderRole": {
+          "type": "string",
+          "description": "Plot atau jabatan pengirim pesan"
+        },
+        "fromOfficer": {
+          "type": "boolean",
+          "description": "Penanda apakah pesan dikirim oleh petugas pengguna aplikasi"
+        },
+        "time": {
+          "type": "string",
+          "description": "Jam pengiriman pesan (format HH:mm)"
+        },
+        "text": {
+          "type": "string",
+          "description": "Isi pesan teks koordinasi"
+        },
+        "imageData": {
+          "type": "string",
+          "description": "Lampiran foto terkompresi base64 JPEG (opsional)"
+        },
+        "audioType": {
+          "type": "string",
+          "enum": ["none", "recorded", "simulated"],
+          "description": "Jenis lampiran voice note"
+        },
+        "audioData": {
+          "type": "string",
+          "description": "Data audio voice note terkompresi base64 M4A (opsional)"
+        },
+        "audioDuration": {
+          "type": "string",
+          "description": "Durasi voice note format MM:SS (opsional)"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp server pengiriman pesan (FieldValue.serverTimestamp())"
+        }
+      },
+      "required": [
+        "userId",
+        "senderName",
+        "senderRole",
+        "fromOfficer",
+        "time",
+        "text",
+        "audioType",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/OfficerProfile"
+      },
+      "description": "Profil dan shift aktif petugas security Plot BPS"
+    },
+    "/users/{userId}/reports/{reportId}": {
+      "schema": {
+        "$ref": "#/entities/SecurityReport"
+      },
+      "description": "Daftar laporan harian security milik petugas"
+    },
+    "/users/{userId}/chat_messages/{messageId}": {
+      "schema": {
+        "$ref": "#/entities/ChatMessage"
+      },
+      "description": "Pesan koordinasi Live Chat & Voice Note Plot BPS"
+    }
+  }
+}

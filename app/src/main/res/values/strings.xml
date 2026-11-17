@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">Security BPS</string>
+    <string name="header_title">LAPORAN HARIAN SECURITY - PLOT BPS</string>
+    <string name="status_online">Siaga Online</string>
+    <string name="shift_active_label">Shift Tugas Aktif</string>
+    <string name="tab_laporan">Laporan Harian</string>
+    <string name="tab_chat">Live Chat &amp; VN</string>
+    <string name="auth_title">Portal Petugas Security BPS</string>
+    <string name="auth_subtitle">Masuk dengan akun Google untuk sinkronisasi laporan harian 3 kategori, dokumentasi foto, dan channel koordinasi Plot BPS.</string>
+    <string name="sign_in_google">Sign in with Google</string>
+    <string name="sign_out">Keluar</string>
+    <string name="rekap_wa">Rekap &amp; Salin WA</string>
+    <string name="cetak_pdf">Cetak / PDF</string>
+    <string name="reset_shift">Reset Data Shift</string>
+    <string name="save_report">Simpan ke Laporan</string>
+    <string name="fill_template">+ Isi Template Contoh</string>
+    <string name="set_now">Kini</string>
+    <string name="channel_title">Channel Koordinasi Plot BPS</string>
+    <string name="channel_subtitle">Danru, Pos Depan, Patroli Belakang &amp; Korlap BPS</string>
+    <string name="test_team_reply">Tes Respon Tim</string>
+    <string name="chat_placeholder">Tulis laporan cepat atau koordinasi...</string>
+    <string name="camera_permission_rationale">Izin kamera diperlukan untuk mengambil foto dokumentasi lapangan secara langsung.</string>
+    <string name="mic_permission_rationale">Izin mikrofon diperlukan untuk merekam pesan suara (Voice Note) koordinasi tim.</string>
+</resources>
