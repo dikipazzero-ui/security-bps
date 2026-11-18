@@ -134,6 +134,8 @@ fun PjuTabScreen(
     sheetsState: UiState<List<PjuChecklistSheet>>,
     selectedSheetId: String?,
     pjuFilter: TimeKeywordFilter,
+    activeShift: String,
+    isExplicitSaving: Boolean,
     onSelectSheet: (String) -> Unit,
     onCreateSheet: (month: Int, year: Int, startDay: Int, endDay: Int, responsibleNames: String, copyClusters: Boolean) -> Unit,
     onUpdateHeader: (month: Int, year: Int, startDay: Int, endDay: Int, responsibleNames: String) -> Unit,
@@ -145,12 +147,14 @@ fun PjuTabScreen(
     onDeleteIssue: (index: Int) -> Unit,
     onUpdateNotes: (String) -> Unit,
     onDeleteSheet: () -> Unit,
+    onExplicitSave: (latestNotesDraft: String) -> Unit,
     onCopyWhatsApp: (PjuChecklistSheet) -> Unit,
     onPrintPdf: (PjuChecklistSheet) -> Unit,
     onFilterKeywordChange: (String) -> Unit,
     onFilterDayChange: (Int?) -> Unit,
     onFilterMonthChange: (Int?) -> Unit,
     onFilterYearChange: (Int?) -> Unit,
+    onFilterShiftChange: (String?) -> Unit,
     onFilterCurrentMonth: () -> Unit,
     onResetFilter: () -> Unit
 ) {
@@ -166,6 +170,9 @@ fun PjuTabScreen(
         allSheets.map { it.sheetYear.toInt() }.distinct()
     }
 
+    var notesDraft by remember(activeSheet?.id, activeSheet?.notes) {
+        mutableStateOf(activeSheet?.notes.orEmpty())
+    }
     var subOption by remember { mutableStateOf(PjuSubOption.MATRIKS) }
     var showSearchPanel by remember { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -363,7 +370,7 @@ fun PjuTabScreen(
                     item {
                         AnimatedVisibility(visible = showSearchPanel) {
                             SearchAndTimeFilterPanel(
-                                title = "Cari & Saring PJU (Cluster / Bulan / Tahun)",
+                                title = "Cari & Saring PJU (Cluster / Bulan / Tahun / Shift)",
                                 filter = pjuFilter,
                                 availableYears = availableYears,
                                 totalCount = allSheets.size,
@@ -374,6 +381,7 @@ fun PjuTabScreen(
                                 onDayChange = onFilterDayChange,
                                 onMonthChange = onFilterMonthChange,
                                 onYearChange = onFilterYearChange,
+                                onShiftChange = onFilterShiftChange,
                                 onSelectToday = onFilterCurrentMonth,
                                 onReset = onResetFilter
                             )
@@ -653,6 +661,8 @@ fun PjuTabScreen(
                                 item {
                                     PjuNotesAndIssuesSection(
                                         sheet = activeSheet,
+                                        notesDraft = notesDraft,
+                                        onNotesDraftChange = { notesDraft = it },
                                         onSaveNotes = onUpdateNotes,
                                         onAddIssue = {
                                             editingIssuePair = null to PjuIssueEntry(
@@ -728,6 +738,18 @@ fun PjuTabScreen(
                                     }
                                 }
                             }
+                        }
+
+                        // 7. DEDICATED BOTTOM SAVE BUTTON (very bottom of PJU option)
+                        item(key = "pju_bottom_save") {
+                            val timeSuffix = activeSheet.resolvedUpdatedTime().takeIf { it.isNotBlank() }?.let { " • Terakhir $it WIB" }.orEmpty()
+                            BottomOptionSaveCard(
+                                buttonLabel = "Simpan Checklist & Catatan PJU ($activeShift)",
+                                statusSubtitle = "Simpan kondisi lampu, masalah & catatan PJU (${activeSheet.monthYear}$timeSuffix)",
+                                isSaving = isExplicitSaving,
+                                testTag = "bottom_save_pju_button",
+                                onSaveClick = { onExplicitSave(notesDraft) }
+                            )
                         }
 
                         item { Spacer(modifier = Modifier.height(18.dp)) }
@@ -1408,12 +1430,13 @@ private fun PjuPeriodicSummarySection(
 @Composable
 private fun PjuNotesAndIssuesSection(
     sheet: PjuChecklistSheet,
+    notesDraft: String,
+    onNotesDraftChange: (String) -> Unit,
     onSaveNotes: (String) -> Unit,
     onAddIssue: () -> Unit,
     onEditIssue: (index: Int, entry: PjuIssueEntry) -> Unit,
     onDeleteIssue: (index: Int) -> Unit
 ) {
-    var notesDraft by remember(sheet.id, sheet.notes) { mutableStateOf(sheet.notes) }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // CATATAN Card matching physical sheet rectangle
         Card(
@@ -1443,11 +1466,13 @@ private fun PjuNotesAndIssuesSection(
                 }
                 OutlinedTextField(
                     value = notesDraft,
-                    onValueChange = { notesDraft = it.take(2000) },
+                    onValueChange = { onNotesDraftChange(it.take(2000)) },
                     placeholder = { Text("Tulis catatan pengecekan PJU di sini...") },
                     minLines = 3,
                     maxLines = 6,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("pju_notes_input")
                 )
             }
         }

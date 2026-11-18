@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Radio
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
@@ -135,6 +136,8 @@ fun ChatTabScreen(
     pendingChatPhoto: String?,
     pendingChatPhotoCaption: String,
     isSending: Boolean,
+    activeShift: String,
+    isExplicitSaving: Boolean,
     recordingState: VoiceRecordingState,
     playbackState: VoicePlaybackState,
     onOpenRoomModal: () -> Unit,
@@ -144,6 +147,7 @@ fun ChatTabScreen(
     onPendingPhotoCaptionChange: (String) -> Unit,
     onClearChatPhoto: () -> Unit,
     onSendTextOrPhoto: () -> Unit,
+    onExplicitSaveChat: () -> Unit,
     onEditMessage: (messageId: String, newText: String, newCaption: String?) -> Unit,
     onDeleteMessage: (messageId: String) -> Unit,
     onClearAllChat: () -> Unit,
@@ -158,6 +162,7 @@ fun ChatTabScreen(
     onFilterDayChange: (Int?) -> Unit,
     onFilterMonthChange: (Int?) -> Unit,
     onFilterYearChange: (Int?) -> Unit,
+    onFilterShiftChange: (String?) -> Unit,
     onResetFilter: () -> Unit
 ) {
     val listState = rememberLazyListState()
@@ -402,7 +407,7 @@ fun ChatTabScreen(
             AnimatedVisibility(visible = showSearchPanel) {
                 Box(modifier = Modifier.padding(6.dp)) {
                     SearchAndTimeFilterPanel(
-                        title = "Cari Pesan (Kata Kunci / Jam / Hari / Bulan / Tahun)",
+                        title = "Cari Pesan (Kata Kunci / Jam / Hari / Bulan / Tahun / Shift)",
                         filter = chatFilter,
                         availableYears = availableYears,
                         totalCount = allMessages.size,
@@ -413,6 +418,7 @@ fun ChatTabScreen(
                         onDayChange = onFilterDayChange,
                         onMonthChange = onFilterMonthChange,
                         onYearChange = onFilterYearChange,
+                        onShiftChange = onFilterShiftChange,
                         onReset = onResetFilter
                     )
                 }
@@ -769,6 +775,63 @@ fun ChatTabScreen(
                                 )
                             }
                         }
+                    }
+                }
+            }
+
+            // Dedicated Bottom Save Bar (very bottom of Chat option)
+            HorizontalDivider(color = Navy800.copy(alpha = 0.25f))
+            Surface(
+                color = Navy900,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = if (chatTextInput.trim().isNotEmpty()) {
+                            "Ketik selesai? Simpan ke arsip Catatan ($activeShift)"
+                        } else {
+                            "Arsip Chat $activeRoomCode (${allMessages.size} pesan • $activeShift)"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Slate200,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Button(
+                        onClick = onExplicitSaveChat,
+                        enabled = !isExplicitSaving,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Gold500,
+                            contentColor = Navy950
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier
+                            .height(48.dp)
+                            .testTag("bottom_save_chat_button")
+                    ) {
+                        if (isExplicitSaving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(15.dp),
+                                color = Navy950,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = if (chatTextInput.trim().isNotEmpty()) "Simpan Catatan" else "Simpan Data",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.ExtraBold
+                        )
                     }
                 }
             }

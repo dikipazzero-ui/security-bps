@@ -13,6 +13,7 @@ import com.example.data.model.ChatRoom
 import com.example.data.model.DEFAULT_ROOM_CODE
 import com.example.data.model.DailyActivitySheet
 import com.example.data.model.InventoryRow
+import com.example.data.model.NoteSourceTab
 import com.example.data.model.OfficerProfile
 import com.example.data.model.OfficerRoles
 import com.example.data.model.PersonnelRow
@@ -20,6 +21,7 @@ import com.example.data.model.PjuChecklistSheet
 import com.example.data.model.PjuClusterRow
 import com.example.data.model.PjuIssueEntry
 import com.example.data.model.PjuTemplates
+import com.example.data.model.QuickNote
 import com.example.data.model.ReportStatus
 import com.example.data.model.RoomMember
 import com.example.data.model.SecurityReport
@@ -178,6 +180,30 @@ class SecurityRepository(
             .map { snapshot ->
                 snapshot.toObjects(
                     PjuChecklistSheet::class.java,
+                    DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
+                )
+            }
+            .catch { error ->
+                val firestoreError = generateSequence(error) { it.cause }
+                    .filterIsInstance<FirebaseFirestoreException>()
+                    .firstOrNull()
+                if (firestoreError == null && error is CancellationException) throw error
+                val exceptionToLog = firestoreError ?: (error as? Exception)
+                if (exceptionToLog != null && auth.currentUser?.uid == userId) {
+                    handleFirestoreError(exceptionToLog, OperationType.LIST, path)
+                }
+                throw error
+            }
+    }
+
+    fun observeQuickNotes(userId: String): Flow<List<QuickNote>> {
+        val path = "users/$userId/quick_notes"
+        return db.collection("users").document(userId).collection("quick_notes")
+            .orderBy("updatedAt", Query.Direction.DESCENDING)
+            .snapshots()
+            .map { snapshot ->
+                snapshot.toObjects(
+                    QuickNote::class.java,
                     DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
                 )
             }
@@ -952,7 +978,8 @@ class SecurityRepository(
         audioType: String = "none",
         audioData: String? = null,
         audioDuration: String? = null,
-        senderPhoto: String? = null
+        senderPhoto: String? = null,
+        shift: String? = null
     ): Result<Unit> {
         val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
         var path = "chat_rooms/$cleanCode/messages"
@@ -964,6 +991,7 @@ class SecurityRepository(
             val cleanName = senderName.trim().ifBlank { "Petugas Security" }.take(80)
             val cleanRole = senderRole.trim().ifBlank { "Plot BPS" }.take(80)
             val cleanSenderPhoto = senderPhoto?.takeIf { it.isNotBlank() && it.length <= 120_000 }
+            val validShift = shift?.takeIf { s -> s in ShiftOption.entries.map { it.label } }
             require(cleanText.length <= 2000) { "Pesan maksimal 2000 karakter." }
             require(audioType in listOf("none", "recorded", "simulated")) { "Tipe audio tidak valid." }
             if (imageData != null) require(imageData.length <= 200000) { "Ukuran foto melebihi batas." }
@@ -995,6 +1023,7 @@ class SecurityRepository(
                 "audioDuration" to audioDuration?.takeIf { it.isNotEmpty() },
                 "senderPhoto" to cleanSenderPhoto,
                 "edited" to false,
+                "shift" to validShift,
                 "createdAt" to FieldValue.serverTimestamp()
             ).filterValues { it != null } as Map<String, Any>
 
@@ -1353,6 +1382,8 @@ class SecurityRepository(
         issues: List<PjuIssueEntry>,
         notes: String,
         responsibleNames: String,
+        lastShift: String = "",
+        lastUpdatedTime: String = "",
         includeCreatedAt: Boolean
     ): Map<String, Any> {
         val cleanMonthYear = monthYear.trim().ifBlank { PjuTemplates.currentMonthYearLabel() }.take(40)
@@ -1362,6 +1393,8 @@ class SecurityRepository(
         val cleanEndDay = periodEndDay.coerceIn(cleanStartDay, 31L)
         val cleanNotes = notes.trim().take(2000)
         val cleanResp = responsibleNames.trim().ifBlank { PjuTemplates.DEFAULT_RESPONSIBLE }.take(120)
+        val validLastShift = lastShift.takeIf { s -> s in ShiftOption.entries.map { it.label } }
+        val cleanLastTime = lastUpdatedTime.trim().take(16).takeIf { it.isNotEmpty() }
 
         require(clusters.size <= 40) { "Maksimal 40 cluster PJU per lembar." }
         require(issues.size <= 100) { "Maksimal 100 entri permasalahan PJU per lembar." }
@@ -1403,6 +1436,12 @@ class SecurityRepository(
             "responsibleNames" to cleanResp,
             "updatedAt" to FieldValue.serverTimestamp()
         )
+        if (validLastShift != null) {
+            map["lastShift"] = validLastShift
+        }
+        if (cleanLastTime != null) {
+            map["lastUpdatedTime"] = cleanLastTime
+        }
         if (includeCreatedAt) {
             map["createdAt"] = FieldValue.serverTimestamp()
         }
@@ -1431,6 +1470,8 @@ class SecurityRepository(
                     issues = sheet.issues,
                     notes = sheet.notes,
                     responsibleNames = sheet.responsibleNames,
+                    lastShift = sheet.lastShift,
+                    lastUpdatedTime = sheet.lastUpdatedTime,
                     includeCreatedAt = true
                 )
                 docRef.set(payload).await()
@@ -1446,6 +1487,8 @@ class SecurityRepository(
                     issues = sheet.issues,
                     notes = sheet.notes,
                     responsibleNames = sheet.responsibleNames,
+                    lastShift = sheet.lastShift,
+                    lastUpdatedTime = sheet.lastUpdatedTime,
                     includeCreatedAt = false
                 ).toMutableMap().apply {
                     remove("userId")
@@ -1467,6 +1510,74 @@ class SecurityRepository(
             val uid = requireUserId()
             require(sheetId.isNotBlank()) { "ID lembar PJU tidak valid." }
             val docRef = db.collection("users").document(uid).collection("pju_sheets").document(sheetId)
+            path = docRef.path
+            docRef.delete().await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.DELETE, path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun saveQuickNote(note: QuickNote): Result<String> {
+        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/quick_notes"
+        return try {
+            val uid = requireUserId()
+            val cleanTitle = note.title.trim().take(120)
+            val cleanContent = note.content.trim().take(2000)
+            require(cleanContent.isNotEmpty()) { "Isi catatan tidak boleh kosong." }
+            val validSource = NoteSourceTab.fromNameOrDefault(note.sourceTab).name
+            val cleanDate = note.noteDate.trim().ifBlank { currentIsoDate() }
+            require(cleanDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) { "Format tanggal catatan harus yyyy-MM-dd." }
+            val cleanTime = note.noteTime.trim().ifBlank {
+                SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+            }.take(16)
+            val validShift = if (note.shift in ShiftOption.entries.map { it.label }) {
+                note.shift
+            } else {
+                ShiftOption.SHIFT_1.label
+            }
+            val cleanOfficer = note.officerName.trim().ifBlank { "Petugas Security" }.take(80)
+
+            val col = db.collection("users").document(uid).collection("quick_notes")
+            val isNew = note.id.isBlank()
+            val docRef = if (isNew) col.document() else col.document(note.id)
+            path = docRef.path
+
+            val baseMap = mutableMapOf<String, Any>(
+                "title" to cleanTitle,
+                "content" to cleanContent,
+                "sourceTab" to validSource,
+                "noteDate" to cleanDate,
+                "noteTime" to cleanTime,
+                "shift" to validShift,
+                "officerName" to cleanOfficer,
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            if (isNew || !docRef.get().await().exists()) {
+                baseMap["userId"] = uid
+                baseMap["createdAt"] = FieldValue.serverTimestamp()
+                docRef.set(baseMap).await()
+            } else {
+                docRef.update(baseMap).await()
+            }
+            Result.success(docRef.id)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.WRITE, path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteQuickNote(noteId: String): Result<Unit> {
+        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/quick_notes/$noteId"
+        return try {
+            val uid = requireUserId()
+            require(noteId.isNotBlank()) { "ID catatan tidak valid." }
+            val docRef = db.collection("users").document(uid).collection("quick_notes").document(noteId)
             path = docRef.path
             docRef.delete().await()
             Result.success(Unit)

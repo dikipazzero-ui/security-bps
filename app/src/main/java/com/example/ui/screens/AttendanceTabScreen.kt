@@ -126,6 +126,7 @@ fun AttendanceTabScreen(
     attendanceFilter: TimeKeywordFilter,
     defaultShift: String,
     defaultCommanderName: String,
+    isExplicitSaving: Boolean,
     onSelectSheet: (String) -> Unit,
     onCreateSheet: (sheetDate: String, shift: String, periodLabel: String, commanderName: String, copyExisting: Boolean) -> Unit,
     onUpdateHeader: (sheetDate: String, shift: String, periodLabel: String, commanderName: String) -> Unit,
@@ -136,6 +137,7 @@ fun AttendanceTabScreen(
     onEnsure15Rows: () -> Unit,
     onDeleteRow: (rowIndex: Int) -> Unit,
     onDeleteSheet: () -> Unit,
+    onExplicitSave: () -> Unit,
     onCopyWhatsApp: (AttendanceSheet) -> Unit,
     onPrintPdf: (AttendanceSheet) -> Unit,
     onFilterKeywordChange: (String) -> Unit,
@@ -143,6 +145,7 @@ fun AttendanceTabScreen(
     onFilterDayChange: (Int?) -> Unit,
     onFilterMonthChange: (Int?) -> Unit,
     onFilterYearChange: (Int?) -> Unit,
+    onFilterShiftChange: (String?) -> Unit,
     onFilterToday: () -> Unit,
     onResetFilter: () -> Unit
 ) {
@@ -354,7 +357,7 @@ fun AttendanceTabScreen(
                     item {
                         AnimatedVisibility(visible = showSearchPanel) {
                             SearchAndTimeFilterPanel(
-                                title = "Cari Anggota / Status / Tanggal Absensi",
+                                title = "Cari Anggota / Status / Tanggal / Shift Absensi",
                                 filter = attendanceFilter,
                                 availableYears = availableYears,
                                 totalCount = allSheets.size,
@@ -365,6 +368,7 @@ fun AttendanceTabScreen(
                                 onDayChange = onFilterDayChange,
                                 onMonthChange = onFilterMonthChange,
                                 onYearChange = onFilterYearChange,
+                                onShiftChange = onFilterShiftChange,
                                 onSelectToday = onFilterToday,
                                 onReset = onResetFilter
                             )
@@ -619,6 +623,18 @@ fun AttendanceTabScreen(
                                 )
                             }
                         }
+
+                        // Dedicated Bottom Save Button (very bottom of Absensi option)
+                        item(key = "attendance_bottom_save") {
+                            BottomOptionSaveCard(
+                                buttonLabel = "Simpan Absensi ${activeSheet.rows.size} Anggota (${activeSheet.shift})",
+                                statusSubtitle = "Simpan catatan absensi, status & jam terekam (${activeSheet.sheetDate})",
+                                isSaving = isExplicitSaving,
+                                testTag = "bottom_save_absensi_button",
+                                onSaveClick = onExplicitSave
+                            )
+                        }
+                        item { Spacer(modifier = Modifier.height(16.dp)) }
                     }
                 }
             }

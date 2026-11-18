@@ -114,6 +114,7 @@ service cloud.firestore {
              (!('senderPhoto' in data) || (data.senderPhoto is string && data.senderPhoto.size() <= 120000)) &&
              (!('edited' in data) || data.edited is bool) &&
              (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time)) &&
+             (!('shift' in data) || data.shift in ['Shift 1', 'Shift 2', 'Shift 3']) &&
              (data.text.size() > 0 || ('imageData' in data && data.imageData.size() > 0) || data.audioType != 'none') &&
              data.createdAt is timestamp && data.createdAt <= request.time;
     }
@@ -160,6 +161,21 @@ service cloud.firestore {
              (data.issues.size() == 0 || data.issues[0] is map) &&
              data.notes is string && data.notes.size() <= 2000 &&
              data.responsibleNames is string && data.responsibleNames.size() >= 1 && data.responsibleNames.size() <= 120 &&
+             (!('lastShift' in data) || data.lastShift in ['Shift 1', 'Shift 2', 'Shift 3']) &&
+             (!('lastUpdatedTime' in data) || (data.lastUpdatedTime is string && data.lastUpdatedTime.size() <= 16)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidQuickNote(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.sourceTab is string && data.sourceTab.size() >= 1 && data.sourceTab.size() <= 24 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.content is string && data.content.size() >= 1 && data.content.size() <= 2000 &&
+             data.noteDate is string && data.noteDate.size() == 10 && data.noteDate.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+             data.noteTime is string && data.noteTime.size() >= 4 && data.noteTime.size() <= 10 &&
+             data.shift in ['Shift 1', 'Shift 2', 'Shift 3'] &&
+             data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80 &&
              data.createdAt is timestamp && data.createdAt <= request.time &&
              data.updatedAt is timestamp && data.updatedAt <= request.time;
     }
@@ -272,7 +288,7 @@ service cloud.firestore {
                          isValidId(userId) &&
                          isValidId(sheetId) &&
                          incoming().keys().hasAll(['userId', 'monthYear', 'sheetMonth', 'sheetYear', 'periodStartDay', 'periodEndDay', 'clusters', 'issues', 'notes', 'responsibleNames', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'monthYear', 'sheetMonth', 'sheetYear', 'periodStartDay', 'periodEndDay', 'clusters', 'issues', 'notes', 'responsibleNames', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'monthYear', 'sheetMonth', 'sheetYear', 'periodStartDay', 'periodEndDay', 'clusters', 'issues', 'notes', 'responsibleNames', 'lastShift', 'lastUpdatedTime', 'createdAt', 'updatedAt']) &&
                          isValidPjuSheet(incoming(), userId);
 
         allow update: if isOwner(userId) &&
@@ -281,9 +297,31 @@ service cloud.firestore {
                          isValidPjuSheet(incoming(), userId) &&
                          incoming().userId == existing().userId &&
                          incoming().createdAt == existing().createdAt &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['monthYear', 'sheetMonth', 'sheetYear', 'periodStartDay', 'periodEndDay', 'clusters', 'issues', 'notes', 'responsibleNames', 'updatedAt']);
+                         incoming().diff(existing()).affectedKeys().hasOnly(['monthYear', 'sheetMonth', 'sheetYear', 'periodStartDay', 'periodEndDay', 'clusters', 'issues', 'notes', 'responsibleNames', 'lastShift', 'lastUpdatedTime', 'updatedAt']);
 
         allow delete: if isOwner(userId) && isValidId(userId) && isValidId(sheetId);
+      }
+
+      match /quick_notes/{noteId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(noteId);
+        allow list: if isOwner(userId) && isValidId(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(noteId) &&
+                         incoming().keys().hasAll(['userId', 'sourceTab', 'title', 'content', 'noteDate', 'noteTime', 'shift', 'authorName', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'sourceTab', 'title', 'content', 'noteDate', 'noteTime', 'shift', 'authorName', 'createdAt', 'updatedAt']) &&
+                         isValidQuickNote(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(noteId) &&
+                         isValidQuickNote(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['sourceTab', 'title', 'content', 'noteDate', 'noteTime', 'shift', 'authorName', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(noteId);
       }
     }
 
@@ -341,7 +379,7 @@ service cloud.firestore {
                          isValidRoomCode(roomCode) &&
                          isValidId(messageId) &&
                          incoming().keys().hasAll(['userId', 'roomCode', 'senderName', 'senderRole', 'fromOfficer', 'time', 'text', 'audioType', 'createdAt']) &&
-                         incoming().keys().hasOnly(['userId', 'roomCode', 'senderName', 'senderRole', 'fromOfficer', 'time', 'text', 'imageData', 'imageCaption', 'audioType', 'audioData', 'audioDuration', 'senderPhoto', 'edited', 'updatedAt', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'roomCode', 'senderName', 'senderRole', 'fromOfficer', 'time', 'text', 'imageData', 'imageCaption', 'audioType', 'audioData', 'audioDuration', 'senderPhoto', 'shift', 'edited', 'updatedAt', 'createdAt']) &&
                          isValidRoomChatMessage(incoming(), roomCode) &&
                          exists(/databases/$(database)/documents/chat_rooms/$(roomCode));
 

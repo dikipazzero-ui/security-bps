@@ -210,6 +210,11 @@
           "type": "string",
           "description": "Foto profil pengirim pesan base64 JPEG (opsional)"
         },
+        "shift": {
+          "type": "string",
+          "enum": ["Shift 1", "Shift 2", "Shift 3"],
+          "description": "Shift aktif pengirim pesan saat chat dikirim (opsional)"
+        },
         "edited": {
           "type": "boolean",
           "description": "Penanda pesan pernah diedit (opsional)"
@@ -504,6 +509,15 @@
           "type": "string",
           "description": "Penanggung Jawab PJU (default: R. MOH. GANDI / NERI WELAS ANTORO)"
         },
+        "lastShift": {
+          "type": "string",
+          "enum": ["Shift 1", "Shift 2", "Shift 3"],
+          "description": "Shift petugas terakhir yang mencatat/menyimpan checklist PJU (opsional)"
+        },
+        "lastUpdatedTime": {
+          "type": "string",
+          "description": "Jam pembaruan terakhir format HH:mm (opsional)"
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time",
@@ -526,6 +540,68 @@
         "issues",
         "notes",
         "responsibleNames",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "QuickNote": {
+      "title": "QuickNote",
+      "description": "Catatan petugas security yang disimpan per opsi dengan stempel waktu dan shift.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID pemilik catatan"
+        },
+        "sourceTab": {
+          "type": "string",
+          "description": "Asal opsi pencatatan (Laporan, Tabel, Absensi, PJU, Chat, Catatan)"
+        },
+        "title": {
+          "type": "string",
+          "description": "Judul singkat catatan"
+        },
+        "content": {
+          "type": "string",
+          "description": "Isi catatan lapangan"
+        },
+        "noteDate": {
+          "type": "string",
+          "description": "Tanggal catatan format yyyy-MM-dd"
+        },
+        "noteTime": {
+          "type": "string",
+          "description": "Jam catatan format HH:mm"
+        },
+        "shift": {
+          "type": "string",
+          "enum": ["Shift 1", "Shift 2", "Shift 3"],
+          "description": "Shift bertugas saat catatan disimpan"
+        },
+        "authorName": {
+          "type": "string",
+          "description": "Nama petugas pembuat catatan"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp server pembuatan catatan"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp server pembaruan catatan"
+        }
+      },
+      "required": [
+        "userId",
+        "sourceTab",
+        "title",
+        "content",
+        "noteDate",
+        "noteTime",
+        "shift",
+        "authorName",
         "createdAt",
         "updatedAt"
       ]
@@ -585,6 +661,12 @@
         "$ref": "#/entities/PjuChecklistSheet"
       },
       "description": "Lembar Form Checklist Penerangan Jalan Umum (PJU) Perumahan Bumi Papan Selaras"
+    },
+    "/users/{userId}/quick_notes/{noteId}": {
+      "schema": {
+        "$ref": "#/entities/QuickNote"
+      },
+      "description": "Catatan cepat petugas security lengkap dengan tanggal, jam, dan shift"
     }
   }
 }

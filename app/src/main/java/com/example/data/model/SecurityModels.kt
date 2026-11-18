@@ -204,6 +204,7 @@ data class ChatMessage(
     val audioDuration: String? = null,
     val senderPhoto: String? = null,
     val edited: Boolean = false,
+    val shift: String = "",
     val updatedAt: Timestamp? = null,
     @ServerTimestamp val createdAt: Timestamp? = null
 ) {
@@ -212,6 +213,11 @@ data class ChatMessage(
         if (fromTime != null && fromTime in 0..23) return fromTime
         val date = createdAt?.toDate() ?: return null
         return Calendar.getInstance().apply { this.time = date }.get(Calendar.HOUR_OF_DAY)
+    }
+
+    fun resolvedShift(): String {
+        if (shift in ShiftOption.entries.map { it.label }) return shift
+        return inferShiftFromHour(resolvedHour())
     }
 
     fun resolvedYearMonthDay(): Triple<Int, Int, Int>? {
@@ -236,10 +242,11 @@ data class TimeKeywordFilter(
     val hour: Int? = null,
     val day: Int? = null,
     val month: Int? = null,
-    val year: Int? = null
+    val year: Int? = null,
+    val shift: String? = null
 ) {
     val isActive: Boolean
-        get() = keyword.isNotBlank() || hour != null || day != null || month != null || year != null
+        get() = keyword.isNotBlank() || hour != null || day != null || month != null || year != null || shift != null
 
     fun matchesReport(report: SecurityReport): Boolean {
         val q = keyword.trim().lowercase(Locale.getDefault())
@@ -254,6 +261,7 @@ data class TimeKeywordFilter(
                 report.photoCaptions.any { it.lowercase(Locale.getDefault()).contains(q) }
             if (!matchesKeyword) return false
         }
+        if (shift != null && report.shift != shift) return false
         if (hour != null && report.resolvedHour() != hour) return false
         if (day != null || month != null || year != null) {
             val ymd = report.resolvedYearMonthDay() ?: return false
@@ -271,9 +279,11 @@ data class TimeKeywordFilter(
                 msg.senderName.lowercase(Locale.getDefault()).contains(q) ||
                 msg.senderRole.lowercase(Locale.getDefault()).contains(q) ||
                 (msg.imageCaption?.lowercase(Locale.getDefault())?.contains(q) == true) ||
-                msg.time.lowercase(Locale.getDefault()).contains(q)
+                msg.time.lowercase(Locale.getDefault()).contains(q) ||
+                msg.resolvedShift().lowercase(Locale.getDefault()).contains(q)
             if (!matchesKeyword) return false
         }
+        if (shift != null && msg.resolvedShift() != shift) return false
         if (hour != null && msg.resolvedHour() != hour) return false
         if (day != null || month != null || year != null) {
             val ymd = msg.resolvedYearMonthDay() ?: return false
@@ -330,6 +340,7 @@ data class TimeKeywordFilter(
             }
             if (!inMeta && !inPersonnel && !inInventory && !inActivities) return false
         }
+        if (shift != null && sheet.shift != shift) return false
         if (day != null || month != null || year != null) {
             val ymd = parseIsoDateTriple(sheet.sheetDate) ?: return false
             if (year != null && ymd.first != year) return false
@@ -352,6 +363,7 @@ data class TimeKeywordFilter(
             val inRows = sheet.rows.any { matchesAttendanceKeywordOnly(it, q) }
             if (!inHeader && !inRows) return false
         }
+        if (shift != null && sheet.shift != shift) return false
         if (day != null || month != null || year != null) {
             val ymd = parseIsoDateTriple(sheet.sheetDate) ?: return false
             if (year != null && ymd.first != year) return false
@@ -401,7 +413,9 @@ data class TimeKeywordFilter(
         if (q.isNotEmpty()) {
             val inHeader = sheet.monthYear.lowercase(Locale.getDefault()).contains(q) ||
                 sheet.responsibleNames.lowercase(Locale.getDefault()).contains(q) ||
-                sheet.notes.lowercase(Locale.getDefault()).contains(q)
+                sheet.notes.lowercase(Locale.getDefault()).contains(q) ||
+                sheet.lastShift.lowercase(Locale.getDefault()).contains(q) ||
+                sheet.lastUpdatedTime.lowercase(Locale.getDefault()).contains(q)
             val inClusters = sheet.clusters.any {
                 it.clusterName.lowercase(Locale.getDefault()).contains(q) ||
                     it.checks.values.any { v -> v.lowercase(Locale.getDefault()).contains(q) }
@@ -415,6 +429,7 @@ data class TimeKeywordFilter(
             }
             if (!inHeader && !inClusters && !inIssues) return false
         }
+        if (shift != null && sheet.resolvedShift().isNotBlank() && sheet.resolvedShift() != shift) return false
         if (year != null && sheet.sheetYear.toInt() != year) return false
         if (month != null && sheet.sheetMonth.toInt() != month) return false
         if (day != null) {
@@ -796,9 +811,31 @@ data class PjuChecklistSheet(
     val issues: List<PjuIssueEntry> = emptyList(),
     val notes: String = "",
     val responsibleNames: String = PjuTemplates.DEFAULT_RESPONSIBLE,
+    val lastShift: String = "",
+    val lastUpdatedTime: String = "",
     @ServerTimestamp val createdAt: Timestamp? = null,
     @ServerTimestamp val updatedAt: Timestamp? = null
 ) {
+    fun resolvedShift(): String {
+        if (lastShift in ShiftOption.entries.map { it.label }) return lastShift
+        val h = resolvedHour()
+        return if (h != null) inferShiftFromHour(h) else ""
+    }
+
+    fun resolvedUpdatedTime(): String {
+        if (lastUpdatedTime.isNotBlank()) return lastUpdatedTime
+        val dt = updatedAt?.toDate() ?: return ""
+        return SimpleDateFormat("HH:mm", Locale.getDefault()).format(dt)
+    }
+
+    fun resolvedHour(): Int? {
+        val t = resolvedUpdatedTime().trim().replace(".", ":")
+        val parsed = t.substringBefore(":").toIntOrNull()
+        if (parsed != null && parsed in 0..23) return parsed
+        val dt = updatedAt?.toDate() ?: return null
+        return Calendar.getInstance().apply { time = dt }.get(Calendar.HOUR_OF_DAY)
+    }
+
     fun daysList(): List<Int> {
         val start = periodStartDay.toInt().coerceIn(1, 31)
         val end = periodEndDay.toInt().coerceIn(start, 31)
@@ -938,6 +975,96 @@ object PjuTemplates {
         }
         val maxDay = cal.getActualMaximum(Calendar.DAY_OF_MONTH).toLong()
         return if (referenceDay >= 16) 16L to maxDay else 1L to 15L
+    }
+}
+
+fun inferShiftFromHour(hour: Int?): String {
+    if (hour == null) return ShiftOption.SHIFT_1.label
+    return when (hour) {
+        in 7..14 -> ShiftOption.SHIFT_1.label
+        in 15..22 -> ShiftOption.SHIFT_2.label
+        else -> ShiftOption.SHIFT_3.label
+    }
+}
+
+fun formatIsoDateBadge(isoDate: String): String {
+    val ymd = parseIsoDateTriple(isoDate) ?: return isoDate
+    val monthName = IndonesianMonths.shortNames.getOrElse(ymd.second - 1) { ymd.second.toString() }
+    return "${ymd.third.toString().padStart(2, '0')} $monthName ${ymd.first}"
+}
+
+enum class NoteSourceTab(val label: String, val badgeText: String) {
+    LAPORAN("Laporan", "Laporan Harian"),
+    TABEL("Tabel", "Tabel Jurnal"),
+    ABSENSI("Absensi", "Absensi 15"),
+    PJU("PJU", "Checklist PJU"),
+    CHAT("Chat", "Live Chat"),
+    CATATAN("Catatan", "Catatan Tersimpan");
+
+    companion object {
+        fun fromNameOrDefault(raw: String): NoteSourceTab =
+            entries.firstOrNull { it.name.equals(raw.trim(), ignoreCase = true) } ?: CATATAN
+    }
+}
+
+@Keep
+@IgnoreExtraProperties
+data class QuickNote(
+    @DocumentId val id: String = "",
+    val userId: String = "",
+    val title: String = "",
+    val content: String = "",
+    val sourceTab: String = NoteSourceTab.CATATAN.name,
+    val noteDate: String = currentIsoDate(),
+    val noteTime: String = "",
+    val shift: String = ShiftOption.SHIFT_1.label,
+    val officerName: String = "",
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null
+)
+
+data class UnifiedNoteItem(
+    val id: String,
+    val source: NoteSourceTab,
+    val title: String,
+    val content: String,
+    val shift: String,
+    val timeWib: String,
+    val dateIso: String,
+    val dateDisplay: String,
+    val hour: Int?,
+    val year: Int?,
+    val month: Int?,
+    val day: Int?,
+    val officerName: String,
+    val sheetId: String? = null,
+    val quickNoteId: String? = null,
+    val sortTimestamp: Long = 0L
+) {
+    fun matches(filter: TimeKeywordFilter, sourceFilter: NoteSourceTab? = null): Boolean {
+        if (sourceFilter != null && source != sourceFilter) return false
+        if (filter.shift != null && shift != filter.shift) return false
+        if (filter.hour != null && hour != filter.hour) return false
+        if (filter.year != null && year != filter.year) return false
+        if (filter.month != null && month != filter.month) return false
+        if (filter.day != null && day != filter.day) return false
+
+        val q = filter.keyword.trim().lowercase(Locale.getDefault())
+        if (q.isNotEmpty()) {
+            val haystack = listOf(
+                title,
+                content,
+                shift,
+                timeWib,
+                dateIso,
+                dateDisplay,
+                officerName,
+                source.label,
+                source.badgeText
+            ).joinToString(" ").lowercase(Locale.getDefault())
+            if (!haystack.contains(q)) return false
+        }
+        return true
     }
 }
 

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,8 +24,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Today
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -52,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.data.model.IndonesianMonths
+import com.example.data.model.ShiftOption
 import com.example.data.model.TimeKeywordFilter
 import com.example.media.ImageUtils
 import com.example.ui.theme.Emerald100
@@ -64,8 +73,10 @@ import com.example.ui.theme.Navy100
 import com.example.ui.theme.Navy700
 import com.example.ui.theme.Navy800
 import com.example.ui.theme.Navy900
+import com.example.ui.theme.Navy950
 import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
+import com.example.ui.theme.Slate300
 import com.example.ui.theme.Slate400
 import com.example.ui.theme.Slate50
 import com.example.ui.theme.Slate500
@@ -179,6 +190,7 @@ fun SearchAndTimeFilterPanel(
     onDayChange: (Int?) -> Unit,
     onMonthChange: (Int?) -> Unit,
     onYearChange: (Int?) -> Unit,
+    onShiftChange: ((String?) -> Unit)? = null,
     onSelectToday: (() -> Unit)? = null,
     onReset: () -> Unit,
     modifier: Modifier = Modifier
@@ -309,6 +321,18 @@ fun SearchAndTimeFilterPanel(
                     onSelect = onYearChange
                 )
 
+                if (onShiftChange != null) {
+                    FilterDropdownChip(
+                        label = filter.shift ?: "Semua Shift",
+                        isSelected = filter.shift != null,
+                        testTag = "${testTagPrefix}_shift_filter",
+                        options = listOf(null to "Semua Shift") + ShiftOption.entries.map { opt ->
+                            opt.label to "${opt.label} (${opt.timeRange})"
+                        },
+                        onSelect = onShiftChange
+                    )
+                }
+
                 if (onSelectToday != null) {
                     OutlinedButton(
                         onClick = onSelectToday,
@@ -339,7 +363,7 @@ fun SearchAndTimeFilterPanel(
 }
 
 @Composable
-private fun <T> FilterDropdownChip(
+internal fun <T> FilterDropdownChip(
     label: String,
     isSelected: Boolean,
     testTag: String,
@@ -376,6 +400,80 @@ private fun <T> FilterDropdownChip(
                         onSelect(value)
                         expanded = false
                     }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun BottomOptionSaveCard(
+    buttonLabel: String,
+    statusSubtitle: String,
+    isSaving: Boolean,
+    testTag: String,
+    onSaveClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Navy900.copy(alpha = 0.95f)),
+        border = BorderStroke(1.2.dp, Gold500.copy(alpha = 0.7f)),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Schedule,
+                    contentDescription = null,
+                    tint = Gold400,
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = statusSubtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Slate300,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Button(
+                onClick = onSaveClick,
+                enabled = !isSaving,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Gold500,
+                    contentColor = Navy950
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .testTag(testTag)
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = Navy950,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Save,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = buttonLabel,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.ExtraBold
                 )
             }
         }

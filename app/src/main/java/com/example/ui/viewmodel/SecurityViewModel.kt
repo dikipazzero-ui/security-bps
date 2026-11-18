@@ -16,6 +16,8 @@ import com.example.data.model.ChatRoom
 import com.example.data.model.DEFAULT_ROOM_CODE
 import com.example.data.model.DailyActivitySheet
 import com.example.data.model.InventoryRow
+import com.example.data.model.NoteIndexBuilder
+import com.example.data.model.NoteSourceTab
 import com.example.data.model.OfficerProfile
 import com.example.data.model.PersonnelRow
 import com.example.data.model.PjuChecklistSheet
@@ -23,6 +25,7 @@ import com.example.data.model.PjuClusterRow
 import com.example.data.model.PjuIssueEntry
 import com.example.data.model.PjuLampStatus
 import com.example.data.model.PjuTemplates
+import com.example.data.model.QuickNote
 import com.example.data.model.ReportCategory
 import com.example.data.model.ReportStatus
 import com.example.data.model.RoomMember
@@ -30,6 +33,7 @@ import com.example.data.model.SecurityReport
 import com.example.data.model.ShiftOption
 import com.example.data.model.TimeKeywordFilter
 import com.example.data.model.UiState
+import com.example.data.model.UnifiedNoteItem
 import com.example.data.model.currentIsoDate
 import com.example.notifications.AlertKind
 import com.example.notifications.IncomingAlertEvent
@@ -139,6 +143,9 @@ class SecurityViewModel(
 
     private val _isJoiningRoom = MutableStateFlow(false)
     val isJoiningRoom: StateFlow<Boolean> = _isJoiningRoom.asStateFlow()
+
+    private val _isExplicitSaving = MutableStateFlow(false)
+    val isExplicitSaving: StateFlow<Boolean> = _isExplicitSaving.asStateFlow()
 
     private val _toastEvents = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val toastEvents: SharedFlow<String> = _toastEvents.asSharedFlow()
@@ -334,6 +341,57 @@ class SecurityViewModel(
             started = SharingStarted.Eagerly,
             initialValue = UiState.Loading
         )
+
+    val quickNotesState: StateFlow<UiState<List<QuickNote>>> = repository.observeQuickNotes(currentUserId)
+        .map<List<QuickNote>, UiState<List<QuickNote>>> { UiState.Success(it) }
+        .catch { error ->
+            val firestoreError = generateSequence(error) { it.cause }
+                .filterIsInstance<FirebaseFirestoreException>()
+                .firstOrNull()
+            if (firestoreError == null && error is CancellationException) throw error
+            val rootError = firestoreError ?: error
+            Log.w(TAG, "Error observing quick notes", rootError)
+            emit(UiState.Error(rootError.localizedMessage ?: "Gagal memuat catatan tersimpan."))
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            initialValue = UiState.Loading
+        )
+
+    val unifiedNotesState: StateFlow<List<UnifiedNoteItem>> = combine(
+        combine(reportsState, activitySheetsState, attendanceSheetsState) { r, a, att ->
+            Triple(r, a, att)
+        },
+        combine(pjuSheetsState, chatState, quickNotesState, profileState) { pju, chat, qn, prof ->
+            listOf(pju, chat, qn, prof)
+        }
+    ) { (rState, aState, attState), rest ->
+        @Suppress("UNCHECKED_CAST")
+        val pjuState = rest[0] as UiState<List<PjuChecklistSheet>>
+        @Suppress("UNCHECKED_CAST")
+        val cState = rest[1] as UiState<List<ChatMessage>>
+        @Suppress("UNCHECKED_CAST")
+        val qState = rest[2] as UiState<List<QuickNote>>
+        @Suppress("UNCHECKED_CAST")
+        val pState = rest[3] as UiState<OfficerProfile>
+
+        val profile = (pState as? UiState.Success)?.data
+        NoteIndexBuilder.buildUnifiedNotes(
+            reports = (rState as? UiState.Success)?.data.orEmpty(),
+            activitySheets = (aState as? UiState.Success)?.data.orEmpty(),
+            attendanceSheets = (attState as? UiState.Success)?.data.orEmpty(),
+            pjuSheets = (pjuState as? UiState.Success)?.data.orEmpty(),
+            chatMessages = (cState as? UiState.Success)?.data.orEmpty(),
+            quickNotes = (qState as? UiState.Success)?.data.orEmpty(),
+            defaultOfficerName = profile?.name ?: "Petugas Security",
+            defaultShift = profile?.activeShift ?: ShiftOption.SHIFT_1.label
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+        initialValue = emptyList()
+    )
 
     init {
         viewModelScope.launch {
@@ -558,7 +616,8 @@ class SecurityViewModel(
                 senderRole = profile.role,
                 fromOfficer = true,
                 text = clean,
-                senderPhoto = profile.photoData
+                senderPhoto = profile.photoData,
+                shift = profile.activeShift
             )
             if (result.isFailure) {
                 _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal mengirim balasan cepat.")
@@ -677,6 +736,10 @@ class SecurityViewModel(
         _reportFilter.update { it.copy(year = year) }
     }
 
+    fun updateReportFilterShift(shift: String?) {
+        _reportFilter.update { it.copy(shift = shift) }
+    }
+
     fun filterReportsToday() {
         val cal = Calendar.getInstance()
         _reportFilter.update {
@@ -712,6 +775,10 @@ class SecurityViewModel(
 
     fun updateChatFilterYear(year: Int?) {
         _chatFilter.update { it.copy(year = year) }
+    }
+
+    fun updateChatFilterShift(shift: String?) {
+        _chatFilter.update { it.copy(shift = shift) }
     }
 
     fun resetChatFilter() {
@@ -938,7 +1005,8 @@ class SecurityViewModel(
                 text = text,
                 imageData = photo,
                 imageCaption = photoCaption,
-                senderPhoto = profile.photoData
+                senderPhoto = profile.photoData,
+                shift = profile.activeShift
             )
             _isSendingChat.value = false
             if (result.isSuccess) {
@@ -965,7 +1033,8 @@ class SecurityViewModel(
                 audioType = "recorded",
                 audioData = audioBase64,
                 audioDuration = duration,
-                senderPhoto = profile.photoData
+                senderPhoto = profile.photoData,
+                shift = profile.activeShift
             )
             _isSendingChat.value = false
             if (result.isSuccess) {
@@ -1117,6 +1186,10 @@ class SecurityViewModel(
 
     fun updateTableFilterYear(year: Int?) {
         _tableFilter.update { it.copy(year = year) }
+    }
+
+    fun updateTableFilterShift(shift: String?) {
+        _tableFilter.update { it.copy(shift = shift) }
     }
 
     fun filterTableToday() {
@@ -1368,6 +1441,10 @@ class SecurityViewModel(
 
     fun updateAttendanceFilterYear(year: Int?) {
         _attendanceFilter.update { it.copy(year = year) }
+    }
+
+    fun updateAttendanceFilterShift(shift: String?) {
+        _attendanceFilter.update { it.copy(shift = shift) }
     }
 
     fun filterAttendanceToday() {
@@ -1633,6 +1710,10 @@ class SecurityViewModel(
         _pjuFilter.update { it.copy(year = year) }
     }
 
+    fun updatePjuFilterShift(shift: String?) {
+        _pjuFilter.update { it.copy(shift = shift) }
+    }
+
     fun filterPjuCurrentMonth() {
         val cal = Calendar.getInstance()
         _pjuFilter.update {
@@ -1668,6 +1749,7 @@ class SecurityViewModel(
         val cleanStart = startDay.coerceIn(1, 31)
         val cleanEnd = endDay.coerceIn(cleanStart, 31)
         val cleanResp = responsibleNames.trim().ifBlank { PjuTemplates.DEFAULT_RESPONSIBLE }.take(120)
+        val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
 
         val existingClusters = currentActivePjuSheet()?.clusters.orEmpty()
         val clusters = if (copyExistingClusters && existingClusters.isNotEmpty()) {
@@ -1687,7 +1769,9 @@ class SecurityViewModel(
             clusters = clusters,
             issues = emptyList(),
             notes = "",
-            responsibleNames = cleanResp
+            responsibleNames = cleanResp,
+            lastShift = profile.activeShift,
+            lastUpdatedTime = currentFormattedTime()
         )
         viewModelScope.launch {
             val result = repository.savePjuSheet(newSheet)
@@ -1706,7 +1790,11 @@ class SecurityViewModel(
         mutator: (PjuChecklistSheet) -> PjuChecklistSheet
     ) {
         val current = currentActivePjuSheet() ?: return
-        val updated = mutator(current)
+        val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
+        val updated = mutator(current).copy(
+            lastShift = profile.activeShift,
+            lastUpdatedTime = currentFormattedTime()
+        )
         viewModelScope.launch {
             val result = repository.savePjuSheet(updated)
             if (result.isSuccess) {
@@ -1886,6 +1974,201 @@ class SecurityViewModel(
         sb.appendLine("Penanggung Jawab : ${sheet.responsibleNames}")
         sb.append("Dilaporkan oleh  : ${profile.name} (${profile.nrp})")
         return sb.toString()
+    }
+
+    // --- Explicit Bottom Save Buttons Across Every Option & QuickNote / Global Notes Search ---
+
+    fun saveReportTabDataExplicitly() {
+        val form = _formState.value
+        val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
+        val now = currentFormattedTime()
+        if (form.descriptionInput.trim().isNotEmpty()) {
+            submitReportItem()
+            return
+        }
+        val hasPhotos = form.photoSlots.any { it != null }
+        if (hasPhotos) {
+            _toastEvents.tryEmit("Mohon isi rincian kegiatan di formulir agar foto ikut tersimpan.")
+            return
+        }
+        val total = (reportsState.value as? UiState.Success)?.data?.size ?: 0
+        _toastEvents.tryEmit("Semua data Laporan ($total entri) tersimpan aman di cloud (${profile.activeShift} • $now WIB).")
+    }
+
+    fun saveActiveActivitySheetExplicitly() {
+        val current = currentActiveSheet()
+        if (current == null) {
+            _toastEvents.tryEmit("Buat lembar tabel terlebih dahulu untuk menyimpan data.")
+            return
+        }
+        val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
+        val now = currentFormattedTime()
+        val updated = current.copy(
+            officerName = profile.name,
+            officerNrp = profile.nrp
+        )
+        viewModelScope.launch {
+            _isExplicitSaving.value = true
+            val result = repository.saveActivitySheet(updated)
+            _isExplicitSaving.value = false
+            if (result.isSuccess) {
+                _toastEvents.tryEmit("Tabel Kegiatan (${updated.sheetDate} • ${updated.shift}) berhasil disimpan ($now WIB).")
+            } else {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menyimpan tabel kegiatan.")
+            }
+        }
+    }
+
+    fun saveActiveAttendanceSheetExplicitly() {
+        val current = currentActiveAttendanceSheet()
+        if (current == null) {
+            _toastEvents.tryEmit("Buat lembar absensi terlebih dahulu untuk menyimpan data.")
+            return
+        }
+        val now = currentFormattedTime()
+        viewModelScope.launch {
+            _isExplicitSaving.value = true
+            val result = repository.saveAttendanceSheet(current)
+            _isExplicitSaving.value = false
+            if (result.isSuccess) {
+                _toastEvents.tryEmit("Absensi ${current.rows.size} Anggota (${current.sheetDate} • ${current.shift}) berhasil disimpan ($now WIB).")
+            } else {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menyimpan tabel absensi.")
+            }
+        }
+    }
+
+    fun saveActivePjuSheetExplicitly(latestNotesDraft: String? = null) {
+        val current = currentActivePjuSheet()
+        if (current == null) {
+            _toastEvents.tryEmit("Buat lembar PJU terlebih dahulu untuk menyimpan data.")
+            return
+        }
+        val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
+        val now = currentFormattedTime()
+        val mergedNotes = latestNotesDraft?.trim()?.take(2000) ?: current.notes
+        val updated = current.copy(
+            notes = mergedNotes,
+            lastShift = profile.activeShift,
+            lastUpdatedTime = now
+        )
+        viewModelScope.launch {
+            _isExplicitSaving.value = true
+            val result = repository.savePjuSheet(updated)
+            _isExplicitSaving.value = false
+            if (result.isSuccess) {
+                _toastEvents.tryEmit("Checklist & Catatan PJU (${updated.monthYear} • ${profile.activeShift}) tersimpan ($now WIB).")
+            } else {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menyimpan checklist PJU.")
+            }
+        }
+    }
+
+    fun saveChatNoteOrSync() {
+        val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
+        val roomCode = _activeRoomCode.value
+        val now = currentFormattedTime()
+        val draft = _chatTextInput.value.trim()
+        val photoCaption = _pendingChatPhotoCaption.value.trim()
+        val messages = (chatState.value as? UiState.Success)?.data.orEmpty()
+
+        val textToSave = when {
+            draft.isNotEmpty() -> draft
+            photoCaption.isNotEmpty() -> "Keterangan foto ($roomCode): $photoCaption"
+            else -> ""
+        }
+
+        if (textToSave.isNotEmpty()) {
+            viewModelScope.launch {
+                _isExplicitSaving.value = true
+                val note = QuickNote(
+                    title = "Catatan Live Chat • $roomCode",
+                    content = textToSave,
+                    sourceTab = NoteSourceTab.CHAT.name,
+                    noteDate = currentIsoDate(),
+                    noteTime = now,
+                    shift = profile.activeShift,
+                    officerName = profile.name
+                )
+                val result = repository.saveQuickNote(note)
+                _isExplicitSaving.value = false
+                if (result.isSuccess) {
+                    _toastEvents.tryEmit("Teks chat disimpan ke arsip Catatan (${profile.activeShift} • $now WIB).")
+                } else {
+                    _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menyimpan catatan chat.")
+                }
+            }
+        } else {
+            _toastEvents.tryEmit("Riwayat Live Chat $roomCode (${messages.size} pesan) tersimpan aman (${profile.activeShift} • $now WIB).")
+        }
+    }
+
+    fun saveQuickNote(
+        title: String,
+        content: String,
+        sourceTab: NoteSourceTab,
+        shift: String,
+        noteDate: String,
+        noteTime: String,
+        onSuccess: () -> Unit = {}
+    ) {
+        val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
+        if (content.trim().isEmpty()) {
+            _toastEvents.tryEmit("Isi catatan tidak boleh kosong.")
+            return
+        }
+        viewModelScope.launch {
+            _isExplicitSaving.value = true
+            val result = repository.saveQuickNote(
+                QuickNote(
+                    title = title.trim().ifBlank { "Catatan ${sourceTab.label}" },
+                    content = content.trim(),
+                    sourceTab = sourceTab.name,
+                    noteDate = noteDate.trim().ifBlank { currentIsoDate() },
+                    noteTime = noteTime.trim().ifBlank { currentFormattedTime() },
+                    shift = shift,
+                    officerName = profile.name
+                )
+            )
+            _isExplicitSaving.value = false
+            if (result.isSuccess) {
+                _toastEvents.tryEmit("Catatan berhasil disimpan ($shift • ${noteTime.ifBlank { currentFormattedTime() }} WIB).")
+                onSuccess()
+            } else {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menyimpan catatan.")
+            }
+        }
+    }
+
+    fun deleteQuickNote(noteId: String) {
+        viewModelScope.launch {
+            val result = repository.deleteQuickNote(noteId)
+            if (result.isSuccess) {
+                _toastEvents.tryEmit("Catatan dihapus.")
+            } else {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menghapus catatan.")
+            }
+        }
+    }
+
+    fun openUnifiedNoteTarget(note: UnifiedNoteItem) {
+        when (note.source) {
+            NoteSourceTab.LAPORAN -> switchTab(MainTab.LAPORAN)
+            NoteSourceTab.TABEL -> {
+                if (!note.sheetId.isNullOrBlank()) selectActivitySheet(note.sheetId)
+                switchTab(MainTab.TABEL)
+            }
+            NoteSourceTab.ABSENSI -> {
+                if (!note.sheetId.isNullOrBlank()) selectAttendanceSheet(note.sheetId)
+                switchTab(MainTab.ABSENSI)
+            }
+            NoteSourceTab.PJU -> {
+                if (!note.sheetId.isNullOrBlank()) selectPjuSheet(note.sheetId)
+                switchTab(MainTab.PJU)
+            }
+            NoteSourceTab.CHAT -> switchTab(MainTab.CHAT)
+            NoteSourceTab.CATATAN -> Unit
+        }
     }
 
     private companion object {

@@ -56,6 +56,7 @@ import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.ManageSearch
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Radio
@@ -185,6 +186,8 @@ fun MainScreen(
     val pendingChatPhotoCaption by viewModel.pendingChatPhotoCaption.collectAsStateWithLifecycle()
     val isSendingChat by viewModel.isSendingChat.collectAsStateWithLifecycle()
     val isJoiningRoom by viewModel.isJoiningRoom.collectAsStateWithLifecycle()
+    val isExplicitSaving by viewModel.isExplicitSaving.collectAsStateWithLifecycle()
+    val unifiedNotes by viewModel.unifiedNotesState.collectAsStateWithLifecycle()
 
     val activeHeadsUpAlert by viewModel.activeHeadsUpAlert.collectAsStateWithLifecycle()
     val notificationHistory by viewModel.notificationHistory.collectAsStateWithLifecycle()
@@ -257,6 +260,7 @@ fun MainScreen(
     var showResetModal by remember { mutableStateOf(false) }
     var showRoomModal by remember { mutableStateOf(false) }
     var showMembersModal by remember { mutableStateOf(false) }
+    var showGlobalNotesSearch by remember { mutableStateOf(false) }
     var lightboxPayload by remember { mutableStateOf<LightboxPayload?>(null) }
 
     // Photo picking state
@@ -652,6 +656,21 @@ fun MainScreen(
                                 }
                             }
 
+                            // Global Notes Search across all 5 options (includes Waktu & Shift)
+                            IconButton(
+                                onClick = { showGlobalNotesSearch = true },
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .testTag("open_global_notes_search_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ManageSearch,
+                                    contentDescription = "Cari Seluruh Catatan",
+                                    tint = Gold400,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
                             // Toggle Detailed Options Drawer (Profile NRP/Role + Date + Full Shift)
                             IconButton(
                                 onClick = { showHeaderOptions = !showHeaderOptions },
@@ -910,6 +929,8 @@ fun MainScreen(
                                     formState = formState,
                                     reportsState = reportsState,
                                     reportFilter = reportFilter,
+                                    activeShift = profile.activeShift,
+                                    isExplicitSaving = isExplicitSaving,
                                     onSelectCategory = viewModel::selectCategory,
                                     onTimeChange = viewModel::updateTimeInput,
                                     onReportDateChange = viewModel::updateReportDateInput,
@@ -928,6 +949,7 @@ fun MainScreen(
                                     onOpenLightbox = { img, caption -> lightboxPayload = LightboxPayload(img, caption) },
                                     onSubmitReport = viewModel::submitReportItem,
                                     onDeleteReport = viewModel::deleteReportItem,
+                                    onExplicitSave = viewModel::saveReportTabDataExplicitly,
                                     onOpenResetConfirm = { showResetModal = true },
                                     onOpenRecap = { showRecapModal = true },
                                     onPrintPdf = {
@@ -944,6 +966,7 @@ fun MainScreen(
                                     onFilterDayChange = viewModel::updateReportFilterDay,
                                     onFilterMonthChange = viewModel::updateReportFilterMonth,
                                     onFilterYearChange = viewModel::updateReportFilterYear,
+                                    onFilterShiftChange = viewModel::updateReportFilterShift,
                                     onFilterToday = viewModel::filterReportsToday,
                                     onResetFilter = viewModel::resetReportFilter
                                 )
@@ -954,6 +977,7 @@ fun MainScreen(
                                     selectedSheetId = selectedSheetId,
                                     tableFilter = tableFilter,
                                     defaultShift = profile.activeShift,
+                                    isExplicitSaving = isExplicitSaving,
                                     onSelectSheet = viewModel::selectActivitySheet,
                                     onCreateSheet = viewModel::createNewActivitySheet,
                                     onUpdateHeader = viewModel::updateSheetHeader,
@@ -965,6 +989,7 @@ fun MainScreen(
                                     onUpsertActivity = viewModel::upsertActivityRow,
                                     onDeleteActivity = viewModel::deleteActivityRow,
                                     onDeleteSheet = viewModel::deleteActiveActivitySheet,
+                                    onExplicitSave = viewModel::saveActiveActivitySheetExplicitly,
                                     onCopyWhatsApp = { sheet ->
                                         val text = viewModel.buildTableWhatsAppRecap(sheet, profile)
                                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
@@ -983,6 +1008,7 @@ fun MainScreen(
                                     onFilterDayChange = viewModel::updateTableFilterDay,
                                     onFilterMonthChange = viewModel::updateTableFilterMonth,
                                     onFilterYearChange = viewModel::updateTableFilterYear,
+                                    onFilterShiftChange = viewModel::updateTableFilterShift,
                                     onFilterToday = viewModel::filterTableToday,
                                     onResetFilter = viewModel::resetTableFilter
                                 )
@@ -994,6 +1020,7 @@ fun MainScreen(
                                     attendanceFilter = attendanceFilter,
                                     defaultShift = profile.activeShift,
                                     defaultCommanderName = profile.name,
+                                    isExplicitSaving = isExplicitSaving,
                                     onSelectSheet = viewModel::selectAttendanceSheet,
                                     onCreateSheet = { date, shift, period, commander, copy ->
                                         viewModel.createNewAttendanceSheet(date, shift, period, commander, copy)
@@ -1006,6 +1033,7 @@ fun MainScreen(
                                     onEnsure15Rows = viewModel::ensure15AttendanceRows,
                                     onDeleteRow = viewModel::deleteAttendanceRow,
                                     onDeleteSheet = viewModel::deleteActiveAttendanceSheet,
+                                    onExplicitSave = viewModel::saveActiveAttendanceSheetExplicitly,
                                     onCopyWhatsApp = { sheet ->
                                         val text = viewModel.buildAttendanceWhatsAppRecap(sheet, profile)
                                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
@@ -1024,6 +1052,7 @@ fun MainScreen(
                                     onFilterDayChange = viewModel::updateAttendanceFilterDay,
                                     onFilterMonthChange = viewModel::updateAttendanceFilterMonth,
                                     onFilterYearChange = viewModel::updateAttendanceFilterYear,
+                                    onFilterShiftChange = viewModel::updateAttendanceFilterShift,
                                     onFilterToday = viewModel::filterAttendanceToday,
                                     onResetFilter = viewModel::resetAttendanceFilter
                                 )
@@ -1033,6 +1062,8 @@ fun MainScreen(
                                     sheetsState = pjuSheetsState,
                                     selectedSheetId = selectedPjuSheetId,
                                     pjuFilter = pjuFilter,
+                                    activeShift = profile.activeShift,
+                                    isExplicitSaving = isExplicitSaving,
                                     onSelectSheet = viewModel::selectPjuSheet,
                                     onCreateSheet = viewModel::createNewPjuSheet,
                                     onUpdateHeader = viewModel::updatePjuHeader,
@@ -1043,6 +1074,9 @@ fun MainScreen(
                                     onUpsertIssue = viewModel::upsertPjuIssue,
                                     onDeleteIssue = viewModel::deletePjuIssue,
                                     onUpdateNotes = viewModel::updatePjuNotes,
+                                    onExplicitSave = { latestNotes ->
+                                        viewModel.saveActivePjuSheetExplicitly(latestNotes)
+                                    },
                                     onDeleteSheet = viewModel::deleteActivePjuSheet,
                                     onCopyWhatsApp = { sheet ->
                                         val text = viewModel.buildPjuWhatsAppRecap(sheet, profile)
@@ -1061,6 +1095,7 @@ fun MainScreen(
                                     onFilterDayChange = viewModel::updatePjuFilterDay,
                                     onFilterMonthChange = viewModel::updatePjuFilterMonth,
                                     onFilterYearChange = viewModel::updatePjuFilterYear,
+                                    onFilterShiftChange = viewModel::updatePjuFilterShift,
                                     onFilterCurrentMonth = viewModel::filterPjuCurrentMonth,
                                     onResetFilter = viewModel::resetPjuFilter
                                 )
@@ -1074,10 +1109,12 @@ fun MainScreen(
                                     roomMembers = roomMembers,
                                     chatState = chatState,
                                     chatFilter = chatFilter,
+                                    activeShift = profile.activeShift,
                                     chatTextInput = chatTextInput,
                                     pendingChatPhoto = pendingChatPhoto,
                                     pendingChatPhotoCaption = pendingChatPhotoCaption,
                                     isSending = isSendingChat,
+                                    isExplicitSaving = isExplicitSaving,
                                     recordingState = recordingState,
                                     playbackState = playbackState,
                                     onOpenRoomModal = { showRoomModal = true },
@@ -1093,6 +1130,7 @@ fun MainScreen(
                                     onEditMessage = viewModel::editChatMessage,
                                     onDeleteMessage = viewModel::deleteChatMessage,
                                     onClearAllChat = viewModel::clearAllChatMessages,
+                                    onExplicitSaveChat = viewModel::saveChatNoteOrSync,
                                     onStartVoiceRecording = { launchVoiceRecordingFlow() },
                                     onCancelVoiceRecording = {
                                         voiceNoteManager.cancelRecording()
@@ -1120,6 +1158,7 @@ fun MainScreen(
                                     onFilterDayChange = viewModel::updateChatFilterDay,
                                     onFilterMonthChange = viewModel::updateChatFilterMonth,
                                     onFilterYearChange = viewModel::updateChatFilterYear,
+                                    onFilterShiftChange = viewModel::updateChatFilterShift,
                                     onResetFilter = viewModel::resetChatFilter
                                 )
                             }
@@ -1303,6 +1342,21 @@ fun MainScreen(
             base64Image = payload.base64,
             caption = payload.caption,
             onDismiss = { lightboxPayload = null }
+        )
+    }
+
+    if (showGlobalNotesSearch) {
+        GlobalNotesSearchDialog(
+            allNotes = unifiedNotes,
+            defaultShift = profile.activeShift,
+            isSavingNote = isExplicitSaving,
+            onDismiss = { showGlobalNotesSearch = false },
+            onOpenTarget = { note ->
+                viewModel.openUnifiedNoteTarget(note)
+                showGlobalNotesSearch = false
+            },
+            onSaveQuickNote = viewModel::saveQuickNote,
+            onDeleteQuickNote = viewModel::deleteQuickNote
         )
     }
 }

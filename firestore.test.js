@@ -271,6 +271,7 @@ test("Shared ChatRoom: create/get by code, join RoomMember with online presence,
       text: "Cek gerbang utama",
       imageData: "base64_img",
       imageCaption: "Pintu gerbang utama terkunci aman",
+      shift: "Shift 1",
       audioType: "none",
       createdAt: past,
     })
@@ -374,6 +375,7 @@ test("Cross-user isolation: Alice cannot read or write Bob's private profile, re
   await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("activity_sheets").get());
   await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("attendance_sheets").get());
   await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("pju_sheets").get());
+  await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("quick_notes").get());
 });
 
 test("Authenticated owner: DailyActivitySheet and 15-member AttendanceSheet CRUD succeed", async () => {
@@ -497,6 +499,8 @@ test("Authenticated owner: PjuChecklistSheet CRUD and validation succeed", async
       ],
       notes: "Pemeriksaan rutin dilakukan maksimal 2 hari sekali.",
       responsibleNames: "R. MOH. GANDI / NERI WELAS ANTORO",
+      lastShift: "Shift 2",
+      lastUpdatedTime: "19:30",
       createdAt: created,
       updatedAt: created,
     })
@@ -505,6 +509,8 @@ test("Authenticated owner: PjuChecklistSheet CRUD and validation succeed", async
   await assertSucceeds(
     aliceDb.collection("users").doc(ALICE_UID).collection("pju_sheets").doc("pju_1").update({
       notes: "Lampu Krisan 2 sudah dicek ulang.",
+      lastShift: "Shift 3",
+      lastUpdatedTime: "23:15",
       updatedAt: new Date(Date.now() - 500),
     })
   );
@@ -529,5 +535,44 @@ test("Authenticated owner: PjuChecklistSheet CRUD and validation succeed", async
 
   await assertSucceeds(
     aliceDb.collection("users").doc(ALICE_UID).collection("pju_sheets").doc("pju_1").delete()
+  );
+});
+
+test("Authenticated owner: QuickNote CRUD with shift and timestamp succeed; invalid shift fails", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const created = new Date(Date.now() - 10000);
+
+  await assertSucceeds(
+    aliceDb.collection("users").doc(ALICE_UID).collection("quick_notes").doc("qn_1").set({
+      userId: ALICE_UID,
+      sourceTab: "Chat",
+      title: "Catatan Patroli Malam",
+      content: "Pintu gerbang belakang terkunci ganda dan lampu PJU Cendana normal.",
+      noteDate: "2026-11-18",
+      noteTime: "23:40",
+      shift: "Shift 3",
+      authorName: "Hendra Wijaya",
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  await assertFails(
+    aliceDb.collection("users").doc(ALICE_UID).collection("quick_notes").doc("qn_bad").set({
+      userId: ALICE_UID,
+      sourceTab: "Chat",
+      title: "Invalid Shift",
+      content: "Test",
+      noteDate: "2026-11-18",
+      noteTime: "23:40",
+      shift: "Shift 9",
+      authorName: "Hendra Wijaya",
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  await assertSucceeds(
+    aliceDb.collection("users").doc(ALICE_UID).collection("quick_notes").doc("qn_1").delete()
   );
 });

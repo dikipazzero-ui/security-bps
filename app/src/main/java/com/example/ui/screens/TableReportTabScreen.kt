@@ -111,6 +111,7 @@ fun TableReportTabScreen(
     selectedSheetId: String?,
     tableFilter: TimeKeywordFilter,
     defaultShift: String,
+    isExplicitSaving: Boolean,
     onSelectSheet: (String) -> Unit,
     onCreateSheet: (sheetDate: String, shift: String, docNumber: String, includeDefault: Boolean, onSuccess: () -> Unit) -> Unit,
     onUpdateHeader: (sheetDate: String, shift: String, docNumber: String) -> Unit,
@@ -122,6 +123,7 @@ fun TableReportTabScreen(
     onUpsertActivity: (editIndex: Int?, row: ActivityTableRow) -> Unit,
     onDeleteActivity: (Int) -> Unit,
     onDeleteSheet: () -> Unit,
+    onExplicitSave: () -> Unit,
     onCopyWhatsApp: (DailyActivitySheet) -> Unit,
     onPrintPdf: (DailyActivitySheet) -> Unit,
     onFilterKeywordChange: (String) -> Unit,
@@ -129,6 +131,7 @@ fun TableReportTabScreen(
     onFilterDayChange: (Int?) -> Unit,
     onFilterMonthChange: (Int?) -> Unit,
     onFilterYearChange: (Int?) -> Unit,
+    onFilterShiftChange: (String?) -> Unit,
     onFilterToday: () -> Unit,
     onResetFilter: () -> Unit
 ) {
@@ -289,10 +292,10 @@ fun TableReportTabScreen(
             }
         }
 
-        // 2. Search & Granular Time Filter (Hour / Day / Month / Year)
+        // 2. Search & Granular Time Filter (Hour / Day / Month / Year / Shift)
         item(key = "table_filter_panel") {
             SearchAndTimeFilterPanel(
-                title = "Cari & Saring Tabel (Jam / Hari / Bulan / Tahun)",
+                title = "Cari & Saring Tabel (Jam / Hari / Bulan / Tahun / Shift)",
                 filter = tableFilter,
                 availableYears = availableYears,
                 totalCount = allSheets.size,
@@ -303,6 +306,7 @@ fun TableReportTabScreen(
                 onDayChange = onFilterDayChange,
                 onMonthChange = onFilterMonthChange,
                 onYearChange = onFilterYearChange,
+                onShiftChange = onFilterShiftChange,
                 onSelectToday = onFilterToday,
                 onReset = onResetFilter
             )
@@ -696,6 +700,18 @@ fun TableReportTabScreen(
                             }
                         }
                     }
+
+                    // 4. Dedicated Bottom Save Button (very bottom of Tabel option)
+                    item(key = "table_bottom_save") {
+                        BottomOptionSaveCard(
+                            buttonLabel = "Simpan Tabel Kegiatan (${activeSheet.shift})",
+                            statusSubtitle = "Simpan permanen Personel, Inventaris & ${activeSheet.activityRows.size} Uraian Kegiatan (${activeSheet.sheetDate})",
+                            isSaving = isExplicitSaving,
+                            testTag = "bottom_save_tabel_button",
+                            onSaveClick = onExplicitSave
+                        )
+                    }
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
                 }
             }
         }

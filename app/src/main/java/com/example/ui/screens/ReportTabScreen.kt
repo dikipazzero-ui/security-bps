@@ -111,6 +111,8 @@ fun ReportTabScreen(
     formState: ReportFormState,
     reportsState: UiState<List<SecurityReport>>,
     reportFilter: TimeKeywordFilter,
+    activeShift: String,
+    isExplicitSaving: Boolean,
     onSelectCategory: (Int) -> Unit,
     onTimeChange: (String) -> Unit,
     onReportDateChange: (String) -> Unit,
@@ -124,6 +126,7 @@ fun ReportTabScreen(
     onRemovePhotoAtSlot: (Int) -> Unit,
     onOpenLightbox: (base64: String, caption: String?) -> Unit,
     onSubmitReport: () -> Unit,
+    onExplicitSave: () -> Unit,
     onDeleteReport: (String) -> Unit,
     onOpenResetConfirm: () -> Unit,
     onOpenRecap: () -> Unit,
@@ -133,6 +136,7 @@ fun ReportTabScreen(
     onFilterDayChange: (Int?) -> Unit,
     onFilterMonthChange: (Int?) -> Unit,
     onFilterYearChange: (Int?) -> Unit,
+    onFilterShiftChange: (String?) -> Unit,
     onFilterToday: () -> Unit,
     onResetFilter: () -> Unit
 ) {
@@ -619,7 +623,7 @@ fun ReportTabScreen(
             is UiState.Success -> {
                 item(key = "report_filter_panel") {
                     SearchAndTimeFilterPanel(
-                        title = "Cari & Saring Laporan (Jam / Hari / Bulan / Tahun)",
+                        title = "Cari & Saring Laporan (Jam / Hari / Bulan / Tahun / Shift)",
                         filter = reportFilter,
                         availableYears = availableYears,
                         totalCount = reportsList.size,
@@ -630,6 +634,7 @@ fun ReportTabScreen(
                         onDayChange = onFilterDayChange,
                         onMonthChange = onFilterMonthChange,
                         onYearChange = onFilterYearChange,
+                        onShiftChange = onFilterShiftChange,
                         onSelectToday = onFilterToday,
                         onReset = onResetFilter
                     )
@@ -648,6 +653,22 @@ fun ReportTabScreen(
                     }
                 }
             }
+        }
+
+        // 4. Dedicated Bottom Save Button (very bottom of Laporan option)
+        item(key = "report_bottom_save") {
+            val saveLabel = if (formState.descriptionInput.trim().isNotEmpty()) {
+                "Simpan & Tambahkan Laporan (${formState.shiftInput})"
+            } else {
+                "Simpan Data Laporan ($activeShift)"
+            }
+            BottomOptionSaveCard(
+                buttonLabel = saveLabel,
+                statusSubtitle = "Simpan catatan laporan & foto ke cloud ($activeShift • ${reportsList.size} entri tersimpan)",
+                isSaving = isExplicitSaving || formState.isSubmitting,
+                testTag = "bottom_save_laporan_button",
+                onSaveClick = onExplicitSave
+            )
         }
 
         item { Spacer(modifier = Modifier.height(16.dp)) }
