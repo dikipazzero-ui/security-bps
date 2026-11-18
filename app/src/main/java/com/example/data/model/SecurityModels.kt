@@ -395,6 +395,55 @@ data class TimeKeywordFilter(
             row.status.lowercase(Locale.getDefault()).contains(q) ||
             row.keterangan.lowercase(Locale.getDefault()).contains(q)
     }
+
+    fun matchesPjuSheet(sheet: PjuChecklistSheet): Boolean {
+        val q = keyword.trim().lowercase(Locale.getDefault())
+        if (q.isNotEmpty()) {
+            val inHeader = sheet.monthYear.lowercase(Locale.getDefault()).contains(q) ||
+                sheet.responsibleNames.lowercase(Locale.getDefault()).contains(q) ||
+                sheet.notes.lowercase(Locale.getDefault()).contains(q)
+            val inClusters = sheet.clusters.any {
+                it.clusterName.lowercase(Locale.getDefault()).contains(q) ||
+                    it.checks.values.any { v -> v.lowercase(Locale.getDefault()).contains(q) }
+            }
+            val inIssues = sheet.issues.any {
+                it.cluster.lowercase(Locale.getDefault()).contains(q) ||
+                    it.keluhan.lowercase(Locale.getDefault()).contains(q) ||
+                    it.tindakLanjut.lowercase(Locale.getDefault()).contains(q) ||
+                    it.status.lowercase(Locale.getDefault()).contains(q) ||
+                    it.tanggal.lowercase(Locale.getDefault()).contains(q)
+            }
+            if (!inHeader && !inClusters && !inIssues) return false
+        }
+        if (year != null && sheet.sheetYear.toInt() != year) return false
+        if (month != null && sheet.sheetMonth.toInt() != month) return false
+        if (day != null) {
+            val d = day
+            if (d < sheet.periodStartDay.toInt() || d > sheet.periodEndDay.toInt()) return false
+        }
+        return true
+    }
+
+    fun matchesPjuCluster(cluster: PjuClusterRow, sheet: PjuChecklistSheet): Boolean {
+        val q = keyword.trim().lowercase(Locale.getDefault())
+        if (q.isNotEmpty()) {
+            val matchesCluster = cluster.clusterName.lowercase(Locale.getDefault()).contains(q)
+            val matchesRelatedIssue = sheet.issues.any {
+                it.cluster.equals(cluster.clusterName, ignoreCase = true) &&
+                    (it.keluhan.lowercase(Locale.getDefault()).contains(q) ||
+                        it.tindakLanjut.lowercase(Locale.getDefault()).contains(q) ||
+                        it.status.lowercase(Locale.getDefault()).contains(q))
+            }
+            if (!matchesCluster && !matchesRelatedIssue) return false
+        }
+        if (year != null && sheet.sheetYear.toInt() != year) return false
+        if (month != null && sheet.sheetMonth.toInt() != month) return false
+        if (day != null) {
+            val d = day
+            if (d < sheet.periodStartDay.toInt() || d > sheet.periodEndDay.toInt()) return false
+        }
+        return true
+    }
 }
 
 @Keep
@@ -639,6 +688,258 @@ object IndonesianMonths {
 
 fun currentIsoDate(): String =
     SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+
+enum class PjuLampStatus(val symbol: String, val shortLabel: String, val label: String) {
+    NONE("-", "Kosong", "Belum Dicek"),
+    BAIK("✓", "Nyala", "Nyala / Baik"),
+    REDUP("!", "Redup", "Redup / Sebagian"),
+    MATI("✕", "Mati", "Mati / Rusak");
+
+    fun next(): PjuLampStatus {
+        val all = entries
+        return all[(ordinal + 1) % all.size]
+    }
+
+    companion object {
+        fun fromCode(raw: String): PjuLampStatus {
+            val clean = raw.trim().uppercase(Locale.getDefault())
+            return when {
+                clean == "✓" || clean == "V" || clean == "B" || clean == "BAIK" || clean == "OK" -> BAIK
+                clean == "!" || clean == "R" || clean == "REDUP" -> REDUP
+                clean == "✕" || clean == "X" || clean == "M" || clean == "MATI" || clean == "RUSAK" -> MATI
+                else -> NONE
+            }
+        }
+    }
+}
+
+@Keep
+@IgnoreExtraProperties
+data class PjuClusterRow(
+    val clusterName: String = "",
+    val checks: Map<String, String> = emptyMap()
+) {
+    fun slotsForDay(day: Int): List<PjuLampStatus> {
+        val raw = checks[day.toString()].orEmpty()
+        if (raw.isBlank()) return listOf(PjuLampStatus.NONE, PjuLampStatus.NONE, PjuLampStatus.NONE, PjuLampStatus.NONE)
+        val parsed = raw.split("|").map { PjuLampStatus.fromCode(it) }
+        return List(4) { idx -> parsed.getOrElse(idx) { PjuLampStatus.NONE } }
+    }
+
+    fun withDaySlots(day: Int, slots: List<PjuLampStatus>): PjuClusterRow {
+        val normalized = List(4) { idx -> slots.getOrElse(idx) { PjuLampStatus.NONE } }
+        val updated = checks.toMutableMap()
+        if (normalized.all { it == PjuLampStatus.NONE }) {
+            updated.remove(day.toString())
+        } else {
+            updated[day.toString()] = normalized.joinToString("|") { it.symbol }
+        }
+        return copy(checks = updated)
+    }
+
+    fun cycleSlot(day: Int, slotIndex: Int): PjuClusterRow {
+        if (slotIndex !in 0..3) return this
+        val current = slotsForDay(day).toMutableList()
+        current[slotIndex] = current[slotIndex].next()
+        return withDaySlots(day, current)
+    }
+
+    fun daySummaryStatus(day: Int): PjuLampStatus {
+        val slots = slotsForDay(day)
+        if (slots.all { it == PjuLampStatus.NONE }) return PjuLampStatus.NONE
+        if (slots.any { it == PjuLampStatus.MATI }) return PjuLampStatus.MATI
+        if (slots.any { it == PjuLampStatus.REDUP }) return PjuLampStatus.REDUP
+        return PjuLampStatus.BAIK
+    }
+
+    fun hasAnyCheckOnDay(day: Int): Boolean =
+        slotsForDay(day).any { it != PjuLampStatus.NONE }
+}
+
+@Keep
+@IgnoreExtraProperties
+data class PjuIssueEntry(
+    val tanggal: String = currentIsoDate(),
+    val cluster: String = "",
+    val titikLampu: String = "Lampu 1",
+    val keluhan: String = "",
+    val tindakLanjut: String = "",
+    val status: String = "Belum Ditangani"
+)
+
+enum class PjuComplianceLevel {
+    COMPLIANT,
+    DUE_SOON,
+    OVERDUE,
+    EMPTY
+}
+
+data class PjuComplianceInfo(
+    val level: PjuComplianceLevel,
+    val badgeText: String,
+    val detailText: String,
+    val latestCheckedDay: Int?,
+    val daysGap: Int?
+)
+
+@Keep
+@IgnoreExtraProperties
+data class PjuChecklistSheet(
+    @DocumentId val id: String = "",
+    val userId: String = "",
+    val monthYear: String = PjuTemplates.currentMonthYearLabel(),
+    val sheetMonth: Long = Calendar.getInstance().get(Calendar.MONTH) + 1L,
+    val sheetYear: Long = Calendar.getInstance().get(Calendar.YEAR).toLong(),
+    val periodStartDay: Long = 16L,
+    val periodEndDay: Long = 30L,
+    val clusters: List<PjuClusterRow> = emptyList(),
+    val issues: List<PjuIssueEntry> = emptyList(),
+    val notes: String = "",
+    val responsibleNames: String = PjuTemplates.DEFAULT_RESPONSIBLE,
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null
+) {
+    fun daysList(): List<Int> {
+        val start = periodStartDay.toInt().coerceIn(1, 31)
+        val end = periodEndDay.toInt().coerceIn(start, 31)
+        return (start..end).toList()
+    }
+
+    fun checkedDays(): List<Int> {
+        return daysList().filter { day -> clusters.any { it.hasAnyCheckOnDay(day) } }
+    }
+
+    fun latestCheckedDay(): Int? = checkedDays().maxOrNull()
+
+    fun countSlotsByStatus(): Map<PjuLampStatus, Int> {
+        var baik = 0
+        var redup = 0
+        var mati = 0
+        var empty = 0
+        val days = daysList()
+        clusters.forEach { cluster ->
+            days.forEach { day ->
+                cluster.slotsForDay(day).forEach { st ->
+                    when (st) {
+                        PjuLampStatus.BAIK -> baik++
+                        PjuLampStatus.REDUP -> redup++
+                        PjuLampStatus.MATI -> mati++
+                        PjuLampStatus.NONE -> empty++
+                    }
+                }
+            }
+        }
+        return mapOf(
+            PjuLampStatus.BAIK to baik,
+            PjuLampStatus.REDUP to redup,
+            PjuLampStatus.MATI to mati,
+            PjuLampStatus.NONE to empty
+        )
+    }
+
+    fun clusterHealthPercent(cluster: PjuClusterRow): Int? {
+        val checkedSlots = daysList().flatMap { cluster.slotsForDay(it) }.filter { it != PjuLampStatus.NONE }
+        if (checkedSlots.isEmpty()) return null
+        val okCount = checkedSlots.count { it == PjuLampStatus.BAIK }
+        return ((okCount * 100f) / checkedSlots.size).toInt()
+    }
+
+    fun complianceInfo(todayCal: Calendar = Calendar.getInstance()): PjuComplianceInfo {
+        val checked = checkedDays()
+        if (checked.isEmpty()) {
+            return PjuComplianceInfo(
+                level = PjuComplianceLevel.EMPTY,
+                badgeText = "Belum Dicek",
+                detailText = "Wajib checklist semua PJU maksimal 2 hari sekali.",
+                latestCheckedDay = null,
+                daysGap = null
+            )
+        }
+        val latest = checked.last()
+        val nowMonth = todayCal.get(Calendar.MONTH) + 1
+        val nowYear = todayCal.get(Calendar.YEAR)
+        val nowDay = todayCal.get(Calendar.DAY_OF_MONTH)
+
+        val gap = if (nowYear == sheetYear.toInt() && nowMonth == sheetMonth.toInt()) {
+            (nowDay - latest).coerceAtLeast(0)
+        } else {
+            (periodEndDay.toInt() - latest).coerceAtLeast(0)
+        }
+
+        val maxInternalGap = checked.zipWithNext { a, b -> b - a }.maxOrNull() ?: 0
+        return when {
+            gap > 2 -> PjuComplianceInfo(
+                level = PjuComplianceLevel.OVERDUE,
+                badgeText = "Telat Cek ($gap Hari)",
+                detailText = "Checklist terakhir tgl $latest • Lewat batas maks 2 hari sekali! Segera cek PJU.",
+                latestCheckedDay = latest,
+                daysGap = gap
+            )
+            gap == 2 -> PjuComplianceInfo(
+                level = PjuComplianceLevel.DUE_SOON,
+                badgeText = "Jadwal Cek Hari Ini",
+                detailText = "Checklist terakhir tgl $latest ($gap hari lalu). Waktunya cek rutin hari ini.",
+                latestCheckedDay = latest,
+                daysGap = gap
+            )
+            else -> {
+                val intervalInfo = if (maxInternalGap > 2) " (riwayat ada jeda $maxInternalGap hr)" else ""
+                PjuComplianceInfo(
+                    level = PjuComplianceLevel.COMPLIANT,
+                    badgeText = "Patuh ≤ 2 Hari",
+                    detailText = "Checklist terakhir tgl $latest$intervalInfo • Jadwal terkendali.",
+                    latestCheckedDay = latest,
+                    daysGap = gap
+                )
+            }
+        }
+    }
+}
+
+object PjuTemplates {
+    const val DEFAULT_RESPONSIBLE = "R. MOH. GANDI / NERI WELAS ANTORO"
+
+    val defaultClusterNames = listOf(
+        "PJU KRISAN",
+        "PJU CEMPAKA",
+        "PJU CENDANA",
+        "PJU CEMARA",
+        "PJU FLAMBOYAN 1",
+        "PJU FLAMBOYAN 2",
+        "PJU FLAMBOYAN FASUM",
+        "PJU AKASIA",
+        "RUKO"
+    )
+
+    val issueStatusOptions = listOf(
+        "Belum Ditangani",
+        "Dalam Perbaikan",
+        "Selesai"
+    )
+
+    fun monthYearLabel(month: Int, year: Int): String {
+        val monthName = IndonesianMonths.fullNames.getOrElse(month - 1) { "November" }
+        return "$monthName $year"
+    }
+
+    fun currentMonthYearLabel(): String {
+        val cal = Calendar.getInstance()
+        return monthYearLabel(cal.get(Calendar.MONTH) + 1, cal.get(Calendar.YEAR))
+    }
+
+    fun defaultClusterRows(): List<PjuClusterRow> =
+        defaultClusterNames.map { name -> PjuClusterRow(clusterName = name, checks = emptyMap()) }
+
+    fun defaultPeriodBounds(month: Int, year: Int, referenceDay: Int): Pair<Long, Long> {
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.YEAR, year)
+            set(Calendar.MONTH, (month - 1).coerceIn(0, 11))
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
+        val maxDay = cal.getActualMaximum(Calendar.DAY_OF_MONTH).toLong()
+        return if (referenceDay >= 16) 16L to maxDay else 1L to 15L
+    }
+}
 
 sealed interface UiState<out T> {
     data object Loading : UiState<Nothing>

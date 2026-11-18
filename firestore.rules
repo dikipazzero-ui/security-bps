@@ -147,6 +147,23 @@ service cloud.firestore {
              data.updatedAt is timestamp && data.updatedAt <= request.time;
     }
 
+    function isValidPjuSheet(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.monthYear is string && data.monthYear.size() >= 1 && data.monthYear.size() <= 40 &&
+             data.sheetMonth is int && data.sheetMonth >= 1 && data.sheetMonth <= 12 &&
+             data.sheetYear is int && data.sheetYear >= 2020 && data.sheetYear <= 2100 &&
+             data.periodStartDay is int && data.periodStartDay >= 1 && data.periodStartDay <= 31 &&
+             data.periodEndDay is int && data.periodEndDay >= data.periodStartDay && data.periodEndDay <= 31 &&
+             data.clusters is list && data.clusters.size() <= 40 &&
+             (data.clusters.size() == 0 || data.clusters[0] is map) &&
+             data.issues is list && data.issues.size() <= 100 &&
+             (data.issues.size() == 0 || data.issues[0] is map) &&
+             data.notes is string && data.notes.size() <= 2000 &&
+             data.responsibleNames is string && data.responsibleNames.size() >= 1 && data.responsibleNames.size() <= 120 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
     match /users/{userId} {
       allow get: if isOwner(userId) && isValidId(userId);
       allow list: if false;
@@ -243,6 +260,28 @@ service cloud.firestore {
                          incoming().userId == existing().userId &&
                          incoming().createdAt == existing().createdAt &&
                          incoming().diff(existing()).affectedKeys().hasOnly(['sheetDate', 'shift', 'periodLabel', 'commanderName', 'rows', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(sheetId);
+      }
+
+      match /pju_sheets/{sheetId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(sheetId);
+        allow list: if isOwner(userId) && isValidId(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(sheetId) &&
+                         incoming().keys().hasAll(['userId', 'monthYear', 'sheetMonth', 'sheetYear', 'periodStartDay', 'periodEndDay', 'clusters', 'issues', 'notes', 'responsibleNames', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'monthYear', 'sheetMonth', 'sheetYear', 'periodStartDay', 'periodEndDay', 'clusters', 'issues', 'notes', 'responsibleNames', 'createdAt', 'updatedAt']) &&
+                         isValidPjuSheet(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(sheetId) &&
+                         isValidPjuSheet(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['monthYear', 'sheetMonth', 'sheetYear', 'periodStartDay', 'periodEndDay', 'clusters', 'issues', 'notes', 'responsibleNames', 'updatedAt']);
 
         allow delete: if isOwner(userId) && isValidId(userId) && isValidId(sheetId);
       }

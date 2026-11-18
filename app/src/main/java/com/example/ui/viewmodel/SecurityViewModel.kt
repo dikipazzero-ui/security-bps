@@ -18,6 +18,11 @@ import com.example.data.model.DailyActivitySheet
 import com.example.data.model.InventoryRow
 import com.example.data.model.OfficerProfile
 import com.example.data.model.PersonnelRow
+import com.example.data.model.PjuChecklistSheet
+import com.example.data.model.PjuClusterRow
+import com.example.data.model.PjuIssueEntry
+import com.example.data.model.PjuLampStatus
+import com.example.data.model.PjuTemplates
 import com.example.data.model.ReportCategory
 import com.example.data.model.ReportStatus
 import com.example.data.model.RoomMember
@@ -56,6 +61,7 @@ enum class MainTab {
     LAPORAN,
     TABEL,
     ABSENSI,
+    PJU,
     CHAT
 }
 
@@ -109,6 +115,12 @@ class SecurityViewModel(
 
     private val _selectedAttendanceSheetId = MutableStateFlow<String?>(null)
     val selectedAttendanceSheetId: StateFlow<String?> = _selectedAttendanceSheetId.asStateFlow()
+
+    private val _pjuFilter = MutableStateFlow(TimeKeywordFilter())
+    val pjuFilter: StateFlow<TimeKeywordFilter> = _pjuFilter.asStateFlow()
+
+    private val _selectedPjuSheetId = MutableStateFlow<String?>(null)
+    val selectedPjuSheetId: StateFlow<String?> = _selectedPjuSheetId.asStateFlow()
 
     private val _chatFilter = MutableStateFlow(TimeKeywordFilter())
     val chatFilter: StateFlow<TimeKeywordFilter> = _chatFilter.asStateFlow()
@@ -248,6 +260,32 @@ class SecurityViewModel(
             val rootError = firestoreError ?: error
             Log.w(TAG, "Error observing attendance sheets", rootError)
             emit(UiState.Error(rootError.localizedMessage ?: "Gagal memuat tabel absensi anggota."))
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            initialValue = UiState.Loading
+        )
+
+    val pjuSheetsState: StateFlow<UiState<List<PjuChecklistSheet>>> = repository.observePjuSheets(currentUserId)
+        .map<List<PjuChecklistSheet>, UiState<List<PjuChecklistSheet>>> { UiState.Success(it) }
+        .onEach { state ->
+            if (state is UiState.Success) {
+                val list = state.data
+                val cur = _selectedPjuSheetId.value
+                if (list.isNotEmpty() && (cur == null || list.none { it.id == cur })) {
+                    _selectedPjuSheetId.value = list.first().id
+                }
+            }
+        }
+        .catch { error ->
+            val firestoreError = generateSequence(error) { it.cause }
+                .filterIsInstance<FirebaseFirestoreException>()
+                .firstOrNull()
+            if (firestoreError == null && error is CancellationException) throw error
+            val rootError = firestoreError ?: error
+            Log.w(TAG, "Error observing PJU sheets", rootError)
+            emit(UiState.Error(rootError.localizedMessage ?: "Gagal memuat form checklist PJU."))
         }
         .stateIn(
             scope = viewModelScope,
@@ -1570,6 +1608,283 @@ class SecurityViewModel(
         }
         sb.appendLine("====================================")
         sb.append("Dilaporkan oleh: ${profile.name} (${profile.nrp})")
+        return sb.toString()
+    }
+
+    // --- PJU Checklist Actions ---
+
+    fun selectPjuSheet(sheetId: String) {
+        _selectedPjuSheetId.value = sheetId
+    }
+
+    fun updatePjuKeyword(keyword: String) {
+        _pjuFilter.update { it.copy(keyword = keyword) }
+    }
+
+    fun updatePjuFilterDay(day: Int?) {
+        _pjuFilter.update { it.copy(day = day) }
+    }
+
+    fun updatePjuFilterMonth(month: Int?) {
+        _pjuFilter.update { it.copy(month = month) }
+    }
+
+    fun updatePjuFilterYear(year: Int?) {
+        _pjuFilter.update { it.copy(year = year) }
+    }
+
+    fun filterPjuCurrentMonth() {
+        val cal = Calendar.getInstance()
+        _pjuFilter.update {
+            it.copy(
+                day = null,
+                month = cal.get(Calendar.MONTH) + 1,
+                year = cal.get(Calendar.YEAR)
+            )
+        }
+    }
+
+    fun resetPjuFilter() {
+        _pjuFilter.value = TimeKeywordFilter()
+    }
+
+    private fun currentActivePjuSheet(): PjuChecklistSheet? {
+        val list = (pjuSheetsState.value as? UiState.Success)?.data.orEmpty()
+        val id = _selectedPjuSheetId.value
+        return list.firstOrNull { it.id == id } ?: list.firstOrNull()
+    }
+
+    fun createNewPjuSheet(
+        month: Int,
+        year: Int,
+        startDay: Int,
+        endDay: Int,
+        responsibleNames: String,
+        copyExistingClusters: Boolean,
+        onSuccess: () -> Unit = {}
+    ) {
+        val cleanMonth = month.coerceIn(1, 12)
+        val cleanYear = year.coerceIn(2020, 2100)
+        val cleanStart = startDay.coerceIn(1, 31)
+        val cleanEnd = endDay.coerceIn(cleanStart, 31)
+        val cleanResp = responsibleNames.trim().ifBlank { PjuTemplates.DEFAULT_RESPONSIBLE }.take(120)
+
+        val existingClusters = currentActivePjuSheet()?.clusters.orEmpty()
+        val clusters = if (copyExistingClusters && existingClusters.isNotEmpty()) {
+            existingClusters.map { it.copy(checks = emptyMap()) }
+        } else {
+            PjuTemplates.defaultClusterRows()
+        }
+        val monthYearLabel = PjuTemplates.monthYearLabel(cleanMonth, cleanYear)
+        val newSheet = PjuChecklistSheet(
+            id = "",
+            userId = currentUserId,
+            monthYear = monthYearLabel,
+            sheetMonth = cleanMonth.toLong(),
+            sheetYear = cleanYear.toLong(),
+            periodStartDay = cleanStart.toLong(),
+            periodEndDay = cleanEnd.toLong(),
+            clusters = clusters,
+            issues = emptyList(),
+            notes = "",
+            responsibleNames = cleanResp
+        )
+        viewModelScope.launch {
+            val result = repository.savePjuSheet(newSheet)
+            if (result.isSuccess) {
+                _selectedPjuSheetId.value = result.getOrThrow()
+                _toastEvents.tryEmit("Lembar Checklist PJU $monthYearLabel (Tgl $cleanStart–$cleanEnd) dibuat.")
+                onSuccess()
+            } else {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal membuat lembar PJU baru.")
+            }
+        }
+    }
+
+    private fun saveMutatedPjuSheet(
+        successToast: String,
+        mutator: (PjuChecklistSheet) -> PjuChecklistSheet
+    ) {
+        val current = currentActivePjuSheet() ?: return
+        val updated = mutator(current)
+        viewModelScope.launch {
+            val result = repository.savePjuSheet(updated)
+            if (result.isSuccess) {
+                if (successToast.isNotBlank()) _toastEvents.tryEmit(successToast)
+            } else {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menyimpan checklist PJU.")
+            }
+        }
+    }
+
+    fun updatePjuHeader(
+        month: Int,
+        year: Int,
+        startDay: Int,
+        endDay: Int,
+        responsibleNames: String
+    ) {
+        val cleanMonth = month.coerceIn(1, 12)
+        val cleanYear = year.coerceIn(2020, 2100)
+        val cleanStart = startDay.coerceIn(1, 31)
+        val cleanEnd = endDay.coerceIn(cleanStart, 31)
+        saveMutatedPjuSheet("Periode & Penanggung Jawab PJU diperbarui.") { sheet ->
+            sheet.copy(
+                monthYear = PjuTemplates.monthYearLabel(cleanMonth, cleanYear),
+                sheetMonth = cleanMonth.toLong(),
+                sheetYear = cleanYear.toLong(),
+                periodStartDay = cleanStart.toLong(),
+                periodEndDay = cleanEnd.toLong(),
+                responsibleNames = responsibleNames.trim().ifBlank { PjuTemplates.DEFAULT_RESPONSIBLE }.take(120)
+            )
+        }
+    }
+
+    fun cyclePjuSlot(clusterIndex: Int, day: Int, slotIndex: Int) {
+        saveMutatedPjuSheet("") { sheet ->
+            val list = sheet.clusters.toMutableList()
+            if (clusterIndex in list.indices) {
+                list[clusterIndex] = list[clusterIndex].cycleSlot(day, slotIndex)
+            }
+            sheet.copy(clusters = list)
+        }
+    }
+
+    fun setPjuCellSlots(clusterIndex: Int, day: Int, slots: List<PjuLampStatus>) {
+        saveMutatedPjuSheet("Kondisi PJU tanggal $day diperbarui.") { sheet ->
+            val list = sheet.clusters.toMutableList()
+            if (clusterIndex in list.indices) {
+                list[clusterIndex] = list[clusterIndex].withDaySlots(day, slots)
+            }
+            sheet.copy(clusters = list)
+        }
+    }
+
+    fun markPjuDayAllBaik(day: Int) {
+        val allBaik = listOf(PjuLampStatus.BAIK, PjuLampStatus.BAIK, PjuLampStatus.BAIK, PjuLampStatus.BAIK)
+        saveMutatedPjuSheet("Semua cluster PJU tanggal $day ditandai Nyala / Baik (✓).") { sheet ->
+            sheet.copy(
+                clusters = sheet.clusters.map { row ->
+                    row.withDaySlots(day, allBaik)
+                }
+            )
+        }
+    }
+
+    fun upsertPjuCluster(editIndex: Int?, clusterName: String) {
+        val clean = clusterName.trim().uppercase(Locale.getDefault()).take(60)
+        if (clean.isEmpty()) {
+            _toastEvents.tryEmit("Nama cluster PJU tidak boleh kosong.")
+            return
+        }
+        saveMutatedPjuSheet(
+            if (editIndex == null) "Cluster '$clean' ditambahkan." else "Nama cluster diperbarui."
+        ) { sheet ->
+            val list = sheet.clusters.toMutableList()
+            if (editIndex != null && editIndex in list.indices) {
+                list[editIndex] = list[editIndex].copy(clusterName = clean)
+            } else if (list.size < 40) {
+                list.add(PjuClusterRow(clusterName = clean))
+            }
+            sheet.copy(clusters = list)
+        }
+    }
+
+    fun deletePjuCluster(index: Int) {
+        saveMutatedPjuSheet("Cluster PJU dihapus.") { sheet ->
+            val list = sheet.clusters.toMutableList()
+            if (index in list.indices) list.removeAt(index)
+            sheet.copy(clusters = list)
+        }
+    }
+
+    fun upsertPjuIssue(editIndex: Int?, issue: PjuIssueEntry) {
+        if (issue.keluhan.trim().isEmpty()) {
+            _toastEvents.tryEmit("Keluhan / permasalahan PJU wajib diisi.")
+            return
+        }
+        val cleanIssue = issue.copy(
+            tanggal = issue.tanggal.trim().ifBlank { currentIsoDate() }.take(24),
+            cluster = issue.cluster.trim().ifBlank { "PJU KRISAN" }.take(60),
+            titikLampu = issue.titikLampu.trim().ifBlank { "Lampu 1" }.take(40),
+            keluhan = issue.keluhan.trim().take(400),
+            tindakLanjut = issue.tindakLanjut.trim().take(400),
+            status = issue.status.trim().ifBlank { "Belum Ditangani" }.take(32)
+        )
+        saveMutatedPjuSheet(
+            if (editIndex == null) "Permasalahan PJU dicatat ke form." else "Catatan masalah PJU diperbarui."
+        ) { sheet ->
+            val list = sheet.issues.toMutableList()
+            if (editIndex != null && editIndex in list.indices) {
+                list[editIndex] = cleanIssue
+            } else if (list.size < 100) {
+                list.add(cleanIssue)
+            }
+            sheet.copy(issues = list)
+        }
+    }
+
+    fun deletePjuIssue(index: Int) {
+        saveMutatedPjuSheet("Laporan masalah PJU dihapus.") { sheet ->
+            val list = sheet.issues.toMutableList()
+            if (index in list.indices) list.removeAt(index)
+            sheet.copy(issues = list)
+        }
+    }
+
+    fun updatePjuNotes(notes: String) {
+        saveMutatedPjuSheet("Catatan checklist PJU disimpan.") { sheet ->
+            sheet.copy(notes = notes.trim().take(2000))
+        }
+    }
+
+    fun deleteActivePjuSheet() {
+        val current = currentActivePjuSheet() ?: return
+        if (current.id.isBlank()) return
+        viewModelScope.launch {
+            val result = repository.deletePjuSheet(current.id)
+            if (result.isSuccess) {
+                _toastEvents.tryEmit("Lembar Checklist PJU (${current.monthYear}) dihapus.")
+            } else {
+                _toastEvents.tryEmit("Gagal menghapus lembar PJU.")
+            }
+        }
+    }
+
+    fun buildPjuWhatsAppRecap(sheet: PjuChecklistSheet, profile: OfficerProfile): String {
+        val counts = sheet.countSlotsByStatus()
+        val compliance = sheet.complianceInfo()
+        val sb = StringBuilder()
+        sb.appendLine("*FORM CHECKLIST PJU — PERUMAHAN BUMI PAPAN SELARAS*")
+        sb.appendLine("Bulan   : ${sheet.monthYear} (Tgl ${sheet.periodStartDay}–${sheet.periodEndDay})")
+        sb.appendLine("Status  : ${compliance.badgeText} — ${compliance.detailText}")
+        sb.appendLine("Rekap   : ✓ Nyala ${counts[PjuLampStatus.BAIK] ?: 0} | ! Redup ${counts[PjuLampStatus.REDUP] ?: 0} | ✕ Mati ${counts[PjuLampStatus.MATI] ?: 0}")
+        sb.appendLine("====================================")
+        val checkedDays = sheet.checkedDays()
+        sheet.clusters.forEachIndexed { idx, row ->
+            val health = sheet.clusterHealthPercent(row)?.let { "$it% Baik" } ?: "Belum dicek"
+            val problemDays = checkedDays.filter { day ->
+                val st = row.daySummaryStatus(day)
+                st == PjuLampStatus.MATI || st == PjuLampStatus.REDUP
+            }
+            val issueDaysNote = if (problemDays.isEmpty()) "" else " | Kendala Tgl: ${problemDays.joinToString(",")}"
+            sb.appendLine("${idx + 1}. ${row.clusterName} ($health)$issueDaysNote")
+        }
+        if (sheet.issues.isNotEmpty()) {
+            sb.appendLine()
+            sb.appendLine("*PERMASALAHAN PJU (${sheet.issues.size}):*")
+            sheet.issues.forEachIndexed { idx, item ->
+                val tl = if (item.tindakLanjut.isNotBlank()) " -> ${item.tindakLanjut}" else ""
+                sb.appendLine("${idx + 1}. [${item.tanggal}] ${item.cluster} (${item.titikLampu}): ${item.keluhan} [${item.status}]$tl")
+            }
+        }
+        if (sheet.notes.isNotBlank()) {
+            sb.appendLine()
+            sb.appendLine("*CATATAN:* ${sheet.notes}")
+        }
+        sb.appendLine("====================================")
+        sb.appendLine("Penanggung Jawab : ${sheet.responsibleNames}")
+        sb.append("Dilaporkan oleh  : ${profile.name} (${profile.nrp})")
         return sb.toString()
     }
 

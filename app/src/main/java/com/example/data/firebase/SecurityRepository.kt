@@ -16,6 +16,10 @@ import com.example.data.model.InventoryRow
 import com.example.data.model.OfficerProfile
 import com.example.data.model.OfficerRoles
 import com.example.data.model.PersonnelRow
+import com.example.data.model.PjuChecklistSheet
+import com.example.data.model.PjuClusterRow
+import com.example.data.model.PjuIssueEntry
+import com.example.data.model.PjuTemplates
 import com.example.data.model.ReportStatus
 import com.example.data.model.RoomMember
 import com.example.data.model.SecurityReport
@@ -36,6 +40,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -149,6 +154,30 @@ class SecurityRepository(
             .map { snapshot ->
                 snapshot.toObjects(
                     AttendanceSheet::class.java,
+                    DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
+                )
+            }
+            .catch { error ->
+                val firestoreError = generateSequence(error) { it.cause }
+                    .filterIsInstance<FirebaseFirestoreException>()
+                    .firstOrNull()
+                if (firestoreError == null && error is CancellationException) throw error
+                val exceptionToLog = firestoreError ?: (error as? Exception)
+                if (exceptionToLog != null && auth.currentUser?.uid == userId) {
+                    handleFirestoreError(exceptionToLog, OperationType.LIST, path)
+                }
+                throw error
+            }
+    }
+
+    fun observePjuSheets(userId: String): Flow<List<PjuChecklistSheet>> {
+        val path = "users/$userId/pju_sheets"
+        return db.collection("users").document(userId).collection("pju_sheets")
+            .orderBy("updatedAt", Query.Direction.DESCENDING)
+            .snapshots()
+            .map { snapshot ->
+                snapshot.toObjects(
+                    PjuChecklistSheet::class.java,
                     DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
                 )
             }
@@ -356,6 +385,31 @@ class SecurityRepository(
                     includeCreatedAt = true
                 )
                 attCol.document("init_att_1").set(starterAttPayload).await()
+            }
+
+            // Ensure at least one starter PJU Checklist sheet exists (Perumahan Bumi Papan Selaras format)
+            val pjuCol = profileRef.collection("pju_sheets")
+            val existingPju = pjuCol.limit(1).get().await()
+            if (existingPju.isEmpty) {
+                val cal = Calendar.getInstance()
+                val curMonth = cal.get(Calendar.MONTH) + 1
+                val curYear = cal.get(Calendar.YEAR)
+                val curDay = cal.get(Calendar.DAY_OF_MONTH)
+                val (startDay, endDay) = PjuTemplates.defaultPeriodBounds(curMonth, curYear, curDay)
+                val starterPjuPayload = buildPjuSheetPayload(
+                    uid = uid,
+                    monthYear = PjuTemplates.monthYearLabel(curMonth, curYear),
+                    sheetMonth = curMonth.toLong(),
+                    sheetYear = curYear.toLong(),
+                    periodStartDay = startDay,
+                    periodEndDay = endDay,
+                    clusters = PjuTemplates.defaultClusterRows(),
+                    issues = emptyList(),
+                    notes = "",
+                    responsibleNames = PjuTemplates.DEFAULT_RESPONSIBLE,
+                    includeCreatedAt = true
+                )
+                pjuCol.document("init_pju_1").set(starterPjuPayload).await()
             }
 
             // Join & mark online inside the active shared room
@@ -1277,6 +1331,142 @@ class SecurityRepository(
             val uid = requireUserId()
             require(sheetId.isNotBlank()) { "ID lembar absensi tidak valid." }
             val docRef = db.collection("users").document(uid).collection("attendance_sheets").document(sheetId)
+            path = docRef.path
+            docRef.delete().await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.DELETE, path)
+            Result.failure(e)
+        }
+    }
+
+    private fun buildPjuSheetPayload(
+        uid: String,
+        monthYear: String,
+        sheetMonth: Long,
+        sheetYear: Long,
+        periodStartDay: Long,
+        periodEndDay: Long,
+        clusters: List<PjuClusterRow>,
+        issues: List<PjuIssueEntry>,
+        notes: String,
+        responsibleNames: String,
+        includeCreatedAt: Boolean
+    ): Map<String, Any> {
+        val cleanMonthYear = monthYear.trim().ifBlank { PjuTemplates.currentMonthYearLabel() }.take(40)
+        val cleanMonth = sheetMonth.coerceIn(1L, 12L)
+        val cleanYear = sheetYear.coerceIn(2020L, 2100L)
+        val cleanStartDay = periodStartDay.coerceIn(1L, 31L)
+        val cleanEndDay = periodEndDay.coerceIn(cleanStartDay, 31L)
+        val cleanNotes = notes.trim().take(2000)
+        val cleanResp = responsibleNames.trim().ifBlank { PjuTemplates.DEFAULT_RESPONSIBLE }.take(120)
+
+        require(clusters.size <= 40) { "Maksimal 40 cluster PJU per lembar." }
+        require(issues.size <= 100) { "Maksimal 100 entri permasalahan PJU per lembar." }
+
+        val clusterMaps = clusters.map { row ->
+            val sanitizedChecks = row.checks
+                .filterKeys { key ->
+                    val d = key.toIntOrNull()
+                    d != null && d in 1..31
+                }
+                .mapValues { (_, v) -> v.trim().take(32) }
+            mapOf(
+                "clusterName" to row.clusterName.trim().ifBlank { "PJU BARU" }.take(60),
+                "checks" to sanitizedChecks
+            )
+        }
+
+        val issueMaps = issues.map { entry ->
+            mapOf(
+                "tanggal" to entry.tanggal.trim().take(24),
+                "cluster" to entry.cluster.trim().take(60),
+                "titikLampu" to entry.titikLampu.trim().take(40),
+                "keluhan" to entry.keluhan.trim().take(400),
+                "tindakLanjut" to entry.tindakLanjut.trim().take(400),
+                "status" to entry.status.trim().take(32)
+            )
+        }
+
+        val map = mutableMapOf<String, Any>(
+            "userId" to uid,
+            "monthYear" to cleanMonthYear,
+            "sheetMonth" to cleanMonth,
+            "sheetYear" to cleanYear,
+            "periodStartDay" to cleanStartDay,
+            "periodEndDay" to cleanEndDay,
+            "clusters" to clusterMaps,
+            "issues" to issueMaps,
+            "notes" to cleanNotes,
+            "responsibleNames" to cleanResp,
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+        if (includeCreatedAt) {
+            map["createdAt"] = FieldValue.serverTimestamp()
+        }
+        return map
+    }
+
+    suspend fun savePjuSheet(sheet: PjuChecklistSheet): Result<String> {
+        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/pju_sheets"
+        return try {
+            val uid = requireUserId()
+            val col = db.collection("users").document(uid).collection("pju_sheets")
+            val isNew = sheet.id.isBlank()
+            val docRef = if (isNew) col.document() else col.document(sheet.id)
+            path = docRef.path
+
+            val exists = if (isNew) false else docRef.get().await().exists()
+            if (!exists) {
+                val payload = buildPjuSheetPayload(
+                    uid = uid,
+                    monthYear = sheet.monthYear,
+                    sheetMonth = sheet.sheetMonth,
+                    sheetYear = sheet.sheetYear,
+                    periodStartDay = sheet.periodStartDay,
+                    periodEndDay = sheet.periodEndDay,
+                    clusters = sheet.clusters,
+                    issues = sheet.issues,
+                    notes = sheet.notes,
+                    responsibleNames = sheet.responsibleNames,
+                    includeCreatedAt = true
+                )
+                docRef.set(payload).await()
+            } else {
+                val updatePayload = buildPjuSheetPayload(
+                    uid = uid,
+                    monthYear = sheet.monthYear,
+                    sheetMonth = sheet.sheetMonth,
+                    sheetYear = sheet.sheetYear,
+                    periodStartDay = sheet.periodStartDay,
+                    periodEndDay = sheet.periodEndDay,
+                    clusters = sheet.clusters,
+                    issues = sheet.issues,
+                    notes = sheet.notes,
+                    responsibleNames = sheet.responsibleNames,
+                    includeCreatedAt = false
+                ).toMutableMap().apply {
+                    remove("userId")
+                }
+                docRef.update(updatePayload).await()
+            }
+            Result.success(docRef.id)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.WRITE, path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deletePjuSheet(sheetId: String): Result<Unit> {
+        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/pju_sheets/$sheetId"
+        return try {
+            val uid = requireUserId()
+            require(sheetId.isNotBlank()) { "ID lembar PJU tidak valid." }
+            val docRef = db.collection("users").document(uid).collection("pju_sheets").document(sheetId)
             path = docRef.path
             docRef.delete().await()
             Result.success(Unit)

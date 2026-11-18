@@ -27,6 +27,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -40,6 +41,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -49,6 +55,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Radio
@@ -164,11 +171,14 @@ fun MainScreen(
     val selectedSheetId by viewModel.selectedSheetId.collectAsStateWithLifecycle()
     val attendanceSheetsState by viewModel.attendanceSheetsState.collectAsStateWithLifecycle()
     val selectedAttendanceSheetId by viewModel.selectedAttendanceSheetId.collectAsStateWithLifecycle()
+    val pjuSheetsState by viewModel.pjuSheetsState.collectAsStateWithLifecycle()
+    val selectedPjuSheetId by viewModel.selectedPjuSheetId.collectAsStateWithLifecycle()
     val chatState by viewModel.chatState.collectAsStateWithLifecycle()
     val formState by viewModel.formState.collectAsStateWithLifecycle()
     val reportFilter by viewModel.reportFilter.collectAsStateWithLifecycle()
     val tableFilter by viewModel.tableFilter.collectAsStateWithLifecycle()
     val attendanceFilter by viewModel.attendanceFilter.collectAsStateWithLifecycle()
+    val pjuFilter by viewModel.pjuFilter.collectAsStateWithLifecycle()
     val chatFilter by viewModel.chatFilter.collectAsStateWithLifecycle()
     val chatTextInput by viewModel.chatTextInput.collectAsStateWithLifecycle()
     val pendingChatPhoto by viewModel.pendingChatPhoto.collectAsStateWithLifecycle()
@@ -216,7 +226,28 @@ fun MainScreen(
     val reports = (reportsState as? UiState.Success)?.data.orEmpty()
     val activitySheets = (activitySheetsState as? UiState.Success)?.data.orEmpty()
     val attendanceSheets = (attendanceSheetsState as? UiState.Success)?.data.orEmpty()
+    val pjuSheets = (pjuSheetsState as? UiState.Success)?.data.orEmpty()
     val chatMessages = (chatState as? UiState.Success)?.data.orEmpty()
+
+    val pagerState = rememberPagerState(
+        initialPage = activeTab.ordinal,
+        pageCount = { MainTab.entries.size }
+    )
+    val tabBarListState = rememberLazyListState()
+
+    LaunchedEffect(activeTab) {
+        if (pagerState.currentPage != activeTab.ordinal) {
+            pagerState.animateScrollToPage(activeTab.ordinal)
+        }
+        tabBarListState.animateScrollToItem(activeTab.ordinal)
+    }
+
+    LaunchedEffect(pagerState.settledPage) {
+        val settledTab = MainTab.entries.getOrElse(pagerState.settledPage) { MainTab.LAPORAN }
+        if (settledTab != activeTab) {
+            viewModel.switchTab(settledTab)
+        }
+    }
 
     var showHeaderOptions by remember { mutableStateOf(false) }
     var showShiftDropdown by remember { mutableStateOf(false) }
@@ -780,60 +811,72 @@ fun MainScreen(
                         }
                     }
 
-                    // Compact 4-Tab Switcher
-                    Row(
+                    // Horizontally Scrollable 5-Tab Switcher (Laporan | Tabel | Absensi | PJU | Chat)
+                    LazyRow(
+                        state = tabBarListState,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Navy950.copy(alpha = 0.92f))
+                            .background(Navy950.copy(alpha = 0.92f)),
+                        contentPadding = PaddingValues(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        TabHeaderButton(
-                            selected = activeTab == MainTab.LAPORAN,
-                            icon = Icons.Default.Assignment,
-                            label = stringResource(R.string.tab_laporan),
-                            badgeCount = reports.size,
-                            badgeContainerColor = Gold500,
-                            badgeContentColor = Navy950,
-                            onClick = { viewModel.switchTab(MainTab.LAPORAN) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("tab_laporan")
-                        )
-                        TabHeaderButton(
-                            selected = activeTab == MainTab.TABEL,
-                            icon = Icons.Default.TableChart,
-                            label = stringResource(R.string.tab_tabel),
-                            badgeCount = activitySheets.size,
-                            badgeContainerColor = Gold500,
-                            badgeContentColor = Navy950,
-                            onClick = { viewModel.switchTab(MainTab.TABEL) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("tab_tabel")
-                        )
-                        TabHeaderButton(
-                            selected = activeTab == MainTab.ABSENSI,
-                            icon = Icons.Default.FactCheck,
-                            label = stringResource(R.string.tab_absensi),
-                            badgeCount = attendanceSheets.size,
-                            badgeContainerColor = Gold500,
-                            badgeContentColor = Navy950,
-                            onClick = { viewModel.switchTab(MainTab.ABSENSI) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("tab_absensi")
-                        )
-                        TabHeaderButton(
-                            selected = activeTab == MainTab.CHAT,
-                            icon = Icons.Default.Radio,
-                            label = stringResource(R.string.tab_chat),
-                            badgeCount = unreadChatCount,
-                            badgeContainerColor = Red600,
-                            badgeContentColor = Color.White,
-                            onClick = { viewModel.switchTab(MainTab.CHAT) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("tab_chat")
-                        )
+                        val tabItems = MainTab.entries
+                        items(tabItems, key = { it.name }) { tab ->
+                            val (icon, label, badge, badgeBg, badgeFg) = when (tab) {
+                                MainTab.LAPORAN -> TabSpec(
+                                    icon = Icons.Default.Assignment,
+                                    label = stringResource(R.string.tab_laporan),
+                                    badge = reports.size,
+                                    badgeBg = Gold500,
+                                    badgeFg = Navy950
+                                )
+                                MainTab.TABEL -> TabSpec(
+                                    icon = Icons.Default.TableChart,
+                                    label = stringResource(R.string.tab_tabel),
+                                    badge = activitySheets.size,
+                                    badgeBg = Gold500,
+                                    badgeFg = Navy950
+                                )
+                                MainTab.ABSENSI -> TabSpec(
+                                    icon = Icons.Default.FactCheck,
+                                    label = stringResource(R.string.tab_absensi),
+                                    badge = attendanceSheets.size,
+                                    badgeBg = Gold500,
+                                    badgeFg = Navy950
+                                )
+                                MainTab.PJU -> TabSpec(
+                                    icon = Icons.Default.Lightbulb,
+                                    label = stringResource(R.string.tab_pju),
+                                    badge = pjuSheets.sumOf { it.issues.size },
+                                    badgeBg = if (pjuSheets.any { it.issues.isNotEmpty() }) Red600 else Gold500,
+                                    badgeFg = if (pjuSheets.any { it.issues.isNotEmpty() }) Color.White else Navy950
+                                )
+                                MainTab.CHAT -> TabSpec(
+                                    icon = Icons.Default.Radio,
+                                    label = stringResource(R.string.tab_chat),
+                                    badge = unreadChatCount,
+                                    badgeBg = Red600,
+                                    badgeFg = Color.White
+                                )
+                            }
+                            TabHeaderButton(
+                                selected = activeTab == tab,
+                                icon = icon,
+                                label = label,
+                                badgeCount = badge,
+                                badgeContainerColor = badgeBg,
+                                badgeContentColor = badgeFg,
+                                onClick = {
+                                    viewModel.switchTab(tab)
+                                    scope.launch {
+                                        pagerState.animateScrollToPage(tab.ordinal)
+                                    }
+                                },
+                                modifier = Modifier
+                                    .widthIn(min = 82.dp)
+                                    .testTag("tab_${tab.name.lowercase()}")
+                            )
+                        }
                     }
                     Box(
                         modifier = Modifier
@@ -843,7 +886,7 @@ fun MainScreen(
                     )
                 }
 
-                // TAB CONTENT AREA
+                // SWIPEABLE HORIZONTAL PAGER TAB CONTENT AREA (Left/Right swipe across all 5 options)
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -856,7 +899,12 @@ fun MainScreen(
                             .widthIn(max = 900.dp)
                             .fillMaxSize()
                     ) {
-                        when (activeTab) {
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxSize(),
+                            beyondViewportPageCount = 1
+                        ) { page ->
+                            when (MainTab.entries[page]) {
                             MainTab.LAPORAN -> {
                                 ReportTabScreen(
                                     formState = formState,
@@ -980,6 +1028,43 @@ fun MainScreen(
                                     onResetFilter = viewModel::resetAttendanceFilter
                                 )
                             }
+                            MainTab.PJU -> {
+                                PjuTabScreen(
+                                    sheetsState = pjuSheetsState,
+                                    selectedSheetId = selectedPjuSheetId,
+                                    pjuFilter = pjuFilter,
+                                    onSelectSheet = viewModel::selectPjuSheet,
+                                    onCreateSheet = viewModel::createNewPjuSheet,
+                                    onUpdateHeader = viewModel::updatePjuHeader,
+                                    onSetCellSlots = viewModel::setPjuCellSlots,
+                                    onMarkDayAllBaik = viewModel::markPjuDayAllBaik,
+                                    onUpsertCluster = viewModel::upsertPjuCluster,
+                                    onDeleteCluster = viewModel::deletePjuCluster,
+                                    onUpsertIssue = viewModel::upsertPjuIssue,
+                                    onDeleteIssue = viewModel::deletePjuIssue,
+                                    onUpdateNotes = viewModel::updatePjuNotes,
+                                    onDeleteSheet = viewModel::deleteActivePjuSheet,
+                                    onCopyWhatsApp = { sheet ->
+                                        val text = viewModel.buildPjuWhatsAppRecap(sheet, profile)
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                        clipboard?.setPrimaryClip(ClipData.newPlainText("Checklist PJU Bumi Papan Selaras", text))
+                                        viewModel.emitToast("Rekap Checklist PJU siap tempel WhatsApp berhasil disalin!")
+                                    },
+                                    onPrintPdf = { sheet ->
+                                        PdfReportPrinter.printPjuChecklistSheet(
+                                            context = context,
+                                            sheet = sheet,
+                                            profile = profile
+                                        )
+                                    },
+                                    onFilterKeywordChange = viewModel::updatePjuKeyword,
+                                    onFilterDayChange = viewModel::updatePjuFilterDay,
+                                    onFilterMonthChange = viewModel::updatePjuFilterMonth,
+                                    onFilterYearChange = viewModel::updatePjuFilterYear,
+                                    onFilterCurrentMonth = viewModel::filterPjuCurrentMonth,
+                                    onResetFilter = viewModel::resetPjuFilter
+                                )
+                            }
                             MainTab.CHAT -> {
                                 ChatTabScreen(
                                     currentUserId = currentUserId,
@@ -1037,6 +1122,7 @@ fun MainScreen(
                                     onFilterYearChange = viewModel::updateChatFilterYear,
                                     onResetFilter = viewModel::resetChatFilter
                                 )
+                            }
                             }
                         }
                     }
@@ -1256,14 +1342,16 @@ private fun TabHeaderButton(
     Surface(
         onClick = onClick,
         color = Color.Transparent,
-        modifier = modifier.height(40.dp)
+        modifier = modifier
+            .height(40.dp)
+            .width(IntrinsicSize.Max)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 3.dp),
+                    .padding(horizontal = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
@@ -1273,7 +1361,7 @@ private fun TabHeaderButton(
                     tint = if (selected) Gold400 else Slate400,
                     modifier = Modifier.size(15.dp)
                 )
-                Spacer(modifier = Modifier.width(3.dp))
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelSmall,
@@ -1283,7 +1371,7 @@ private fun TabHeaderButton(
                     overflow = TextOverflow.Ellipsis
                 )
                 if (badgeCount > 0) {
-                    Spacer(modifier = Modifier.width(3.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Surface(
                         color = badgeContainerColor,
                         shape = RoundedCornerShape(50)
@@ -1293,7 +1381,7 @@ private fun TabHeaderButton(
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.ExtraBold,
                             color = badgeContentColor,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 0.dp)
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 0.dp)
                         )
                     }
                 }
@@ -1307,3 +1395,11 @@ private fun TabHeaderButton(
         }
     }
 }
+
+private data class TabSpec(
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val label: String,
+    val badge: Int,
+    val badgeBg: Color,
+    val badgeFg: Color
+)

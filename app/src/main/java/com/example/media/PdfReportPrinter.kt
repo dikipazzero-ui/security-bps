@@ -21,6 +21,8 @@ import com.example.data.model.AttendanceSheet
 import com.example.data.model.AttendanceStatus
 import com.example.data.model.DailyActivitySheet
 import com.example.data.model.OfficerProfile
+import com.example.data.model.PjuChecklistSheet
+import com.example.data.model.PjuLampStatus
 import com.example.data.model.ReportCategory
 import com.example.data.model.SecurityReport
 import java.io.FileOutputStream
@@ -81,6 +83,28 @@ object PdfReportPrinter {
         val printManager = context.getSystemService(Context.PRINT_SERVICE) as? PrintManager ?: return
         val jobName = "Absensi_15_Anggota_BPS_${sheet.sheetDate}"
         val adapter = SecurityAttendancePrintAdapter(
+            context = context,
+            sheet = sheet,
+            profile = profile
+        )
+        printManager.print(
+            jobName,
+            adapter,
+            PrintAttributes.Builder()
+                .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                .build()
+        )
+    }
+
+    fun printPjuChecklistSheet(
+        context: Context,
+        sheet: PjuChecklistSheet,
+        profile: OfficerProfile
+    ) {
+        val printManager = context.getSystemService(Context.PRINT_SERVICE) as? PrintManager ?: return
+        val safeMonth = sheet.monthYear.replace(" ", "_")
+        val jobName = "Checklist_PJU_BPS_${safeMonth}"
+        val adapter = SecurityPjuPrintAdapter(
             context = context,
             sheet = sheet,
             profile = profile
@@ -757,6 +781,265 @@ private class SecurityAttendancePrintAdapter(
             callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
         } catch (e: Exception) {
             callback.onWriteFailed(e.localizedMessage ?: "Gagal menulis PDF absensi.")
+        } finally {
+            doc.close()
+            pdfDocument = null
+        }
+    }
+
+    override fun onFinish() {
+        pdfDocument?.close()
+        pdfDocument = null
+    }
+}
+
+private class SecurityPjuPrintAdapter(
+    private val context: Context,
+    private val sheet: PjuChecklistSheet,
+    private val profile: OfficerProfile
+) : PrintDocumentAdapter() {
+
+    private var pdfDocument: PrintedPdfDocument? = null
+
+    override fun onLayout(
+        oldAttributes: PrintAttributes?,
+        newAttributes: PrintAttributes,
+        cancellationSignal: CancellationSignal?,
+        callback: LayoutResultCallback,
+        extras: Bundle?
+    ) {
+        pdfDocument = PrintedPdfDocument(context, newAttributes)
+        if (cancellationSignal?.isCanceled == true) {
+            callback.onLayoutCancelled()
+            return
+        }
+        val info = PrintDocumentInfo.Builder("Form_Checklist_PJU_${sheet.monthYear.replace(" ", "_")}.pdf")
+            .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+            .setPageCount(PrintDocumentInfo.PAGE_COUNT_UNKNOWN)
+            .build()
+        callback.onLayoutFinished(info, true)
+    }
+
+    override fun onWrite(
+        pages: Array<out PageRange>,
+        destination: ParcelFileDescriptor,
+        cancellationSignal: CancellationSignal?,
+        callback: WriteResultCallback
+    ) {
+        val doc = pdfDocument ?: run {
+            callback.onWriteFailed("Dokumen PDF PJU gagal dibuat.")
+            return
+        }
+
+        try {
+            val pageWidth = 595
+            val pageHeight = 842
+            val margin = 24f
+            val tableWidth = pageWidth - margin * 2
+
+            var pageNumber = 1
+            var page = doc.startPage(pageNumber - 1)
+            var canvas = page.canvas
+            var y = margin
+
+            fun startNewPage() {
+                doc.finishPage(page)
+                pageNumber++
+                page = doc.startPage(pageNumber - 1)
+                canvas = page.canvas
+                y = margin
+            }
+
+            fun ensureSpace(neededHeight: Float) {
+                if (y + neededHeight > pageHeight - margin) {
+                    startNewPage()
+                }
+            }
+
+            val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(15, 23, 42)
+                textSize = 11.5f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            val subHeaderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(15, 23, 42)
+                textSize = 10f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            val metaPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(30, 41, 59)
+                textSize = 8.2f
+            }
+            val boldMetaPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(15, 23, 42)
+                textSize = 8.2f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            val cellHeaderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(15, 23, 42)
+                textSize = 7.5f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textAlign = Paint.Align.CENTER
+            }
+            val cellBoldLeftPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(15, 23, 42)
+                textSize = 7.5f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            val slotTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(15, 23, 42)
+                textSize = 6.8f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textAlign = Paint.Align.CENTER
+            }
+            val strokePaint = Paint().apply {
+                color = Color.rgb(30, 41, 59)
+                style = Paint.Style.STROKE
+                strokeWidth = 0.8f
+            }
+            val thinStrokePaint = Paint().apply {
+                color = Color.rgb(148, 163, 184)
+                style = Paint.Style.STROKE
+                strokeWidth = 0.5f
+            }
+            val headerBgPaint = Paint().apply {
+                color = Color.rgb(226, 232, 240)
+                style = Paint.Style.FILL
+            }
+
+            // Header matching paper form
+            canvas.drawText("PERUMAHAN BUMI PAPAN SELARAS", margin, y + 11f, titlePaint)
+            y += 14f
+            canvas.drawText("FORM CHECKLIST PENERANGAN JALAN UMUM", margin, y + 11f, titlePaint)
+            y += 14f
+            canvas.drawText("BULAN ${sheet.monthYear.uppercase()}", margin, y + 10f, subHeaderPaint)
+            y += 13f
+            canvas.drawText("Dicetak oleh: ${profile.name} (${profile.nrp})  |  Periode Tgl ${sheet.periodStartDay}–${sheet.periodEndDay}", margin, y + 9f, metaPaint)
+            y += 15f
+
+            val days = sheet.daysList()
+            val noColW = 26f
+            val clusterColW = 110f
+            val daysTotalW = tableWidth - noColW - clusterColW
+            val dayColW = if (days.isNotEmpty()) daysTotalW / days.size else daysTotalW
+
+            // Matrix Table Header (2 stacked rows on right side, merged on left)
+            val h1 = 15f
+            val h2 = 15f
+            val headerTotalH = h1 + h2
+            canvas.drawRect(margin, y, margin + tableWidth, y + headerTotalH, headerBgPaint)
+            canvas.drawRect(margin, y, margin + noColW, y + headerTotalH, strokePaint)
+            canvas.drawText("NO.", margin + noColW / 2f, y + 18f, cellHeaderPaint)
+
+            canvas.drawRect(margin + noColW, y, margin + noColW + clusterColW, y + headerTotalH, strokePaint)
+            canvas.drawText("CLUSTER", margin + noColW + clusterColW / 2f, y + 18f, cellHeaderPaint)
+
+            val daysStartX = margin + noColW + clusterColW
+            canvas.drawRect(daysStartX, y, margin + tableWidth, y + h1, strokePaint)
+            canvas.drawText("KONDISI LAMPU", daysStartX + daysTotalW / 2f, y + 10.5f, cellHeaderPaint)
+
+            canvas.drawRect(daysStartX, y + h1, margin + tableWidth, y + h1 + h2 * 0.55f, strokePaint)
+            val tanggalBandY = y + h1
+            val numBandH = h2
+            canvas.drawRect(daysStartX, tanggalBandY, margin + tableWidth, tanggalBandY + numBandH, strokePaint)
+            days.forEachIndexed { idx, day ->
+                val dx = daysStartX + idx * dayColW
+                canvas.drawRect(dx, tanggalBandY, dx + dayColW, tanggalBandY + numBandH, strokePaint)
+                canvas.drawText(day.toString(), dx + dayColW / 2f, tanggalBandY + 10.5f, cellHeaderPaint)
+            }
+            y += headerTotalH
+
+            val rowH = 36f
+            val slotH = rowH / 4f
+            sheet.clusters.forEachIndexed { idx, cluster ->
+                ensureSpace(rowH + 4f)
+                canvas.drawRect(margin, y, margin + noColW, y + rowH, strokePaint)
+                canvas.drawText("${idx + 1}", margin + noColW / 2f, y + rowH / 2f + 3f, cellHeaderPaint)
+
+                canvas.drawRect(margin + noColW, y, daysStartX, y + rowH, strokePaint)
+                canvas.drawText(
+                    cluster.clusterName.take(20),
+                    margin + noColW + 4f,
+                    y + rowH / 2f + 3f,
+                    cellBoldLeftPaint
+                )
+
+                days.forEachIndexed { dIdx, day ->
+                    val dx = daysStartX + dIdx * dayColW
+                    val slots = cluster.slotsForDay(day)
+                    canvas.drawRect(dx, y, dx + dayColW, y + rowH, strokePaint)
+                    slots.forEachIndexed { sIdx, st ->
+                        val sy = y + sIdx * slotH
+                        if (sIdx > 0) {
+                            canvas.drawLine(dx, sy, dx + dayColW, sy, thinStrokePaint)
+                        }
+                        if (st != PjuLampStatus.NONE) {
+                            canvas.drawText(st.symbol, dx + dayColW / 2f, sy + slotH - 2f, slotTextPaint)
+                        }
+                    }
+                }
+                y += rowH
+            }
+
+            y += 10f
+
+            // CATATAN box
+            val notesStr = sheet.notes.ifBlank { "-" }
+            val notesLayout = StaticLayout.Builder.obtain(
+                notesStr,
+                0,
+                notesStr.length,
+                metaPaint,
+                (tableWidth - 12f).toInt()
+            ).build()
+            val notesBoxH = (notesLayout.height + 24f).coerceAtLeast(52f)
+            ensureSpace(notesBoxH + 10f)
+            canvas.drawRect(margin, y, margin + tableWidth, y + notesBoxH, strokePaint)
+            canvas.drawText("CATATAN :", margin + 6f, y + 12f, boldMetaPaint)
+            canvas.save()
+            canvas.translate(margin + 6f, y + 18f)
+            notesLayout.draw(canvas)
+            canvas.restore()
+            y += notesBoxH + 12f
+
+            // Permasalahan PJU if present
+            if (sheet.issues.isNotEmpty()) {
+                ensureSpace(32f)
+                canvas.drawText("DAFTAR PERMASALAHAN PJU (${sheet.issues.size}):", margin, y + 10f, boldMetaPaint)
+                y += 15f
+                sheet.issues.forEachIndexed { idx, issue ->
+                    val line = "${idx + 1}. [${issue.tanggal}] ${issue.cluster} (${issue.titikLampu}): ${issue.keluhan} | Status: ${issue.status}" +
+                        if (issue.tindakLanjut.isNotBlank()) " | TL: ${issue.tindakLanjut}" else ""
+                    val layout = StaticLayout.Builder.obtain(line, 0, line.length, metaPaint, tableWidth.toInt()).build()
+                    ensureSpace(layout.height + 6f)
+                    canvas.save()
+                    canvas.translate(margin, y)
+                    layout.draw(canvas)
+                    canvas.restore()
+                    y += layout.height + 5f
+                }
+                y += 8f
+            }
+
+            // KETERANGAN & PENANGGUNG JAWAB footer matching form verbatim
+            ensureSpace(74f)
+            canvas.drawText("KETERANGAN :", margin, y + 10f, boldMetaPaint)
+            y += 13f
+            canvas.drawText("1.   WAJIB MELAKUKAN CHECKLIST PADA SEMUA PJU MAKSIMAL 2 HARI SEKALI", margin, y + 10f, boldMetaPaint)
+            y += 12f
+            canvas.drawText("2.   APABILA PADA SAAT PENGECEKAN TERDAPAT MASALAH, MAKA WAJIB MENGISI PERMASALAHAN PJU PADA FORM YANG TERSEDIA", margin, y + 10f, boldMetaPaint)
+            y += 18f
+            canvas.drawText("Penanggung Jawab", margin, y + 10f, boldMetaPaint)
+            y += 26f
+            canvas.drawText(sheet.responsibleNames, margin, y + 10f, boldMetaPaint)
+
+            doc.finishPage(page)
+            FileOutputStream(destination.fileDescriptor).use { out ->
+                doc.writeTo(out)
+            }
+            callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
+        } catch (e: Exception) {
+            callback.onWriteFailed(e.localizedMessage ?: "Gagal menulis PDF PJU.")
         } finally {
             doc.close()
             pdfDocument = null

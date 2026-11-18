@@ -373,6 +373,7 @@ test("Cross-user isolation: Alice cannot read or write Bob's private profile, re
   await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("reports").doc("bob_rep").get());
   await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("activity_sheets").get());
   await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("attendance_sheets").get());
+  await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("pju_sheets").get());
 });
 
 test("Authenticated owner: DailyActivitySheet and 15-member AttendanceSheet CRUD succeed", async () => {
@@ -456,5 +457,77 @@ test("Authenticated owner: DailyActivitySheet and 15-member AttendanceSheet CRUD
       createdAt: created,
       updatedAt: created,
     })
+  );
+});
+
+test("Authenticated owner: PjuChecklistSheet CRUD and validation succeed", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const created = new Date(Date.now() - 10000);
+
+  const defaultClusters = [
+    { clusterName: "PJU KRISAN", checks: { "16": "✓|✓|✓|✓", "18": "✓|!|✓|✓" } },
+    { clusterName: "PJU CEMPAKA", checks: { "16": "✓|✓|✓|✓" } },
+    { clusterName: "PJU CENDANA", checks: {} },
+    { clusterName: "PJU CEMARA", checks: {} },
+    { clusterName: "PJU FLAMBOYAN 1", checks: {} },
+    { clusterName: "PJU FLAMBOYAN 2", checks: {} },
+    { clusterName: "PJU FLAMBOYAN FASUM", checks: {} },
+    { clusterName: "PJU AKASIA", checks: {} },
+    { clusterName: "RUKO", checks: {} },
+  ];
+
+  await assertSucceeds(
+    aliceDb.collection("users").doc(ALICE_UID).collection("pju_sheets").doc("pju_1").set({
+      userId: ALICE_UID,
+      monthYear: "November 2026",
+      sheetMonth: 11,
+      sheetYear: 2026,
+      periodStartDay: 16,
+      periodEndDay: 30,
+      clusters: defaultClusters,
+      issues: [
+        {
+          tanggal: "2026-11-18",
+          cluster: "PJU KRISAN",
+          titikLampu: "Lampu 2",
+          keluhan: "Lampu berkedip/redup sejak pukul 19.00 WIB",
+          tindakLanjut: "Dilaporkan ke teknisi BPS",
+          status: "Belum Ditangani",
+        },
+      ],
+      notes: "Pemeriksaan rutin dilakukan maksimal 2 hari sekali.",
+      responsibleNames: "R. MOH. GANDI / NERI WELAS ANTORO",
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  await assertSucceeds(
+    aliceDb.collection("users").doc(ALICE_UID).collection("pju_sheets").doc("pju_1").update({
+      notes: "Lampu Krisan 2 sudah dicek ulang.",
+      updatedAt: new Date(Date.now() - 500),
+    })
+  );
+
+  // Reject invalid periodEndDay < periodStartDay
+  await assertFails(
+    aliceDb.collection("users").doc(ALICE_UID).collection("pju_sheets").doc("pju_bad").set({
+      userId: ALICE_UID,
+      monthYear: "November 2026",
+      sheetMonth: 11,
+      sheetYear: 2026,
+      periodStartDay: 20,
+      periodEndDay: 15,
+      clusters: [],
+      issues: [],
+      notes: "",
+      responsibleNames: "R. MOH. GANDI / NERI WELAS ANTORO",
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  await assertSucceeds(
+    aliceDb.collection("users").doc(ALICE_UID).collection("pju_sheets").doc("pju_1").delete()
   );
 });

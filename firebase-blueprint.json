@@ -458,6 +458,77 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "PjuChecklistSheet": {
+      "title": "PjuChecklistSheet",
+      "description": "Lembar Form Checklist Penerangan Jalan Umum (PJU) Perumahan Bumi Papan Selaras per periode bulan & tanggal (maksimal 2 hari sekali).",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID pemilik lembar PJU"
+        },
+        "monthYear": {
+          "type": "string",
+          "description": "Nama bulan & tahun checklist (contoh: November 2026)"
+        },
+        "sheetMonth": {
+          "type": "integer",
+          "description": "Bulan numerik (1-12) untuk filter berkala"
+        },
+        "sheetYear": {
+          "type": "integer",
+          "description": "Tahun numerik untuk filter berkala"
+        },
+        "periodStartDay": {
+          "type": "integer",
+          "description": "Tanggal awal periode kolom checklist (1-31)"
+        },
+        "periodEndDay": {
+          "type": "integer",
+          "description": "Tanggal akhir periode kolom checklist (1-31)"
+        },
+        "clusters": {
+          "type": "array",
+          "description": "Daftar cluster PJU (NO 1-9 standar: Krisan, Cempaka, Cendana, Cemara, Flamboyan 1, Flamboyan 2, Flamboyan Fasum, Akasia, Ruko) beserta map status per tanggal (4 titik lampu per baris)"
+        },
+        "issues": {
+          "type": "array",
+          "description": "Daftar permasalahan PJU yang wajib diisi bila saat pengecekan ditemukan kendala"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Kolom CATATAN lembar checklist PJU"
+        },
+        "responsibleNames": {
+          "type": "string",
+          "description": "Penanggung Jawab PJU (default: R. MOH. GANDI / NERI WELAS ANTORO)"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembuatan lembar PJU (FieldValue.serverTimestamp())"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembaruan terakhir (FieldValue.serverTimestamp())"
+        }
+      },
+      "required": [
+        "userId",
+        "monthYear",
+        "sheetMonth",
+        "sheetYear",
+        "periodStartDay",
+        "periodEndDay",
+        "clusters",
+        "issues",
+        "notes",
+        "responsibleNames",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -508,6 +579,12 @@
         "$ref": "#/entities/AttendanceSheet"
       },
       "description": "Lembar tabel absensi 15 anggota Security Plot BPS"
+    },
+    "/users/{userId}/pju_sheets/{sheetId}": {
+      "schema": {
+        "$ref": "#/entities/PjuChecklistSheet"
+      },
+      "description": "Lembar Form Checklist Penerangan Jalan Umum (PJU) Perumahan Bumi Papan Selaras"
     }
   }
 }
