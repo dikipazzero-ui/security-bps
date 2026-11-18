@@ -23,4 +23,5 @@
     <string name="chat_placeholder">Tulis laporan cepat atau koordinasi...</string>
     <string name="camera_permission_rationale">Izin kamera diperlukan untuk mengambil foto dokumentasi lapangan secara langsung.</string>
     <string name="mic_permission_rationale">Izin mikrofon diperlukan untuk merekam pesan suara (Voice Note) koordinasi tim.</string>
+    <string name="notification_permission_rationale">Izin notifikasi diperlukan agar pemberitahuan dan pesan Live Chat masuk muncul di layar dengan nada dering dan getar.</string>
 </resources>

@@ -191,19 +191,19 @@ fun AttendanceTabScreen(
             is UiState.Success -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     // Header Card: Sheet Selector + Search Toggle + Export Tools
                     item {
                         Card(
-                            shape = RoundedCornerShape(18.dp),
+                            shape = RoundedCornerShape(14.dp),
                             colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.90f)),
                             border = BorderStroke(1.dp, Slate200)
                         ) {
                             Column(
-                                modifier = Modifier.padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                                modifier = Modifier.padding(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),

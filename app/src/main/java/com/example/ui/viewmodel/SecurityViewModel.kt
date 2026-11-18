@@ -26,6 +26,8 @@ import com.example.data.model.ShiftOption
 import com.example.data.model.TimeKeywordFilter
 import com.example.data.model.UiState
 import com.example.data.model.currentIsoDate
+import com.example.notifications.AlertKind
+import com.example.notifications.IncomingAlertEvent
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -129,7 +131,27 @@ class SecurityViewModel(
     private val _toastEvents = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val toastEvents: SharedFlow<String> = _toastEvents.asSharedFlow()
 
+    private val _alertEvents = MutableSharedFlow<IncomingAlertEvent>(extraBufferCapacity = 16)
+    val alertEvents: SharedFlow<IncomingAlertEvent> = _alertEvents.asSharedFlow()
+
+    private val _activeHeadsUpAlert = MutableStateFlow<IncomingAlertEvent?>(null)
+    val activeHeadsUpAlert: StateFlow<IncomingAlertEvent?> = _activeHeadsUpAlert.asStateFlow()
+
+    private val _notificationHistory = MutableStateFlow<List<IncomingAlertEvent>>(emptyList())
+    val notificationHistory: StateFlow<List<IncomingAlertEvent>> = _notificationHistory.asStateFlow()
+
+    private val _isFloatingBubbleVisible = MutableStateFlow(false)
+    val isFloatingBubbleVisible: StateFlow<Boolean> = _isFloatingBubbleVisible.asStateFlow()
+
+    private val _isFloatingWindowExpanded = MutableStateFlow(false)
+    val isFloatingWindowExpanded: StateFlow<Boolean> = _isFloatingWindowExpanded.asStateFlow()
+
     private var hasSyncedInitialProfile = false
+    private var lastObservedRoomForMessages: String? = null
+    private val knownMessageIds = mutableSetOf<String>()
+    private var hasSeededRoomMembers = false
+    private var lastObservedRoomForMembers: String? = null
+    private val knownOnlineMemberIds = mutableSetOf<String>()
 
     val profileState: StateFlow<UiState<OfficerProfile>> = repository.observeProfile(currentUserId)
         .map<OfficerProfile?, UiState<OfficerProfile>> { profile ->
@@ -253,7 +275,7 @@ class SecurityViewModel(
         }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            started = SharingStarted.Eagerly,
             initialValue = emptyList()
         )
 
@@ -271,7 +293,7 @@ class SecurityViewModel(
         }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            started = SharingStarted.Eagerly,
             initialValue = UiState.Loading
         )
 
@@ -304,6 +326,206 @@ class SecurityViewModel(
                 }
             }
         }
+
+        // Observe incoming chat messages and emit alerts for new messages from teammates/team alerts
+        viewModelScope.launch {
+            combine(chatState, _activeRoomCode) { state, room ->
+                state to room
+            }.collect { (state, room) ->
+                if (state !is UiState.Success) return@collect
+                val messages = state.data
+                if (lastObservedRoomForMessages != room) {
+                    lastObservedRoomForMessages = room
+                    knownMessageIds.clear()
+                    messages.forEach { msg ->
+                        val key = msg.id.ifBlank { "${msg.senderName}_${msg.time}_${msg.text.hashCode()}" }
+                        knownMessageIds.add(key)
+                    }
+                    return@collect
+                }
+
+                val newlyArrived = mutableListOf<ChatMessage>()
+                messages.forEach { msg ->
+                    val key = msg.id.ifBlank { "${msg.senderName}_${msg.time}_${msg.text.hashCode()}" }
+                    if (knownMessageIds.add(key)) {
+                        newlyArrived.add(msg)
+                    }
+                }
+
+                val incomingFromOthers = newlyArrived.filter { it.userId != currentUserId || !it.fromOfficer }
+                if (incomingFromOthers.isNotEmpty()) {
+                    if (_activeTab.value != MainTab.CHAT || !_isForeground.value) {
+                        _unreadChatCount.update { it + incomingFromOthers.size }
+                    }
+                    val latest = incomingFromOthers.last()
+                    val preview = when {
+                        latest.text.isNotBlank() -> latest.text
+                        !latest.imageData.isNullOrBlank() -> "📷 Foto ${latest.imageCaption.orEmpty()}".trim()
+                        latest.audioType != "none" -> "🎤 Voice Note (${latest.audioDuration ?: "00:05"})"
+                        else -> "Pesan koordinasi baru"
+                    }
+                    val upperText = latest.text.uppercase(Locale.getDefault())
+                    val isAnnouncement = latest.text.contains("🚨") ||
+                        latest.text.contains("⚠️") ||
+                        upperText.contains("PEMBERITAHUAN") ||
+                        upperText.contains("PENGUMUMAN") ||
+                        upperText.contains("DARURAT")
+
+                    val event = IncomingAlertEvent(
+                        id = latest.id.ifBlank { "msg_${System.currentTimeMillis()}" },
+                        kind = if (isAnnouncement) AlertKind.ANNOUNCEMENT else AlertKind.CHAT,
+                        title = if (isAnnouncement) "Pemberitahuan • $room" else "Chat Masuk • $room",
+                        senderName = latest.senderName,
+                        senderRole = latest.senderRole,
+                        senderPhoto = latest.senderPhoto,
+                        roomCode = room,
+                        messagePreview = preview,
+                        timeLabel = "${latest.time} WIB",
+                        isUrgent = isAnnouncement
+                    )
+                    dispatchIncomingAlert(event, showBubbleOnChat = _activeTab.value != MainTab.CHAT)
+                }
+            }
+        }
+
+        // Observe teammates coming online as lightweight pemberitahuan
+        viewModelScope.launch {
+            combine(roomMembersState, _activeRoomCode) { members, room ->
+                members to room
+            }.collect { (members, room) ->
+                if (lastObservedRoomForMembers != room) {
+                    lastObservedRoomForMembers = room
+                    hasSeededRoomMembers = false
+                    knownOnlineMemberIds.clear()
+                }
+                val currentOnline = members
+                    .filter { it.userId != currentUserId && it.isCurrentlyOnline() }
+                    .map { it.userId }
+                    .toSet()
+
+                if (!hasSeededRoomMembers) {
+                    hasSeededRoomMembers = true
+                    knownOnlineMemberIds.addAll(currentOnline)
+                    return@collect
+                }
+
+                val newlyOnline = currentOnline - knownOnlineMemberIds
+                knownOnlineMemberIds.clear()
+                knownOnlineMemberIds.addAll(currentOnline)
+
+                if (newlyOnline.isNotEmpty()) {
+                    val member = members.firstOrNull { it.userId == newlyOnline.first() }
+                    if (member != null) {
+                        val event = IncomingAlertEvent(
+                            id = "online_${member.userId}_${System.currentTimeMillis()}",
+                            kind = AlertKind.ANNOUNCEMENT,
+                            title = "Pemberitahuan Tim • $room",
+                            senderName = member.name,
+                            senderRole = member.role,
+                            senderPhoto = member.photoData,
+                            roomCode = room,
+                            messagePreview = "${member.name} (${member.role}) sedang aktif online di ruang koordinasi.",
+                            timeLabel = "${currentFormattedTime()} WIB",
+                            isUrgent = false
+                        )
+                        dispatchIncomingAlert(event, showBubbleOnChat = false)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun dispatchIncomingAlert(event: IncomingAlertEvent, showBubbleOnChat: Boolean) {
+        _notificationHistory.update { (listOf(event) + it).take(25) }
+        _activeHeadsUpAlert.value = event
+        if (showBubbleOnChat) {
+            _isFloatingBubbleVisible.value = true
+        }
+        _alertEvents.tryEmit(event)
+        viewModelScope.launch {
+            val snapshotId = event.id
+            delay(5500L)
+            if (_activeHeadsUpAlert.value?.id == snapshotId) {
+                _activeHeadsUpAlert.value = null
+            }
+        }
+    }
+
+    fun dismissHeadsUpAlert() {
+        _activeHeadsUpAlert.value = null
+    }
+
+    fun openFloatingChatWindow() {
+        _isFloatingBubbleVisible.value = true
+        _isFloatingWindowExpanded.value = true
+        _activeHeadsUpAlert.value = null
+    }
+
+    fun minimizeFloatingChatWindow() {
+        _isFloatingBubbleVisible.value = true
+        _isFloatingWindowExpanded.value = false
+    }
+
+    fun closeFloatingBubble() {
+        _isFloatingWindowExpanded.value = false
+        _isFloatingBubbleVisible.value = false
+    }
+
+    fun clearNotificationHistory() {
+        _notificationHistory.value = emptyList()
+    }
+
+    fun triggerTestChatNotification() {
+        val room = _activeRoomCode.value
+        val event = IncomingAlertEvent(
+            id = "test_chat_${System.currentTimeMillis()}",
+            kind = AlertKind.CHAT,
+            title = "Chat Masuk • $room",
+            senderName = "Bapak Suroto (Korlap)",
+            senderRole = "Korlap Security BPS",
+            roomCode = room,
+            messagePreview = "Siaga 1 Pos Gerbang! Mohon cek kondisi area parkir depan & laporan situasi terbaru. 🫡",
+            timeLabel = "${currentFormattedTime()} WIB",
+            isUrgent = false
+        )
+        _unreadChatCount.update { it + 1 }
+        dispatchIncomingAlert(event, showBubbleOnChat = true)
+    }
+
+    fun triggerTestAnnouncementNotification() {
+        val room = _activeRoomCode.value
+        val event = IncomingAlertEvent(
+            id = "test_alert_${System.currentTimeMillis()}",
+            kind = AlertKind.ANNOUNCEMENT,
+            title = "PEMBERITAHUAN PENTING",
+            senderName = "Komandan Regu Plot BPS",
+            senderRole = "Danru Plot BPS",
+            roomCode = room,
+            messagePreview = "🚨 Apel serah terima shift & pengecekan inventaris HT dilakukan 15 menit sebelum pergantian jaga.",
+            timeLabel = "${currentFormattedTime()} WIB",
+            isUrgent = true
+        )
+        dispatchIncomingAlert(event, showBubbleOnChat = true)
+    }
+
+    fun sendQuickFloatingReply(text: String) {
+        val clean = text.trim()
+        if (clean.isEmpty()) return
+        val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
+        val roomCode = _activeRoomCode.value
+        viewModelScope.launch {
+            val result = repository.sendRoomChatMessage(
+                roomCode = roomCode,
+                senderName = profile.name,
+                senderRole = profile.role,
+                fromOfficer = true,
+                text = clean,
+                senderPhoto = profile.photoData
+            )
+            if (result.isFailure) {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal mengirim balasan cepat.")
+            }
+        }
     }
 
     fun setAppForeground(inForeground: Boolean) {
@@ -320,6 +542,8 @@ class SecurityViewModel(
         _activeTab.value = tab
         if (tab == MainTab.CHAT) {
             _unreadChatCount.value = 0
+            _isFloatingWindowExpanded.value = false
+            _isFloatingBubbleVisible.value = false
         }
     }
 
@@ -779,11 +1003,7 @@ class SecurityViewModel(
     fun simulateTeamReply() {
         viewModelScope.launch {
             val result = repository.simulateTeamReply(_activeRoomCode.value)
-            if (result.isSuccess) {
-                if (_activeTab.value != MainTab.CHAT) {
-                    _unreadChatCount.update { it + 1 }
-                }
-            } else {
+            if (result.isFailure) {
                 _toastEvents.tryEmit("Gagal mengirim simulasi respon tim.")
             }
         }

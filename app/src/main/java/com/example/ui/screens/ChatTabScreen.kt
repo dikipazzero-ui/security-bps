@@ -187,22 +187,22 @@ fun ChatTabScreen(
     }
 
     Card(
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.87f)),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.89f)),
         border = BorderStroke(1.dp, Slate200),
         modifier = Modifier
             .fillMaxSize()
-            .padding(12.dp)
+            .padding(horizontal = 4.dp, vertical = 4.dp)
             .imePadding()
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Channel Header with Room Code & Search/Simulate Actions
+            // Compact Channel Header with Room Code Pill & Quick Actions
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Navy900)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -212,50 +212,68 @@ fun ChatTabScreen(
                     Row(
                         modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(10.dp))
+                                .size(26.dp)
+                                .clip(RoundedCornerShape(7.dp))
                                 .background(Gold500.copy(alpha = 0.18f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Radio,
                                 contentDescription = null,
-                                tint = Gold400
+                                tint = Gold400,
+                                modifier = Modifier.size(15.dp)
                             )
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = activeChatRoom?.title ?: stringResource(R.string.channel_title),
-                                style = MaterialTheme.typography.titleSmall,
+                                style = MaterialTheme.typography.labelLarge,
                                 color = Color.White,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(7.dp)
+                                        .size(6.dp)
                                         .clip(CircleShape)
                                         .background(if (isInternetConnected) Emerald400 else Red600)
                                 )
                                 Text(
-                                    text = if (isInternetConnected) {
-                                        "Online • $onlineMembersCount Anggota Aktif"
-                                    } else {
-                                        "Offline • Menunggu Koneksi Internet"
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (isInternetConnected) Slate400 else Red100,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    text = if (isInternetConnected) "$onlineMembersCount/${roomMembers.size} Aktif" else "Offline",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isInternetConnected) Emerald400 else Red100,
+                                    maxLines = 1
                                 )
+                                Surface(
+                                    onClick = onOpenRoomModal,
+                                    color = Navy800,
+                                    shape = RoundedCornerShape(6.dp),
+                                    border = BorderStroke(1.dp, Gold500.copy(alpha = 0.55f)),
+                                    modifier = Modifier.testTag("open_room_code_button")
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                    ) {
+                                        Icon(Icons.Default.Key, contentDescription = null, tint = Gold400, modifier = Modifier.size(11.dp))
+                                        Text(
+                                            text = activeRoomCode,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Gold400,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -264,41 +282,62 @@ fun ChatTabScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
+                            onClick = onOpenMembersModal,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .testTag("open_members_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Groups,
+                                contentDescription = "Anggota Ruang",
+                                tint = Emerald400,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        IconButton(
                             onClick = { showSearchPanel = !showSearchPanel },
-                            modifier = Modifier.testTag("toggle_chat_search_button")
+                            modifier = Modifier
+                                .size(32.dp)
+                                .testTag("toggle_chat_search_button")
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = "Cari & Saring Pesan",
-                                tint = if (showSearchPanel || chatFilter.isActive) Gold400 else Color.White
+                                tint = if (showSearchPanel || chatFilter.isActive) Gold400 else Color.White,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                         if (allMessages.isNotEmpty()) {
                             IconButton(
                                 onClick = { showClearAllConfirm = true },
-                                modifier = Modifier.testTag("clear_all_chat_button")
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .testTag("clear_all_chat_button")
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.DeleteSweep,
                                     contentDescription = "Hapus Semua Chat",
-                                    tint = Red100
+                                    tint = Red100,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
                         OutlinedButton(
                             onClick = onSimulateTeamReply,
                             border = BorderStroke(1.dp, Gold500.copy(alpha = 0.45f)),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.testTag("simulate_reply_button")
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier
+                                .height(28.dp)
+                                .testTag("simulate_reply_button")
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.Reply,
                                 contentDescription = null,
                                 tint = Gold400,
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(12.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text(
                                 text = "Tes",
                                 style = MaterialTheme.typography.labelSmall,
@@ -307,77 +346,17 @@ fun ChatTabScreen(
                         }
                     }
                 }
-
-                // Room Code Bar + Join/Create Code + Members Online Strip
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Surface(
-                        onClick = onOpenRoomModal,
-                        color = Navy800,
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, Gold500.copy(alpha = 0.6f)),
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("open_room_code_button")
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(Icons.Default.Key, contentDescription = null, tint = Gold400, modifier = Modifier.size(15.dp))
-                            Text(
-                                text = "Kode: $activeRoomCode",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = "Gabung / Ubah",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Gold400
-                            )
-                        }
-                    }
-                    Surface(
-                        onClick = onOpenMembersModal,
-                        color = Navy950,
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, Navy700),
-                        modifier = Modifier.testTag("open_members_button")
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-                        ) {
-                            Icon(Icons.Default.Groups, contentDescription = null, tint = Emerald400, modifier = Modifier.size(16.dp))
-                            Text(
-                                text = "$onlineMembersCount/${roomMembers.size}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
             }
 
-            // Live Online Members Avatar Strip
+            // Ultra-slim Live Online Members Pill Strip
             if (roomMembers.isNotEmpty()) {
                 Surface(
                     color = Slate50,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     LazyRow(
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         items(roomMembers, key = { it.userId }) { member ->
@@ -388,37 +367,30 @@ fun ChatTabScreen(
                             }
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(50))
                                     .background(Color.White)
                                     .clickable(onClick = onOpenMembersModal)
-                                    .padding(start = 4.dp, end = 10.dp, top = 4.dp, bottom = 4.dp)
+                                    .padding(start = 3.dp, end = 7.dp, top = 2.dp, bottom = 2.dp)
                             ) {
                                 OfficerAvatarWithPresence(
                                     name = member.name,
                                     isOnline = online,
                                     photoData = member.photoData,
-                                    size = 28.dp,
+                                    size = 20.dp,
                                     containerColor = if (online) Navy800 else Slate200,
                                     textColor = if (online) Gold400 else Slate700,
                                     borderColor = if (online) Gold500 else Slate400,
                                     ringColor = Color.White
                                 )
-                                Column {
-                                    Text(
-                                        text = member.name.substringBefore(" "),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Navy900,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1
-                                    )
-                                    Text(
-                                        text = if (online) "Online" else "Offline",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (online) Emerald600 else Slate400
-                                    )
-                                }
+                                Text(
+                                    text = member.name.substringBefore(" "),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (online) Navy900 else Slate500,
+                                    fontWeight = if (online) FontWeight.Bold else FontWeight.Normal,
+                                    maxLines = 1
+                                )
                             }
                         }
                     }
@@ -428,7 +400,7 @@ fun ChatTabScreen(
 
             // Collapsible Search & Time Filter Panel
             AnimatedVisibility(visible = showSearchPanel) {
-                Box(modifier = Modifier.padding(10.dp)) {
+                Box(modifier = Modifier.padding(6.dp)) {
                     SearchAndTimeFilterPanel(
                         title = "Cari Pesan (Kata Kunci / Jam / Hari / Bulan / Tahun)",
                         filter = chatFilter,
@@ -488,8 +460,8 @@ fun ChatTabScreen(
                             LazyColumn(
                                 state = listState,
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                                contentPadding = PaddingValues(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 items(
                                     filteredMessages,
@@ -690,40 +662,42 @@ fun ChatTabScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color.White)
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                        .padding(horizontal = 6.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Surface(
                         onClick = { showEmojiBar = !showEmojiBar },
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
                         color = if (showEmojiBar) Navy900 else Slate100,
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(40.dp)
                             .testTag("chat_emoji_button")
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.EmojiEmotions,
                                 contentDescription = "Pilih Emoji",
-                                tint = if (showEmojiBar) Gold400 else Navy800
+                                tint = if (showEmojiBar) Gold400 else Navy800,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
 
                     Surface(
                         onClick = onRequestChatPhoto,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
                         color = Slate100,
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(40.dp)
                             .testTag("chat_camera_button")
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.CameraAlt,
                                 contentDescription = "Lampirkan Foto",
-                                tint = Navy800
+                                tint = Navy800,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -740,7 +714,7 @@ fun ChatTabScreen(
                             )
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = Color.White,
                             unfocusedContainerColor = Slate100,
@@ -754,34 +728,35 @@ fun ChatTabScreen(
 
                     Surface(
                         onClick = onStartVoiceRecording,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
                         color = Amber100,
                         border = BorderStroke(1.dp, Gold500.copy(alpha = 0.5f)),
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(40.dp)
                             .testTag("start_voice_button")
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.Mic,
                                 contentDescription = "Rekam Voice Note",
-                                tint = Amber800
+                                tint = Amber800,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
 
                     Surface(
                         onClick = { if (!isSending) onSendTextOrPhoto() },
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
                         color = Navy900,
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(40.dp)
                             .testTag("send_chat_button")
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             if (isSending) {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
+                                    modifier = Modifier.size(16.dp),
                                     color = Gold400,
                                     strokeWidth = 2.dp
                                 )
@@ -789,7 +764,8 @@ fun ChatTabScreen(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.Send,
                                     contentDescription = "Kirim Pesan",
-                                    tint = Gold400
+                                    tint = Gold400,
+                                    modifier = Modifier.size(19.dp)
                                 )
                             }
                         }
@@ -912,17 +888,17 @@ private fun ChatBubbleItem(
         Surface(
             color = if (isMe) Navy900 else Color.White,
             shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (isMe) 16.dp else 4.dp,
-                bottomEnd = if (isMe) 4.dp else 16.dp
+                topStart = 14.dp,
+                topEnd = 14.dp,
+                bottomStart = if (isMe) 14.dp else 4.dp,
+                bottomEnd = if (isMe) 4.dp else 14.dp
             ),
             border = BorderStroke(1.dp, if (isMe) Navy800 else Slate200),
-            modifier = Modifier.widthIn(max = 300.dp)
+            modifier = Modifier.widthIn(max = 330.dp)
         ) {
             Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                modifier = Modifier.padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
