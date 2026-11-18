@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.ManageSearch
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
@@ -193,6 +194,8 @@ fun SearchAndTimeFilterPanel(
     onShiftChange: ((String?) -> Unit)? = null,
     onSelectToday: (() -> Unit)? = null,
     onReset: () -> Unit,
+    onOpenGlobalRecap: (() -> Unit)? = null,
+    globalRecapCount: Int? = null,
     modifier: Modifier = Modifier
 ) {
     val currentYear = remember { Calendar.getInstance().get(Calendar.YEAR) }
@@ -358,6 +361,59 @@ fun SearchAndTimeFilterPanel(
                     }
                 }
             }
+
+            if (onOpenGlobalRecap != null) {
+                Surface(
+                    onClick = onOpenGlobalRecap,
+                    shape = RoundedCornerShape(10.dp),
+                    color = Navy900,
+                    border = BorderStroke(1.dp, Gold500),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("${testTagPrefix}_open_recap_filter")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ManageSearch,
+                                contentDescription = null,
+                                tint = Gold400,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Filter Hasil Rekap Penyimpanan",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        if (globalRecapCount != null) {
+                            Surface(
+                                color = Gold500,
+                                shape = RoundedCornerShape(50)
+                            ) {
+                                Text(
+                                    text = "$globalRecapCount Data",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Navy950,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -413,6 +469,8 @@ fun BottomOptionSaveCard(
     isSaving: Boolean,
     testTag: String,
     onSaveClick: () -> Unit,
+    onOpenRecapSearch: (() -> Unit)? = null,
+    recapCount: Int? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -475,6 +533,34 @@ fun BottomOptionSaveCard(
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.ExtraBold
                 )
+            }
+            if (onOpenRecapSearch != null) {
+                OutlinedButton(
+                    onClick = onOpenRecapSearch,
+                    border = BorderStroke(1.dp, Gold400.copy(alpha = 0.75f)),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Navy800,
+                        contentColor = Gold400
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .testTag("${testTag}_open_recap")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ManageSearch,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    val countSuffix = if (recapCount != null) " ($recapCount Data)" else ""
+                    Text(
+                        text = "Filter Hasil Rekap Penyimpanan$countSuffix",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }

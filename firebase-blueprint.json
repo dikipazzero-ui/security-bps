@@ -80,6 +80,10 @@
           "type": "string",
           "description": "Firebase Auth UID petugas pembuat laporan"
         },
+        "roomCode": {
+          "type": "string",
+          "description": "Kode ruang kerja tim tempat laporan dibagikan (opsional)"
+        },
         "category": {
           "type": "integer",
           "enum": [1, 2, 3],
@@ -354,6 +358,10 @@
           "type": "string",
           "description": "Firebase Auth UID pemilik lembar tabel"
         },
+        "roomCode": {
+          "type": "string",
+          "description": "Kode ruang kerja tim tempat lembar tabel dibagikan (opsional)"
+        },
         "docNumber": {
           "type": "string",
           "description": "Nomor dokumen lembar laporan (opsional)"
@@ -421,6 +429,10 @@
           "type": "string",
           "description": "Firebase Auth UID pemilik lembar absensi"
         },
+        "roomCode": {
+          "type": "string",
+          "description": "Kode ruang kerja tim tempat lembar absensi dibagikan (opsional)"
+        },
         "sheetDate": {
           "type": "string",
           "description": "Tanggal absensi format yyyy-MM-dd"
@@ -472,6 +484,10 @@
         "userId": {
           "type": "string",
           "description": "Firebase Auth UID pemilik lembar PJU"
+        },
+        "roomCode": {
+          "type": "string",
+          "description": "Kode ruang kerja tim tempat lembar PJU dibagikan (opsional)"
         },
         "monthYear": {
           "type": "string",
@@ -553,6 +569,10 @@
           "type": "string",
           "description": "Firebase Auth UID pemilik catatan"
         },
+        "roomCode": {
+          "type": "string",
+          "description": "Kode ruang kerja tim tempat catatan dibagikan (opsional)"
+        },
         "sourceTab": {
           "type": "string",
           "description": "Asal opsi pencatatan (Laporan, Tabel, Absensi, PJU, Chat, Catatan)"
@@ -578,7 +598,7 @@
           "enum": ["Shift 1", "Shift 2", "Shift 3"],
           "description": "Shift bertugas saat catatan disimpan"
         },
-        "authorName": {
+        "officerName": {
           "type": "string",
           "description": "Nama petugas pembuat catatan"
         },
@@ -601,7 +621,7 @@
         "noteDate",
         "noteTime",
         "shift",
-        "authorName",
+        "officerName",
         "createdAt",
         "updatedAt"
       ]
@@ -643,6 +663,36 @@
         "$ref": "#/entities/ChatMessage"
       },
       "description": "Pesan teks, foto berketerangan, dan Voice Note dalam ruang Live Chat"
+    },
+    "/chat_rooms/{roomCode}/reports/{reportId}": {
+      "schema": {
+        "$ref": "#/entities/SecurityReport"
+      },
+      "description": "Laporan harian bersama dalam ruang kerja tim untuk dipantau semua anggota"
+    },
+    "/chat_rooms/{roomCode}/activity_sheets/{sheetId}": {
+      "schema": {
+        "$ref": "#/entities/DailyActivitySheet"
+      },
+      "description": "Lembar tabel pelaporan kegiatan harian bersama dalam ruang kerja tim"
+    },
+    "/chat_rooms/{roomCode}/attendance_sheets/{sheetId}": {
+      "schema": {
+        "$ref": "#/entities/AttendanceSheet"
+      },
+      "description": "Lembar absensi 15 anggota bersama dalam ruang kerja tim"
+    },
+    "/chat_rooms/{roomCode}/pju_sheets/{sheetId}": {
+      "schema": {
+        "$ref": "#/entities/PjuChecklistSheet"
+      },
+      "description": "Lembar Form Checklist PJU bersama dalam ruang kerja tim"
+    },
+    "/chat_rooms/{roomCode}/quick_notes/{noteId}": {
+      "schema": {
+        "$ref": "#/entities/QuickNote"
+      },
+      "description": "Catatan tersimpan bersama per shift & waktu dalam ruang kerja tim"
     },
     "/users/{userId}/activity_sheets/{sheetId}": {
       "schema": {

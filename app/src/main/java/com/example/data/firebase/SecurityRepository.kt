@@ -100,16 +100,17 @@ class SecurityRepository(
             }
     }
 
-    fun observeReports(userId: String): Flow<List<SecurityReport>> {
-        val path = "users/$userId/reports"
-        return db.collection("users").document(userId).collection("reports")
-            .orderBy("createdAt", Query.Direction.DESCENDING)
+    fun observeReports(roomCode: String): Flow<List<SecurityReport>> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        val path = "chat_rooms/$cleanCode/reports"
+        return db.collection("chat_rooms").document(cleanCode).collection("reports")
+            .whereEqualTo("roomCode", cleanCode)
             .snapshots()
             .map { snapshot ->
                 snapshot.toObjects(
                     SecurityReport::class.java,
                     DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
-                )
+                ).sortedByDescending { it.createdAt?.toDate()?.time ?: 0L }
             }
             .catch { error ->
                 val firestoreError = generateSequence(error) { it.cause }
@@ -117,23 +118,26 @@ class SecurityRepository(
                     .firstOrNull()
                 if (firestoreError == null && error is CancellationException) throw error
                 val exceptionToLog = firestoreError ?: (error as? Exception)
-                if (exceptionToLog != null && auth.currentUser?.uid == userId) {
+                if (exceptionToLog != null && auth.currentUser != null) {
                     handleFirestoreError(exceptionToLog, OperationType.LIST, path)
                 }
                 throw error
             }
     }
 
-    fun observeActivitySheets(userId: String): Flow<List<DailyActivitySheet>> {
-        val path = "users/$userId/activity_sheets"
-        return db.collection("users").document(userId).collection("activity_sheets")
-            .orderBy("updatedAt", Query.Direction.DESCENDING)
+    fun observeActivitySheets(roomCode: String): Flow<List<DailyActivitySheet>> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        val path = "chat_rooms/$cleanCode/activity_sheets"
+        return db.collection("chat_rooms").document(cleanCode).collection("activity_sheets")
+            .whereEqualTo("roomCode", cleanCode)
             .snapshots()
             .map { snapshot ->
                 snapshot.toObjects(
                     DailyActivitySheet::class.java,
                     DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
-                )
+                ).sortedByDescending {
+                    it.updatedAt?.toDate()?.time ?: it.createdAt?.toDate()?.time ?: 0L
+                }
             }
             .catch { error ->
                 val firestoreError = generateSequence(error) { it.cause }
@@ -141,23 +145,26 @@ class SecurityRepository(
                     .firstOrNull()
                 if (firestoreError == null && error is CancellationException) throw error
                 val exceptionToLog = firestoreError ?: (error as? Exception)
-                if (exceptionToLog != null && auth.currentUser?.uid == userId) {
+                if (exceptionToLog != null && auth.currentUser != null) {
                     handleFirestoreError(exceptionToLog, OperationType.LIST, path)
                 }
                 throw error
             }
     }
 
-    fun observeAttendanceSheets(userId: String): Flow<List<AttendanceSheet>> {
-        val path = "users/$userId/attendance_sheets"
-        return db.collection("users").document(userId).collection("attendance_sheets")
-            .orderBy("updatedAt", Query.Direction.DESCENDING)
+    fun observeAttendanceSheets(roomCode: String): Flow<List<AttendanceSheet>> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        val path = "chat_rooms/$cleanCode/attendance_sheets"
+        return db.collection("chat_rooms").document(cleanCode).collection("attendance_sheets")
+            .whereEqualTo("roomCode", cleanCode)
             .snapshots()
             .map { snapshot ->
                 snapshot.toObjects(
                     AttendanceSheet::class.java,
                     DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
-                )
+                ).sortedByDescending {
+                    it.updatedAt?.toDate()?.time ?: it.createdAt?.toDate()?.time ?: 0L
+                }
             }
             .catch { error ->
                 val firestoreError = generateSequence(error) { it.cause }
@@ -165,23 +172,26 @@ class SecurityRepository(
                     .firstOrNull()
                 if (firestoreError == null && error is CancellationException) throw error
                 val exceptionToLog = firestoreError ?: (error as? Exception)
-                if (exceptionToLog != null && auth.currentUser?.uid == userId) {
+                if (exceptionToLog != null && auth.currentUser != null) {
                     handleFirestoreError(exceptionToLog, OperationType.LIST, path)
                 }
                 throw error
             }
     }
 
-    fun observePjuSheets(userId: String): Flow<List<PjuChecklistSheet>> {
-        val path = "users/$userId/pju_sheets"
-        return db.collection("users").document(userId).collection("pju_sheets")
-            .orderBy("updatedAt", Query.Direction.DESCENDING)
+    fun observePjuSheets(roomCode: String): Flow<List<PjuChecklistSheet>> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        val path = "chat_rooms/$cleanCode/pju_sheets"
+        return db.collection("chat_rooms").document(cleanCode).collection("pju_sheets")
+            .whereEqualTo("roomCode", cleanCode)
             .snapshots()
             .map { snapshot ->
                 snapshot.toObjects(
                     PjuChecklistSheet::class.java,
                     DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
-                )
+                ).sortedByDescending {
+                    it.updatedAt?.toDate()?.time ?: it.createdAt?.toDate()?.time ?: 0L
+                }
             }
             .catch { error ->
                 val firestoreError = generateSequence(error) { it.cause }
@@ -189,23 +199,26 @@ class SecurityRepository(
                     .firstOrNull()
                 if (firestoreError == null && error is CancellationException) throw error
                 val exceptionToLog = firestoreError ?: (error as? Exception)
-                if (exceptionToLog != null && auth.currentUser?.uid == userId) {
+                if (exceptionToLog != null && auth.currentUser != null) {
                     handleFirestoreError(exceptionToLog, OperationType.LIST, path)
                 }
                 throw error
             }
     }
 
-    fun observeQuickNotes(userId: String): Flow<List<QuickNote>> {
-        val path = "users/$userId/quick_notes"
-        return db.collection("users").document(userId).collection("quick_notes")
-            .orderBy("updatedAt", Query.Direction.DESCENDING)
+    fun observeQuickNotes(roomCode: String): Flow<List<QuickNote>> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        val path = "chat_rooms/$cleanCode/quick_notes"
+        return db.collection("chat_rooms").document(cleanCode).collection("quick_notes")
+            .whereEqualTo("roomCode", cleanCode)
             .snapshots()
             .map { snapshot ->
                 snapshot.toObjects(
                     QuickNote::class.java,
                     DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
-                )
+                ).sortedByDescending {
+                    it.updatedAt?.toDate()?.time ?: it.createdAt?.toDate()?.time ?: 0L
+                }
             }
             .catch { error ->
                 val firestoreError = generateSequence(error) { it.cause }
@@ -213,7 +226,7 @@ class SecurityRepository(
                     .firstOrNull()
                 if (firestoreError == null && error is CancellationException) throw error
                 val exceptionToLog = firestoreError ?: (error as? Exception)
-                if (exceptionToLog != null && auth.currentUser?.uid == userId) {
+                if (exceptionToLog != null && auth.currentUser != null) {
                     handleFirestoreError(exceptionToLog, OperationType.LIST, path)
                 }
                 throw error
@@ -335,25 +348,6 @@ class SecurityRepository(
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
                 profileRef.set(profilePayload).await()
-
-                val initialReportRef = profileRef.collection("reports").document("init_1")
-                initialReportRef.set(
-                    mapOf(
-                        "userId" to uid,
-                        "category" to 1,
-                        "time" to "07:05",
-                        "reportDate" to currentIsoDate(),
-                        "shift" to ShiftOption.SHIFT_1.label,
-                        "status" to ReportStatus.AMAN.label,
-                        "description" to "Apel serah terima jaga pagi di Pos Utama Plot BPS dari petugas Shift 3 ke Shift 1. Pengecekan inventaris HT (3 unit), kunci-kunci ruangan, dan buku mutasi lengkap dalam kondisi baik.",
-                        "photos" to emptyList<String>(),
-                        "photoCaptions" to emptyList<String>(),
-                        "officerName" to defaultName,
-                        "officerNrp" to "SEC-BPS-042",
-                        "createdAt" to FieldValue.serverTimestamp(),
-                        "updatedAt" to FieldValue.serverTimestamp()
-                    )
-                ).await()
             } else {
                 val existing = snapshot.toObject(
                     OfficerProfile::class.java,
@@ -376,47 +370,108 @@ class SecurityRepository(
                 }
             }
 
-            // Ensure at least one starter DailyActivitySheet exists matching BPS logbook format
-            val sheetsCol = profileRef.collection("activity_sheets")
-            val existingSheets = sheetsCol.limit(1).get().await()
-            if (existingSheets.isEmpty) {
-                val starterShift = resolvedProfile.activeShift
+            // One-time best-effort migration of any earlier personal records into the shared room
+            runCatching { migrateLegacyUserDataToRoom(uid, resolvedRoom) }
+
+            // Ensure starter shared workspace templates exist in chat_rooms/{resolvedRoom} if empty
+            ensureRoomStarterData(resolvedRoom, uid, resolvedProfile)
+
+            // Join & mark online inside the active shared room
+            upsertRoomMember(resolvedRoom, resolvedProfile, isOnline = true)
+            Result.success(resolvedRoom)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.WRITE, profilePath)
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun ensureRoomStarterData(
+        roomCode: String,
+        uid: String,
+        profile: OfficerProfile
+    ) {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        val roomRef = db.collection("chat_rooms").document(cleanCode)
+        val starterShift = profile.activeShift.takeIf { s ->
+            s in ShiftOption.entries.map { it.label }
+        } ?: ShiftOption.SHIFT_1.label
+        val cleanName = profile.name.trim().ifBlank { "Petugas Security" }.take(80)
+        val cleanNrp = profile.nrp.trim().ifBlank { "SEC-BPS" }.take(40)
+
+        // 1. Starter shared report if room has none
+        val reportsCol = roomRef.collection("reports")
+        if (reportsCol.whereEqualTo("roomCode", cleanCode).limit(1).get().await().isEmpty) {
+            val initReportRef = reportsCol.document("init_1")
+            if (!initReportRef.get().await().exists()) {
+                initReportRef.set(
+                    mapOf(
+                        "userId" to uid,
+                        "roomCode" to cleanCode,
+                        "category" to 1,
+                        "time" to "07:05",
+                        "reportDate" to currentIsoDate(),
+                        "shift" to ShiftOption.SHIFT_1.label,
+                        "status" to ReportStatus.AMAN.label,
+                        "description" to "Apel serah terima jaga pagi di Pos Utama Plot BPS dari petugas Shift 3 ke Shift 1. Pengecekan inventaris HT (3 unit), kunci-kunci ruangan, dan buku mutasi lengkap dalam kondisi baik.",
+                        "photos" to emptyList<String>(),
+                        "photoCaptions" to emptyList<String>(),
+                        "officerName" to cleanName,
+                        "officerNrp" to cleanNrp,
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            }
+        }
+
+        // 2. Starter shared DailyActivitySheet
+        val sheetsCol = roomRef.collection("activity_sheets")
+        if (sheetsCol.whereEqualTo("roomCode", cleanCode).limit(1).get().await().isEmpty) {
+            val initSheetRef = sheetsCol.document("init_sheet_1")
+            if (!initSheetRef.get().await().exists()) {
                 val starterPayload = buildActivitySheetPayload(
                     uid = uid,
+                    roomCode = cleanCode,
                     docNumber = "001",
                     sheetDate = currentIsoDate(),
                     shift = starterShift,
-                    personnelRows = ActivitySheetTemplates.starterPersonnelRows(resolvedProfile.name),
+                    personnelRows = ActivitySheetTemplates.starterPersonnelRows(cleanName),
                     inventoryRows = ActivitySheetTemplates.defaultInventoryRows,
                     activityRows = ActivitySheetTemplates.starterActivityRows(starterShift),
-                    officerName = resolvedProfile.name,
-                    officerNrp = resolvedProfile.nrp,
+                    officerName = cleanName,
+                    officerNrp = cleanNrp,
                     includeCreatedAt = true
                 )
-                sheetsCol.document("init_sheet_1").set(starterPayload).await()
+                initSheetRef.set(starterPayload).await()
             }
+        }
 
-            // Ensure at least one starter 15-member AttendanceSheet exists
-            val attCol = profileRef.collection("attendance_sheets")
-            val existingAtt = attCol.limit(1).get().await()
-            if (existingAtt.isEmpty) {
-                val starterShift = resolvedProfile.activeShift
+        // 3. Starter shared 15-member AttendanceSheet
+        val attCol = roomRef.collection("attendance_sheets")
+        if (attCol.whereEqualTo("roomCode", cleanCode).limit(1).get().await().isEmpty) {
+            val initAttRef = attCol.document("init_att_1")
+            if (!initAttRef.get().await().exists()) {
                 val starterAttPayload = buildAttendanceSheetPayload(
                     uid = uid,
+                    roomCode = cleanCode,
                     sheetDate = currentIsoDate(),
                     shift = starterShift,
                     periodLabel = "Regu Plot BPS (15 Anggota)",
-                    commanderName = resolvedProfile.name,
-                    rows = AttendanceTemplates.default15Members(resolvedProfile.name, starterShift),
+                    commanderName = cleanName,
+                    rows = AttendanceTemplates.default15Members(cleanName, starterShift),
                     includeCreatedAt = true
                 )
-                attCol.document("init_att_1").set(starterAttPayload).await()
+                initAttRef.set(starterAttPayload).await()
             }
+        }
 
-            // Ensure at least one starter PJU Checklist sheet exists (Perumahan Bumi Papan Selaras format)
-            val pjuCol = profileRef.collection("pju_sheets")
-            val existingPju = pjuCol.limit(1).get().await()
-            if (existingPju.isEmpty) {
+        // 4. Starter shared PJU Checklist Sheet
+        val pjuCol = roomRef.collection("pju_sheets")
+        if (pjuCol.whereEqualTo("roomCode", cleanCode).limit(1).get().await().isEmpty) {
+            val initPjuRef = pjuCol.document("init_pju_1")
+            if (!initPjuRef.get().await().exists()) {
                 val cal = Calendar.getInstance()
                 val curMonth = cal.get(Calendar.MONTH) + 1
                 val curYear = cal.get(Calendar.YEAR)
@@ -424,6 +479,7 @@ class SecurityRepository(
                 val (startDay, endDay) = PjuTemplates.defaultPeriodBounds(curMonth, curYear, curDay)
                 val starterPjuPayload = buildPjuSheetPayload(
                     uid = uid,
+                    roomCode = cleanCode,
                     monthYear = PjuTemplates.monthYearLabel(curMonth, curYear),
                     sheetMonth = curMonth.toLong(),
                     sheetYear = curYear.toLong(),
@@ -435,17 +491,154 @@ class SecurityRepository(
                     responsibleNames = PjuTemplates.DEFAULT_RESPONSIBLE,
                     includeCreatedAt = true
                 )
-                pjuCol.document("init_pju_1").set(starterPjuPayload).await()
+                initPjuRef.set(starterPjuPayload).await()
             }
+        }
+    }
 
-            // Join & mark online inside the active shared room
-            upsertRoomMember(resolvedRoom, resolvedProfile, isOnline = true)
-            Result.success(resolvedRoom)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.WRITE, profilePath)
-            Result.failure(e)
+    private suspend fun migrateLegacyUserDataToRoom(uid: String, roomCode: String) {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        val userRef = db.collection("users").document(uid)
+        val roomRef = db.collection("chat_rooms").document(cleanCode)
+        val uidTag = uid.take(8)
+
+        // 1. Migrate legacy reports (skip untouched init_1)
+        val oldReports = userRef.collection("reports").get().await()
+        oldReports.documents.forEach { doc ->
+            if (doc.id == "init_1") return@forEach
+            val targetId = "mig_${uidTag}_${doc.id}".take(120)
+            val targetRef = roomRef.collection("reports").document(targetId)
+            if (!targetRef.get().await().exists()) {
+                val rep = doc.toObject(SecurityReport::class.java) ?: return@forEach
+                val payload = mapOf(
+                    "userId" to uid,
+                    "roomCode" to cleanCode,
+                    "category" to rep.category.toInt().coerceIn(1, 3),
+                    "time" to rep.time.ifBlank { "07:00" }.take(10),
+                    "reportDate" to (rep.reportDate.takeIf { it.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$")) } ?: currentIsoDate()),
+                    "shift" to (rep.shift.takeIf { it in ShiftOption.entries.map { s -> s.label } } ?: ShiftOption.SHIFT_1.label),
+                    "status" to (rep.status.takeIf { it in ReportStatus.entries.map { s -> s.label } } ?: ReportStatus.AMAN.label),
+                    "description" to rep.description.ifBlank { "Laporan security" }.take(2000),
+                    "photos" to rep.photos.take(4),
+                    "photoCaptions" to rep.photoCaptions.take(4),
+                    "officerName" to rep.officerName.ifBlank { "Petugas Security" }.take(80),
+                    "officerNrp" to rep.officerNrp.ifBlank { "SEC-BPS" }.take(40),
+                    "createdAt" to (rep.createdAt ?: FieldValue.serverTimestamp()),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+                targetRef.set(payload).await()
+            }
+        }
+
+        // 2. Migrate legacy activity_sheets (skip untouched init_sheet_1 unless user customized activities > 2 rows)
+        val oldSheets = userRef.collection("activity_sheets").get().await()
+        oldSheets.documents.forEach { doc ->
+            val sheet = doc.toObject(DailyActivitySheet::class.java) ?: return@forEach
+            if (doc.id == "init_sheet_1" && sheet.activityRows.size <= 2) return@forEach
+            val targetId = "mig_${uidTag}_${doc.id}".take(120)
+            val targetRef = roomRef.collection("activity_sheets").document(targetId)
+            if (!targetRef.get().await().exists()) {
+                val payload = buildActivitySheetPayload(
+                    uid = uid,
+                    roomCode = cleanCode,
+                    docNumber = sheet.docNumber,
+                    sheetDate = sheet.sheetDate,
+                    shift = sheet.shift,
+                    personnelRows = sheet.personnelRows,
+                    inventoryRows = sheet.inventoryRows,
+                    activityRows = sheet.activityRows,
+                    officerName = sheet.officerName,
+                    officerNrp = sheet.officerNrp,
+                    includeCreatedAt = true
+                )
+                targetRef.set(payload).await()
+            }
+        }
+
+        // 3. Migrate legacy attendance_sheets (skip untouched init_att_1 unless non-default remarks/non-hadir)
+        val oldAtt = userRef.collection("attendance_sheets").get().await()
+        oldAtt.documents.forEach { doc ->
+            val sheet = doc.toObject(AttendanceSheet::class.java) ?: return@forEach
+            val modified = sheet.rows.any { it.status != AttendanceStatus.HADIR.code || it.keterangan.isNotBlank() }
+            if (doc.id == "init_att_1" && !modified) return@forEach
+            val targetId = "mig_${uidTag}_${doc.id}".take(120)
+            val targetRef = roomRef.collection("attendance_sheets").document(targetId)
+            if (!targetRef.get().await().exists()) {
+                val payload = buildAttendanceSheetPayload(
+                    uid = uid,
+                    roomCode = cleanCode,
+                    sheetDate = sheet.sheetDate,
+                    shift = sheet.shift,
+                    periodLabel = sheet.periodLabel,
+                    commanderName = sheet.commanderName,
+                    rows = sheet.rows,
+                    includeCreatedAt = true
+                )
+                targetRef.set(payload).await()
+            }
+        }
+
+        // 4. Migrate legacy pju_sheets (skip untouched init_pju_1 unless checked/issues/notes exist)
+        val oldPju = userRef.collection("pju_sheets").get().await()
+        oldPju.documents.forEach { doc ->
+            val sheet = doc.toObject(PjuChecklistSheet::class.java) ?: return@forEach
+            val modified = sheet.checkedDays().isNotEmpty() || sheet.issues.isNotEmpty() || sheet.notes.isNotBlank()
+            if (doc.id == "init_pju_1" && !modified) return@forEach
+            val targetId = "mig_${uidTag}_${doc.id}".take(120)
+            val targetRef = roomRef.collection("pju_sheets").document(targetId)
+            if (!targetRef.get().await().exists()) {
+                val payload = buildPjuSheetPayload(
+                    uid = uid,
+                    roomCode = cleanCode,
+                    monthYear = sheet.monthYear,
+                    sheetMonth = sheet.sheetMonth,
+                    sheetYear = sheet.sheetYear,
+                    periodStartDay = sheet.periodStartDay,
+                    periodEndDay = sheet.periodEndDay,
+                    clusters = sheet.clusters,
+                    issues = sheet.issues,
+                    notes = sheet.notes,
+                    responsibleNames = sheet.responsibleNames,
+                    lastShift = sheet.lastShift,
+                    lastUpdatedTime = sheet.lastUpdatedTime,
+                    includeCreatedAt = true
+                )
+                targetRef.set(payload).await()
+            }
+        }
+
+        // 5. Migrate legacy quick_notes
+        val oldNotes = userRef.collection("quick_notes").get().await()
+        oldNotes.documents.forEach { doc ->
+            val note = doc.toObject(QuickNote::class.java) ?: return@forEach
+            if (note.content.isBlank()) return@forEach
+            val targetId = "mig_${uidTag}_${doc.id}".take(120)
+            val targetRef = roomRef.collection("quick_notes").document(targetId)
+            if (!targetRef.get().await().exists()) {
+                val cleanTitle = note.title.trim().take(120).ifBlank {
+                    "Catatan ${NoteSourceTab.fromNameOrDefault(note.sourceTab).label}"
+                }
+                val cleanDate = note.noteDate.trim().takeIf {
+                    it.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))
+                } ?: currentIsoDate()
+                val cleanTime = note.noteTime.trim().ifBlank { "07:00" }.take(10)
+                val validShift = note.shift.takeIf { it in ShiftOption.entries.map { s -> s.label } } ?: ShiftOption.SHIFT_1.label
+                targetRef.set(
+                    mapOf(
+                        "userId" to uid,
+                        "roomCode" to cleanCode,
+                        "sourceTab" to NoteSourceTab.fromNameOrDefault(note.sourceTab).name,
+                        "title" to cleanTitle,
+                        "content" to note.content.trim().take(2000),
+                        "noteDate" to cleanDate,
+                        "noteTime" to cleanTime,
+                        "shift" to validShift,
+                        "officerName" to note.officerName.trim().ifBlank { "Petugas Security" }.take(80),
+                        "createdAt" to (note.createdAt ?: FieldValue.serverTimestamp()),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            }
         }
     }
 
@@ -665,6 +858,7 @@ class SecurityRepository(
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
             ).await()
+            ensureRoomStarterData(cleanCode, uid, profile)
 
             Result.success(ChatRoom(id = cleanCode, roomCode = cleanCode, title = cleanTitle, createdBy = uid))
         } catch (e: CancellationException) {
@@ -872,6 +1066,7 @@ class SecurityRepository(
     }
 
     suspend fun addReport(
+        roomCode: String,
         category: Int,
         time: String,
         reportDate: String,
@@ -883,9 +1078,11 @@ class SecurityRepository(
         officerName: String,
         officerNrp: String
     ): Result<Unit> {
-        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/reports"
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        var path = "chat_rooms/$cleanCode/reports"
         return try {
             val uid = requireUserId()
+            require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
             val cleanDesc = description.trim()
             val cleanTime = time.trim()
             val cleanDate = reportDate.trim().ifBlank { currentIsoDate() }
@@ -903,10 +1100,15 @@ class SecurityRepository(
             require(photos.size <= 4) { "Maksimal 4 foto per rincian." }
             require(photos.all { it.length <= 200000 }) { "Ukuran foto terkompresi melebihi batas." }
 
-            val docRef = db.collection("users").document(uid).collection("reports").document()
+            if (cleanCode == DEFAULT_ROOM_CODE) {
+                ensureDefaultChatRoomExists(uid)
+            }
+
+            val docRef = db.collection("chat_rooms").document(cleanCode).collection("reports").document()
             path = docRef.path
             val payload = mapOf(
                 "userId" to uid,
+                "roomCode" to cleanCode,
                 "category" to category,
                 "time" to cleanTime,
                 "reportDate" to cleanDate,
@@ -930,12 +1132,14 @@ class SecurityRepository(
         }
     }
 
-    suspend fun deleteReport(reportId: String): Result<Unit> {
-        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/reports/$reportId"
+    suspend fun deleteReport(roomCode: String, reportId: String): Result<Unit> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        var path = "chat_rooms/$cleanCode/reports/$reportId"
         return try {
-            val uid = requireUserId()
+            requireUserId()
+            require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
             require(reportId.isNotBlank()) { "ID laporan tidak valid." }
-            val docRef = db.collection("users").document(uid).collection("reports").document(reportId)
+            val docRef = db.collection("chat_rooms").document(cleanCode).collection("reports").document(reportId)
             path = docRef.path
             docRef.delete().await()
             Result.success(Unit)
@@ -947,18 +1151,21 @@ class SecurityRepository(
         }
     }
 
-    suspend fun resetAllReports(reportIds: List<String>): Result<Unit> {
-        val path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/reports"
+    suspend fun resetAllReports(roomCode: String, reportIds: List<String>): Result<Int> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        val path = "chat_rooms/$cleanCode/reports"
         return try {
-            val uid = requireUserId()
-            val col = db.collection("users").document(uid).collection("reports")
-            val chunks = reportIds.filter { it.isNotBlank() }.chunked(400)
+            requireUserId()
+            require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
+            val col = db.collection("chat_rooms").document(cleanCode).collection("reports")
+            val validIds = reportIds.filter { it.isNotBlank() }
+            val chunks = validIds.chunked(400)
             for (chunk in chunks) {
                 val batch = db.batch()
                 chunk.forEach { id -> batch.delete(col.document(id)) }
                 batch.commit().await()
             }
-            Result.success(Unit)
+            Result.success(validIds.size)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -1134,6 +1341,7 @@ class SecurityRepository(
 
     private fun buildActivitySheetPayload(
         uid: String,
+        roomCode: String,
         docNumber: String,
         sheetDate: String,
         shift: String,
@@ -1144,12 +1352,14 @@ class SecurityRepository(
         officerNrp: String,
         includeCreatedAt: Boolean
     ): Map<String, Any> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
         val cleanDocNum = docNumber.trim().take(40)
         val cleanDate = sheetDate.trim().ifBlank { currentIsoDate() }
         val cleanShift = if (shift in ShiftOption.entries.map { it.label }) shift else ShiftOption.SHIFT_1.label
         val cleanOfficer = officerName.trim().ifBlank { "Petugas Security" }.take(80)
         val cleanNrp = officerNrp.trim().ifBlank { "SEC-BPS" }.take(40)
 
+        require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
         require(cleanDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) { "Format tanggal harus yyyy-MM-dd." }
         require(personnelRows.size <= 30) { "Maksimal 30 baris personel." }
         require(inventoryRows.size <= 50) { "Maksimal 50 baris inventaris." }
@@ -1181,6 +1391,7 @@ class SecurityRepository(
 
         val map = mutableMapOf<String, Any>(
             "userId" to uid,
+            "roomCode" to cleanCode,
             "docNumber" to cleanDocNum,
             "sheetDate" to cleanDate,
             "shift" to cleanShift,
@@ -1197,11 +1408,16 @@ class SecurityRepository(
         return map
     }
 
-    suspend fun saveActivitySheet(sheet: DailyActivitySheet): Result<String> {
-        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/activity_sheets"
+    suspend fun saveActivitySheet(roomCode: String, sheet: DailyActivitySheet): Result<String> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        var path = "chat_rooms/$cleanCode/activity_sheets"
         return try {
             val uid = requireUserId()
-            val col = db.collection("users").document(uid).collection("activity_sheets")
+            require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
+            if (cleanCode == DEFAULT_ROOM_CODE) {
+                ensureDefaultChatRoomExists(uid)
+            }
+            val col = db.collection("chat_rooms").document(cleanCode).collection("activity_sheets")
             val isNew = sheet.id.isBlank()
             val docRef = if (isNew) col.document() else col.document(sheet.id)
             path = docRef.path
@@ -1210,6 +1426,7 @@ class SecurityRepository(
             if (!exists) {
                 val payload = buildActivitySheetPayload(
                     uid = uid,
+                    roomCode = cleanCode,
                     docNumber = sheet.docNumber,
                     sheetDate = sheet.sheetDate,
                     shift = sheet.shift,
@@ -1224,6 +1441,7 @@ class SecurityRepository(
             } else {
                 val updatePayload = buildActivitySheetPayload(
                     uid = uid,
+                    roomCode = cleanCode,
                     docNumber = sheet.docNumber,
                     sheetDate = sheet.sheetDate,
                     shift = sheet.shift,
@@ -1235,6 +1453,7 @@ class SecurityRepository(
                     includeCreatedAt = false
                 ).toMutableMap().apply {
                     remove("userId")
+                    remove("roomCode")
                 }
                 docRef.update(updatePayload).await()
             }
@@ -1247,12 +1466,14 @@ class SecurityRepository(
         }
     }
 
-    suspend fun deleteActivitySheet(sheetId: String): Result<Unit> {
-        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/activity_sheets/$sheetId"
+    suspend fun deleteActivitySheet(roomCode: String, sheetId: String): Result<Unit> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        var path = "chat_rooms/$cleanCode/activity_sheets/$sheetId"
         return try {
-            val uid = requireUserId()
+            requireUserId()
+            require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
             require(sheetId.isNotBlank()) { "ID lembar tabel tidak valid." }
-            val docRef = db.collection("users").document(uid).collection("activity_sheets").document(sheetId)
+            val docRef = db.collection("chat_rooms").document(cleanCode).collection("activity_sheets").document(sheetId)
             path = docRef.path
             docRef.delete().await()
             Result.success(Unit)
@@ -1266,6 +1487,7 @@ class SecurityRepository(
 
     private fun buildAttendanceSheetPayload(
         uid: String,
+        roomCode: String,
         sheetDate: String,
         shift: String,
         periodLabel: String,
@@ -1273,11 +1495,13 @@ class SecurityRepository(
         rows: List<AttendanceMemberRow>,
         includeCreatedAt: Boolean
     ): Map<String, Any> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
         val cleanDate = sheetDate.trim().ifBlank { currentIsoDate() }
         val cleanShift = if (shift in ShiftOption.entries.map { it.label }) shift else ShiftOption.SHIFT_1.label
         val cleanPeriod = periodLabel.trim().take(60)
         val cleanCommander = commanderName.trim().ifBlank { "Danru Plot BPS" }.take(80)
 
+        require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
         require(cleanDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) { "Format tanggal harus yyyy-MM-dd." }
         require(rows.size <= 25) { "Maksimal 25 baris anggota per lembar absensi." }
 
@@ -1297,6 +1521,7 @@ class SecurityRepository(
 
         val map = mutableMapOf<String, Any>(
             "userId" to uid,
+            "roomCode" to cleanCode,
             "sheetDate" to cleanDate,
             "shift" to cleanShift,
             "periodLabel" to cleanPeriod,
@@ -1310,11 +1535,16 @@ class SecurityRepository(
         return map
     }
 
-    suspend fun saveAttendanceSheet(sheet: AttendanceSheet): Result<String> {
-        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/attendance_sheets"
+    suspend fun saveAttendanceSheet(roomCode: String, sheet: AttendanceSheet): Result<String> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        var path = "chat_rooms/$cleanCode/attendance_sheets"
         return try {
             val uid = requireUserId()
-            val col = db.collection("users").document(uid).collection("attendance_sheets")
+            require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
+            if (cleanCode == DEFAULT_ROOM_CODE) {
+                ensureDefaultChatRoomExists(uid)
+            }
+            val col = db.collection("chat_rooms").document(cleanCode).collection("attendance_sheets")
             val isNew = sheet.id.isBlank()
             val docRef = if (isNew) col.document() else col.document(sheet.id)
             path = docRef.path
@@ -1323,6 +1553,7 @@ class SecurityRepository(
             if (!exists) {
                 val payload = buildAttendanceSheetPayload(
                     uid = uid,
+                    roomCode = cleanCode,
                     sheetDate = sheet.sheetDate,
                     shift = sheet.shift,
                     periodLabel = sheet.periodLabel,
@@ -1334,6 +1565,7 @@ class SecurityRepository(
             } else {
                 val updatePayload = buildAttendanceSheetPayload(
                     uid = uid,
+                    roomCode = cleanCode,
                     sheetDate = sheet.sheetDate,
                     shift = sheet.shift,
                     periodLabel = sheet.periodLabel,
@@ -1342,6 +1574,7 @@ class SecurityRepository(
                     includeCreatedAt = false
                 ).toMutableMap().apply {
                     remove("userId")
+                    remove("roomCode")
                 }
                 docRef.update(updatePayload).await()
             }
@@ -1354,12 +1587,14 @@ class SecurityRepository(
         }
     }
 
-    suspend fun deleteAttendanceSheet(sheetId: String): Result<Unit> {
-        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/attendance_sheets/$sheetId"
+    suspend fun deleteAttendanceSheet(roomCode: String, sheetId: String): Result<Unit> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        var path = "chat_rooms/$cleanCode/attendance_sheets/$sheetId"
         return try {
-            val uid = requireUserId()
+            requireUserId()
+            require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
             require(sheetId.isNotBlank()) { "ID lembar absensi tidak valid." }
-            val docRef = db.collection("users").document(uid).collection("attendance_sheets").document(sheetId)
+            val docRef = db.collection("chat_rooms").document(cleanCode).collection("attendance_sheets").document(sheetId)
             path = docRef.path
             docRef.delete().await()
             Result.success(Unit)
@@ -1373,6 +1608,7 @@ class SecurityRepository(
 
     private fun buildPjuSheetPayload(
         uid: String,
+        roomCode: String,
         monthYear: String,
         sheetMonth: Long,
         sheetYear: Long,
@@ -1386,6 +1622,7 @@ class SecurityRepository(
         lastUpdatedTime: String = "",
         includeCreatedAt: Boolean
     ): Map<String, Any> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
         val cleanMonthYear = monthYear.trim().ifBlank { PjuTemplates.currentMonthYearLabel() }.take(40)
         val cleanMonth = sheetMonth.coerceIn(1L, 12L)
         val cleanYear = sheetYear.coerceIn(2020L, 2100L)
@@ -1396,6 +1633,7 @@ class SecurityRepository(
         val validLastShift = lastShift.takeIf { s -> s in ShiftOption.entries.map { it.label } }
         val cleanLastTime = lastUpdatedTime.trim().take(16).takeIf { it.isNotEmpty() }
 
+        require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
         require(clusters.size <= 40) { "Maksimal 40 cluster PJU per lembar." }
         require(issues.size <= 100) { "Maksimal 100 entri permasalahan PJU per lembar." }
 
@@ -1425,6 +1663,7 @@ class SecurityRepository(
 
         val map = mutableMapOf<String, Any>(
             "userId" to uid,
+            "roomCode" to cleanCode,
             "monthYear" to cleanMonthYear,
             "sheetMonth" to cleanMonth,
             "sheetYear" to cleanYear,
@@ -1448,11 +1687,16 @@ class SecurityRepository(
         return map
     }
 
-    suspend fun savePjuSheet(sheet: PjuChecklistSheet): Result<String> {
-        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/pju_sheets"
+    suspend fun savePjuSheet(roomCode: String, sheet: PjuChecklistSheet): Result<String> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        var path = "chat_rooms/$cleanCode/pju_sheets"
         return try {
             val uid = requireUserId()
-            val col = db.collection("users").document(uid).collection("pju_sheets")
+            require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
+            if (cleanCode == DEFAULT_ROOM_CODE) {
+                ensureDefaultChatRoomExists(uid)
+            }
+            val col = db.collection("chat_rooms").document(cleanCode).collection("pju_sheets")
             val isNew = sheet.id.isBlank()
             val docRef = if (isNew) col.document() else col.document(sheet.id)
             path = docRef.path
@@ -1461,6 +1705,7 @@ class SecurityRepository(
             if (!exists) {
                 val payload = buildPjuSheetPayload(
                     uid = uid,
+                    roomCode = cleanCode,
                     monthYear = sheet.monthYear,
                     sheetMonth = sheet.sheetMonth,
                     sheetYear = sheet.sheetYear,
@@ -1478,6 +1723,7 @@ class SecurityRepository(
             } else {
                 val updatePayload = buildPjuSheetPayload(
                     uid = uid,
+                    roomCode = cleanCode,
                     monthYear = sheet.monthYear,
                     sheetMonth = sheet.sheetMonth,
                     sheetYear = sheet.sheetYear,
@@ -1492,6 +1738,7 @@ class SecurityRepository(
                     includeCreatedAt = false
                 ).toMutableMap().apply {
                     remove("userId")
+                    remove("roomCode")
                 }
                 docRef.update(updatePayload).await()
             }
@@ -1504,12 +1751,14 @@ class SecurityRepository(
         }
     }
 
-    suspend fun deletePjuSheet(sheetId: String): Result<Unit> {
-        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/pju_sheets/$sheetId"
+    suspend fun deletePjuSheet(roomCode: String, sheetId: String): Result<Unit> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        var path = "chat_rooms/$cleanCode/pju_sheets/$sheetId"
         return try {
-            val uid = requireUserId()
+            requireUserId()
+            require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
             require(sheetId.isNotBlank()) { "ID lembar PJU tidak valid." }
-            val docRef = db.collection("users").document(uid).collection("pju_sheets").document(sheetId)
+            val docRef = db.collection("chat_rooms").document(cleanCode).collection("pju_sheets").document(sheetId)
             path = docRef.path
             docRef.delete().await()
             Result.success(Unit)
@@ -1521,19 +1770,23 @@ class SecurityRepository(
         }
     }
 
-    suspend fun saveQuickNote(note: QuickNote): Result<String> {
-        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/quick_notes"
+    suspend fun saveQuickNote(roomCode: String, note: QuickNote): Result<String> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        var path = "chat_rooms/$cleanCode/quick_notes"
         return try {
             val uid = requireUserId()
-            val cleanTitle = note.title.trim().take(120)
+            require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
+            val validSource = NoteSourceTab.fromNameOrDefault(note.sourceTab).name
+            val cleanTitle = note.title.trim().take(120).ifBlank {
+                "Catatan ${NoteSourceTab.fromNameOrDefault(note.sourceTab).label}"
+            }
             val cleanContent = note.content.trim().take(2000)
             require(cleanContent.isNotEmpty()) { "Isi catatan tidak boleh kosong." }
-            val validSource = NoteSourceTab.fromNameOrDefault(note.sourceTab).name
             val cleanDate = note.noteDate.trim().ifBlank { currentIsoDate() }
             require(cleanDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) { "Format tanggal catatan harus yyyy-MM-dd." }
             val cleanTime = note.noteTime.trim().ifBlank {
                 SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-            }.take(16)
+            }.take(10)
             val validShift = if (note.shift in ShiftOption.entries.map { it.label }) {
                 note.shift
             } else {
@@ -1541,7 +1794,11 @@ class SecurityRepository(
             }
             val cleanOfficer = note.officerName.trim().ifBlank { "Petugas Security" }.take(80)
 
-            val col = db.collection("users").document(uid).collection("quick_notes")
+            if (cleanCode == DEFAULT_ROOM_CODE) {
+                ensureDefaultChatRoomExists(uid)
+            }
+
+            val col = db.collection("chat_rooms").document(cleanCode).collection("quick_notes")
             val isNew = note.id.isBlank()
             val docRef = if (isNew) col.document() else col.document(note.id)
             path = docRef.path
@@ -1558,6 +1815,7 @@ class SecurityRepository(
             )
             if (isNew || !docRef.get().await().exists()) {
                 baseMap["userId"] = uid
+                baseMap["roomCode"] = cleanCode
                 baseMap["createdAt"] = FieldValue.serverTimestamp()
                 docRef.set(baseMap).await()
             } else {
@@ -1572,12 +1830,14 @@ class SecurityRepository(
         }
     }
 
-    suspend fun deleteQuickNote(noteId: String): Result<Unit> {
-        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/quick_notes/$noteId"
+    suspend fun deleteQuickNote(roomCode: String, noteId: String): Result<Unit> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        var path = "chat_rooms/$cleanCode/quick_notes/$noteId"
         return try {
-            val uid = requireUserId()
+            requireUserId()
+            require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
             require(noteId.isNotBlank()) { "ID catatan tidak valid." }
-            val docRef = db.collection("users").document(uid).collection("quick_notes").document(noteId)
+            val docRef = db.collection("chat_rooms").document(cleanCode).collection("quick_notes").document(noteId)
             path = docRef.path
             docRef.delete().await()
             Result.success(Unit)

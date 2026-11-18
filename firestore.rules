@@ -175,7 +175,94 @@ service cloud.firestore {
              data.noteDate is string && data.noteDate.size() == 10 && data.noteDate.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
              data.noteTime is string && data.noteTime.size() >= 4 && data.noteTime.size() <= 10 &&
              data.shift in ['Shift 1', 'Shift 2', 'Shift 3'] &&
-             data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80 &&
+             data.officerName is string && data.officerName.size() >= 1 && data.officerName.size() <= 80 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isRoomCreator(roomCode) {
+      return get(/databases/$(database)/documents/chat_rooms/$(roomCode)).data.createdBy == request.auth.uid;
+    }
+
+    function isValidRoomSecurityReport(data, roomCode) {
+      return data.userId is string && isValidId(data.userId) &&
+             data.roomCode is string && data.roomCode == roomCode &&
+             data.category is int && data.category >= 1 && data.category <= 3 &&
+             data.time is string && data.time.size() >= 4 && data.time.size() <= 10 &&
+             (!('reportDate' in data) || (data.reportDate is string && data.reportDate.size() == 10 && data.reportDate.matches('^\\d{4}-\\d{2}-\\d{2}$'))) &&
+             data.shift in ['Shift 1', 'Shift 2', 'Shift 3'] &&
+             data.status in ['Aman & Terkendali', 'Dalam Pemantauan', 'Perlu Tindak Lanjut'] &&
+             data.description is string && data.description.size() >= 1 && data.description.size() <= 2000 &&
+             data.photos is list && data.photos.size() <= 4 &&
+             (data.photos.size() == 0 || (data.photos[0] is string && data.photos[0].size() <= 200000)) &&
+             (!('photoCaptions' in data) || (data.photoCaptions is list && data.photoCaptions.size() <= 4 && (data.photoCaptions.size() == 0 || (data.photoCaptions[0] is string && data.photoCaptions[0].size() <= 200)))) &&
+             data.officerName is string && data.officerName.size() >= 1 && data.officerName.size() <= 80 &&
+             data.officerNrp is string && data.officerNrp.size() >= 1 && data.officerNrp.size() <= 40 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidRoomActivitySheet(data, roomCode) {
+      return data.userId is string && isValidId(data.userId) &&
+             data.roomCode is string && data.roomCode == roomCode &&
+             data.docNumber is string && data.docNumber.size() <= 40 &&
+             data.sheetDate is string && data.sheetDate.size() == 10 && data.sheetDate.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+             data.shift in ['Shift 1', 'Shift 2', 'Shift 3'] &&
+             data.personnelRows is list && data.personnelRows.size() <= 30 &&
+             (data.personnelRows.size() == 0 || data.personnelRows[0] is map) &&
+             data.inventoryRows is list && data.inventoryRows.size() <= 50 &&
+             (data.inventoryRows.size() == 0 || data.inventoryRows[0] is map) &&
+             data.activityRows is list && data.activityRows.size() <= 60 &&
+             (data.activityRows.size() == 0 || data.activityRows[0] is map) &&
+             data.officerName is string && data.officerName.size() >= 1 && data.officerName.size() <= 80 &&
+             data.officerNrp is string && data.officerNrp.size() >= 1 && data.officerNrp.size() <= 40 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidRoomAttendanceSheet(data, roomCode) {
+      return data.userId is string && isValidId(data.userId) &&
+             data.roomCode is string && data.roomCode == roomCode &&
+             data.sheetDate is string && data.sheetDate.size() == 10 && data.sheetDate.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+             data.shift in ['Shift 1', 'Shift 2', 'Shift 3'] &&
+             data.periodLabel is string && data.periodLabel.size() <= 60 &&
+             data.commanderName is string && data.commanderName.size() >= 1 && data.commanderName.size() <= 80 &&
+             data.rows is list && data.rows.size() <= 25 &&
+             (data.rows.size() == 0 || data.rows[0] is map) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidRoomPjuSheet(data, roomCode) {
+      return data.userId is string && isValidId(data.userId) &&
+             data.roomCode is string && data.roomCode == roomCode &&
+             data.monthYear is string && data.monthYear.size() >= 1 && data.monthYear.size() <= 40 &&
+             data.sheetMonth is int && data.sheetMonth >= 1 && data.sheetMonth <= 12 &&
+             data.sheetYear is int && data.sheetYear >= 2020 && data.sheetYear <= 2100 &&
+             data.periodStartDay is int && data.periodStartDay >= 1 && data.periodStartDay <= 31 &&
+             data.periodEndDay is int && data.periodEndDay >= data.periodStartDay && data.periodEndDay <= 31 &&
+             data.clusters is list && data.clusters.size() <= 40 &&
+             (data.clusters.size() == 0 || data.clusters[0] is map) &&
+             data.issues is list && data.issues.size() <= 100 &&
+             (data.issues.size() == 0 || data.issues[0] is map) &&
+             data.notes is string && data.notes.size() <= 2000 &&
+             data.responsibleNames is string && data.responsibleNames.size() >= 1 && data.responsibleNames.size() <= 120 &&
+             (!('lastShift' in data) || data.lastShift in ['Shift 1', 'Shift 2', 'Shift 3']) &&
+             (!('lastUpdatedTime' in data) || (data.lastUpdatedTime is string && data.lastUpdatedTime.size() <= 16)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidRoomQuickNote(data, roomCode) {
+      return data.userId is string && isValidId(data.userId) &&
+             data.roomCode is string && data.roomCode == roomCode &&
+             data.sourceTab is string && data.sourceTab.size() >= 1 && data.sourceTab.size() <= 24 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.content is string && data.content.size() >= 1 && data.content.size() <= 2000 &&
+             data.noteDate is string && data.noteDate.size() == 10 && data.noteDate.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+             data.noteTime is string && data.noteTime.size() >= 4 && data.noteTime.size() <= 10 &&
+             data.shift in ['Shift 1', 'Shift 2', 'Shift 3'] &&
+             data.officerName is string && data.officerName.size() >= 1 && data.officerName.size() <= 80 &&
              data.createdAt is timestamp && data.createdAt <= request.time &&
              data.updatedAt is timestamp && data.updatedAt <= request.time;
     }
@@ -309,8 +396,8 @@ service cloud.firestore {
         allow create: if isOwner(userId) &&
                          isValidId(userId) &&
                          isValidId(noteId) &&
-                         incoming().keys().hasAll(['userId', 'sourceTab', 'title', 'content', 'noteDate', 'noteTime', 'shift', 'authorName', 'createdAt', 'updatedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'sourceTab', 'title', 'content', 'noteDate', 'noteTime', 'shift', 'authorName', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasAll(['userId', 'sourceTab', 'title', 'content', 'noteDate', 'noteTime', 'shift', 'officerName', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'sourceTab', 'title', 'content', 'noteDate', 'noteTime', 'shift', 'officerName', 'createdAt', 'updatedAt']) &&
                          isValidQuickNote(incoming(), userId);
 
         allow update: if isOwner(userId) &&
@@ -319,7 +406,7 @@ service cloud.firestore {
                          isValidQuickNote(incoming(), userId) &&
                          incoming().userId == existing().userId &&
                          incoming().createdAt == existing().createdAt &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['sourceTab', 'title', 'content', 'noteDate', 'noteTime', 'shift', 'authorName', 'updatedAt']);
+                         incoming().diff(existing()).affectedKeys().hasOnly(['sourceTab', 'title', 'content', 'noteDate', 'noteTime', 'shift', 'officerName', 'updatedAt']);
 
         allow delete: if isOwner(userId) && isValidId(userId) && isValidId(noteId);
       }
@@ -401,8 +488,149 @@ service cloud.firestore {
         allow delete: if isSignedIn() &&
                          isValidRoomCode(roomCode) &&
                          isValidId(messageId) &&
-                         (existing().userId == request.auth.uid ||
-                          get(/databases/$(database)/documents/chat_rooms/$(roomCode)).data.createdBy == request.auth.uid);
+                         (existing().userId == request.auth.uid || isRoomCreator(roomCode));
+      }
+
+      match /reports/{reportId} {
+        allow get: if isSignedIn() && isValidRoomCode(roomCode) && isValidId(reportId);
+        allow list: if isSignedIn() && isValidRoomCode(roomCode) && existing().roomCode == roomCode;
+
+        allow create: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(reportId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'roomCode', 'category', 'time', 'shift', 'status', 'description', 'photos', 'officerName', 'officerNrp', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'roomCode', 'category', 'time', 'reportDate', 'shift', 'status', 'description', 'photos', 'photoCaptions', 'officerName', 'officerNrp', 'createdAt', 'updatedAt']) &&
+                         isValidRoomSecurityReport(incoming(), roomCode) &&
+                         exists(/databases/$(database)/documents/chat_rooms/$(roomCode));
+
+        allow update: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(reportId) &&
+                         (existing().userId == request.auth.uid || isRoomCreator(roomCode)) &&
+                         isValidRoomSecurityReport(incoming(), roomCode) &&
+                         incoming().userId == existing().userId &&
+                         incoming().roomCode == existing().roomCode &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['category', 'time', 'reportDate', 'shift', 'status', 'description', 'photos', 'photoCaptions', 'officerName', 'officerNrp', 'updatedAt']);
+
+        allow delete: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(reportId) &&
+                         (existing().userId == request.auth.uid || isRoomCreator(roomCode));
+      }
+
+      match /activity_sheets/{sheetId} {
+        allow get: if isSignedIn() && isValidRoomCode(roomCode) && isValidId(sheetId);
+        allow list: if isSignedIn() && isValidRoomCode(roomCode) && existing().roomCode == roomCode;
+
+        allow create: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(sheetId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'roomCode', 'docNumber', 'sheetDate', 'shift', 'personnelRows', 'inventoryRows', 'activityRows', 'officerName', 'officerNrp', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'roomCode', 'docNumber', 'sheetDate', 'shift', 'personnelRows', 'inventoryRows', 'activityRows', 'officerName', 'officerNrp', 'createdAt', 'updatedAt']) &&
+                         isValidRoomActivitySheet(incoming(), roomCode) &&
+                         exists(/databases/$(database)/documents/chat_rooms/$(roomCode));
+
+        allow update: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(sheetId) &&
+                         isValidRoomActivitySheet(incoming(), roomCode) &&
+                         incoming().userId == existing().userId &&
+                         incoming().roomCode == existing().roomCode &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['docNumber', 'sheetDate', 'shift', 'personnelRows', 'inventoryRows', 'activityRows', 'officerName', 'officerNrp', 'updatedAt']);
+
+        allow delete: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(sheetId) &&
+                         (existing().userId == request.auth.uid || isRoomCreator(roomCode));
+      }
+
+      match /attendance_sheets/{sheetId} {
+        allow get: if isSignedIn() && isValidRoomCode(roomCode) && isValidId(sheetId);
+        allow list: if isSignedIn() && isValidRoomCode(roomCode) && existing().roomCode == roomCode;
+
+        allow create: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(sheetId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'roomCode', 'sheetDate', 'shift', 'periodLabel', 'commanderName', 'rows', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'roomCode', 'sheetDate', 'shift', 'periodLabel', 'commanderName', 'rows', 'createdAt', 'updatedAt']) &&
+                         isValidRoomAttendanceSheet(incoming(), roomCode) &&
+                         exists(/databases/$(database)/documents/chat_rooms/$(roomCode));
+
+        allow update: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(sheetId) &&
+                         isValidRoomAttendanceSheet(incoming(), roomCode) &&
+                         incoming().userId == existing().userId &&
+                         incoming().roomCode == existing().roomCode &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['sheetDate', 'shift', 'periodLabel', 'commanderName', 'rows', 'updatedAt']);
+
+        allow delete: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(sheetId) &&
+                         (existing().userId == request.auth.uid || isRoomCreator(roomCode));
+      }
+
+      match /pju_sheets/{sheetId} {
+        allow get: if isSignedIn() && isValidRoomCode(roomCode) && isValidId(sheetId);
+        allow list: if isSignedIn() && isValidRoomCode(roomCode) && existing().roomCode == roomCode;
+
+        allow create: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(sheetId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'roomCode', 'monthYear', 'sheetMonth', 'sheetYear', 'periodStartDay', 'periodEndDay', 'clusters', 'issues', 'notes', 'responsibleNames', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'roomCode', 'monthYear', 'sheetMonth', 'sheetYear', 'periodStartDay', 'periodEndDay', 'clusters', 'issues', 'notes', 'responsibleNames', 'lastShift', 'lastUpdatedTime', 'createdAt', 'updatedAt']) &&
+                         isValidRoomPjuSheet(incoming(), roomCode) &&
+                         exists(/databases/$(database)/documents/chat_rooms/$(roomCode));
+
+        allow update: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(sheetId) &&
+                         isValidRoomPjuSheet(incoming(), roomCode) &&
+                         incoming().userId == existing().userId &&
+                         incoming().roomCode == existing().roomCode &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['monthYear', 'sheetMonth', 'sheetYear', 'periodStartDay', 'periodEndDay', 'clusters', 'issues', 'notes', 'responsibleNames', 'lastShift', 'lastUpdatedTime', 'updatedAt']);
+
+        allow delete: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(sheetId) &&
+                         (existing().userId == request.auth.uid || isRoomCreator(roomCode));
+      }
+
+      match /quick_notes/{noteId} {
+        allow get: if isSignedIn() && isValidRoomCode(roomCode) && isValidId(noteId);
+        allow list: if isSignedIn() && isValidRoomCode(roomCode) && existing().roomCode == roomCode;
+
+        allow create: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(noteId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'roomCode', 'sourceTab', 'title', 'content', 'noteDate', 'noteTime', 'shift', 'officerName', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'roomCode', 'sourceTab', 'title', 'content', 'noteDate', 'noteTime', 'shift', 'officerName', 'createdAt', 'updatedAt']) &&
+                         isValidRoomQuickNote(incoming(), roomCode) &&
+                         exists(/databases/$(database)/documents/chat_rooms/$(roomCode));
+
+        allow update: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(noteId) &&
+                         (existing().userId == request.auth.uid || isRoomCreator(roomCode)) &&
+                         isValidRoomQuickNote(incoming(), roomCode) &&
+                         incoming().userId == existing().userId &&
+                         incoming().roomCode == existing().roomCode &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['sourceTab', 'title', 'content', 'noteDate', 'noteTime', 'shift', 'officerName', 'updatedAt']);
+
+        allow delete: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(noteId) &&
+                         (existing().userId == request.auth.uid || isRoomCreator(roomCode));
       }
     }
   }

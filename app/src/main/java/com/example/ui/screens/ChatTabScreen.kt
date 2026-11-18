@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.EmojiEmotions
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.ManageSearch
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
@@ -163,7 +164,9 @@ fun ChatTabScreen(
     onFilterMonthChange: (Int?) -> Unit,
     onFilterYearChange: (Int?) -> Unit,
     onFilterShiftChange: (String?) -> Unit,
-    onResetFilter: () -> Unit
+    onResetFilter: () -> Unit,
+    onOpenGlobalRecap: () -> Unit,
+    totalRecapCount: Int
 ) {
     val listState = rememberLazyListState()
     val allMessages = (chatState as? UiState.Success)?.data.orEmpty()
@@ -419,7 +422,9 @@ fun ChatTabScreen(
                         onMonthChange = onFilterMonthChange,
                         onYearChange = onFilterYearChange,
                         onShiftChange = onFilterShiftChange,
-                        onReset = onResetFilter
+                        onReset = onResetFilter,
+                        onOpenGlobalRecap = onOpenGlobalRecap,
+                        globalRecapCount = totalRecapCount
                     )
                 }
             }
@@ -804,6 +809,27 @@ fun ChatTabScreen(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
+                    OutlinedButton(
+                        onClick = onOpenGlobalRecap,
+                        border = BorderStroke(1.dp, Gold400.copy(alpha = 0.75f)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Navy800,
+                            contentColor = Gold400
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier
+                            .height(48.dp)
+                            .testTag("bottom_chat_open_recap_button")
+                    ) {
+                        Icon(Icons.Default.ManageSearch, contentDescription = "Filter Rekap", modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Rekap",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                     Button(
                         onClick = onExplicitSaveChat,
                         enabled = !isExplicitSaving,
@@ -828,7 +854,7 @@ fun ChatTabScreen(
                         }
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(
-                            text = if (chatTextInput.trim().isNotEmpty()) "Simpan Catatan" else "Simpan Data",
+                            text = if (chatTextInput.trim().isNotEmpty()) "Simpan Catatan" else "Simpan",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.ExtraBold
                         )

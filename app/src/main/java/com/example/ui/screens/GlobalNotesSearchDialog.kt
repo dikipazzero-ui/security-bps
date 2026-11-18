@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -62,6 +63,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.data.model.DEFAULT_ROOM_CODE
 import com.example.data.model.IndonesianMonths
 import com.example.data.model.NoteSourceTab
 import com.example.data.model.ShiftOption
@@ -94,6 +96,9 @@ import java.util.Calendar
 @Composable
 fun GlobalNotesSearchDialog(
     allNotes: List<UnifiedNoteItem>,
+    activeRoomCode: String = DEFAULT_ROOM_CODE,
+    currentUserId: String = "",
+    isRoomCreator: Boolean = false,
     defaultShift: String,
     isSavingNote: Boolean,
     onDismiss: () -> Unit,
@@ -170,15 +175,17 @@ fun GlobalNotesSearchDialog(
                             )
                             Column {
                                 Text(
-                                    text = "Pencarian Seluruh Catatan",
+                                    text = "Filter Hasil Rekap Penyimpanan",
                                     style = MaterialTheme.typography.titleMedium,
                                     color = Color.White,
                                     fontWeight = FontWeight.ExtraBold
                                 )
                                 Text(
-                                    text = "${filteredNotes.size} dari ${allNotes.size} catatan • Lengkap Waktu & Shift",
+                                    text = "${filteredNotes.size} dari ${allNotes.size} data Ruang $activeRoomCode • Dipantau Semua Anggota",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Gold400
+                                    color = Gold400,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -230,7 +237,7 @@ fun GlobalNotesSearchDialog(
                         onValueChange = { filter = filter.copy(keyword = it) },
                         placeholder = {
                             Text(
-                                text = "Cari isi catatan, kegiatan, nama anggota, cluster PJU, atau jam...",
+                                text = "Cari hasil simpan, catatan, PJU, laporan, absensi, atau jam...",
                                 style = MaterialTheme.typography.bodySmall,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -356,6 +363,23 @@ fun GlobalNotesSearchDialog(
                             options = listOf(null to "Semua Tahun") + yearChoices.map { it to it.toString() },
                             onSelect = { filter = filter.copy(year = it) }
                         )
+                        OutlinedButton(
+                            onClick = {
+                                val cal = Calendar.getInstance()
+                                filter = filter.copy(
+                                    day = cal.get(Calendar.DAY_OF_MONTH),
+                                    month = cal.get(Calendar.MONTH) + 1,
+                                    year = cal.get(Calendar.YEAR)
+                                )
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            border = BorderStroke(1.dp, Navy100)
+                        ) {
+                            Icon(Icons.Default.Today, contentDescription = null, modifier = Modifier.size(13.dp), tint = Navy800)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Hari Ini", style = MaterialTheme.typography.labelSmall, color = Navy800)
+                        }
                         if (filter.isActive || sourceFilter != null) {
                             TextButton(
                                 onClick = {
@@ -516,10 +540,13 @@ fun GlobalNotesSearchDialog(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(filteredNotes, key = { it.id }) { note ->
+                            val canDeleteNote = isRoomCreator || currentUserId.isBlank() || note.creatorUserId.isBlank() || note.creatorUserId == currentUserId
                             UnifiedNoteCard(
                                 note = note,
                                 onOpenTarget = { onOpenTarget(note) },
-                                onDeleteQuickNote = note.quickNoteId?.let { id -> { onDeleteQuickNote(id) } }
+                                onDeleteQuickNote = note.quickNoteId
+                                    ?.takeIf { canDeleteNote }
+                                    ?.let { id -> { onDeleteQuickNote(id) } }
                             )
                         }
                     }

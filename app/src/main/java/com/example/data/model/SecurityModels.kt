@@ -100,6 +100,7 @@ data class OfficerProfile(
 data class SecurityReport(
     @DocumentId val id: String = "",
     val userId: String = "",
+    val roomCode: String = DEFAULT_ROOM_CODE,
     val category: Long = 1L,
     val time: String = "07:05",
     val reportDate: String = "",
@@ -429,7 +430,11 @@ data class TimeKeywordFilter(
             }
             if (!inHeader && !inClusters && !inIssues) return false
         }
-        if (shift != null && sheet.resolvedShift().isNotBlank() && sheet.resolvedShift() != shift) return false
+        if (shift != null && sheet.resolvedShift() != shift) return false
+        if (hour != null) {
+            val sheetHour = sheet.resolvedHour() ?: return false
+            if (sheetHour != hour) return false
+        }
         if (year != null && sheet.sheetYear.toInt() != year) return false
         if (month != null && sheet.sheetMonth.toInt() != month) return false
         if (day != null) {
@@ -498,6 +503,7 @@ data class ActivityTableRow(
 data class DailyActivitySheet(
     @DocumentId val id: String = "",
     val userId: String = "",
+    val roomCode: String = DEFAULT_ROOM_CODE,
     val docNumber: String = "",
     val sheetDate: String = currentIsoDate(),
     val shift: String = ShiftOption.SHIFT_1.label,
@@ -610,6 +616,7 @@ data class AttendanceMemberRow(
 data class AttendanceSheet(
     @DocumentId val id: String = "",
     val userId: String = "",
+    val roomCode: String = DEFAULT_ROOM_CODE,
     val sheetDate: String = currentIsoDate(),
     val shift: String = ShiftOption.SHIFT_1.label,
     val periodLabel: String = "Regu Plot BPS (15 Anggota)",
@@ -802,6 +809,7 @@ data class PjuComplianceInfo(
 data class PjuChecklistSheet(
     @DocumentId val id: String = "",
     val userId: String = "",
+    val roomCode: String = DEFAULT_ROOM_CODE,
     val monthYear: String = PjuTemplates.currentMonthYearLabel(),
     val sheetMonth: Long = Calendar.getInstance().get(Calendar.MONTH) + 1L,
     val sheetYear: Long = Calendar.getInstance().get(Calendar.YEAR).toLong(),
@@ -1012,6 +1020,7 @@ enum class NoteSourceTab(val label: String, val badgeText: String) {
 data class QuickNote(
     @DocumentId val id: String = "",
     val userId: String = "",
+    val roomCode: String = DEFAULT_ROOM_CODE,
     val title: String = "",
     val content: String = "",
     val sourceTab: String = NoteSourceTab.CATATAN.name,
@@ -1037,6 +1046,7 @@ data class UnifiedNoteItem(
     val month: Int?,
     val day: Int?,
     val officerName: String,
+    val creatorUserId: String = "",
     val sheetId: String? = null,
     val quickNoteId: String? = null,
     val sortTimestamp: Long = 0L

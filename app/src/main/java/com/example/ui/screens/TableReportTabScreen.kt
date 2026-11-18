@@ -111,6 +111,8 @@ fun TableReportTabScreen(
     selectedSheetId: String?,
     tableFilter: TimeKeywordFilter,
     defaultShift: String,
+    currentUserId: String = "",
+    isRoomCreator: Boolean = false,
     isExplicitSaving: Boolean,
     onSelectSheet: (String) -> Unit,
     onCreateSheet: (sheetDate: String, shift: String, docNumber: String, includeDefault: Boolean, onSuccess: () -> Unit) -> Unit,
@@ -133,7 +135,9 @@ fun TableReportTabScreen(
     onFilterYearChange: (Int?) -> Unit,
     onFilterShiftChange: (String?) -> Unit,
     onFilterToday: () -> Unit,
-    onResetFilter: () -> Unit
+    onResetFilter: () -> Unit,
+    onOpenGlobalRecap: () -> Unit,
+    totalRecapCount: Int
 ) {
     val allSheets = (sheetsState as? UiState.Success)?.data.orEmpty()
     val filteredSheets = remember(allSheets, tableFilter) {
@@ -274,7 +278,7 @@ fun TableReportTabScreen(
                                 Text("Cetak PDF Tabel", style = MaterialTheme.typography.labelMedium, color = Navy900)
                             }
 
-                            if (allSheets.size > 1) {
+                            if (allSheets.size > 1 && (isRoomCreator || currentUserId.isBlank() || activeSheet.userId == currentUserId)) {
                                 OutlinedButton(
                                     onClick = { showDeleteSheetConfirm = true },
                                     shape = RoundedCornerShape(10.dp),
@@ -308,7 +312,9 @@ fun TableReportTabScreen(
                 onYearChange = onFilterYearChange,
                 onShiftChange = onFilterShiftChange,
                 onSelectToday = onFilterToday,
-                onReset = onResetFilter
+                onReset = onResetFilter,
+                onOpenGlobalRecap = onOpenGlobalRecap,
+                globalRecapCount = totalRecapCount
             )
         }
 
@@ -409,10 +415,12 @@ fun TableReportTabScreen(
                                             )
                                         }
                                         Text(
-                                            text = "No: ${activeSheet.docNumber.ifBlank { "-" }}",
+                                            text = "No: ${activeSheet.docNumber.ifBlank { "-" }} • Update: ${activeSheet.officerName.ifBlank { "Tim BPS" }}",
                                             style = MaterialTheme.typography.labelMedium,
                                             color = Slate700,
-                                            fontWeight = FontWeight.SemiBold
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -708,7 +716,9 @@ fun TableReportTabScreen(
                             statusSubtitle = "Simpan permanen Personel, Inventaris & ${activeSheet.activityRows.size} Uraian Kegiatan (${activeSheet.sheetDate})",
                             isSaving = isExplicitSaving,
                             testTag = "bottom_save_tabel_button",
-                            onSaveClick = onExplicitSave
+                            onSaveClick = onExplicitSave,
+                            onOpenRecapSearch = onOpenGlobalRecap,
+                            recapCount = totalRecapCount
                         )
                     }
                     item { Spacer(modifier = Modifier.height(16.dp)) }

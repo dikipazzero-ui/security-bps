@@ -70,8 +70,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -174,6 +176,8 @@ fun MainScreen(
     val selectedAttendanceSheetId by viewModel.selectedAttendanceSheetId.collectAsStateWithLifecycle()
     val pjuSheetsState by viewModel.pjuSheetsState.collectAsStateWithLifecycle()
     val selectedPjuSheetId by viewModel.selectedPjuSheetId.collectAsStateWithLifecycle()
+    val pjuSelectedShift by viewModel.pjuSelectedShift.collectAsStateWithLifecycle()
+    val pjuSelectedTime by viewModel.pjuSelectedTime.collectAsStateWithLifecycle()
     val chatState by viewModel.chatState.collectAsStateWithLifecycle()
     val formState by viewModel.formState.collectAsStateWithLifecycle()
     val reportFilter by viewModel.reportFilter.collectAsStateWithLifecycle()
@@ -319,6 +323,19 @@ fun MainScreen(
     LaunchedEffect(Unit) {
         viewModel.toastEvents.collect { msg ->
             snackbarHostState.showSnackbar(msg)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.saveRecapToastEvents.collect { msg ->
+            val result = snackbarHostState.showSnackbar(
+                message = msg,
+                actionLabel = "Lihat Rekap",
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                showGlobalNotesSearch = true
+            }
         }
     }
 
@@ -563,11 +580,16 @@ fun MainScreen(
                                 ) {
                                     PulsingConnectivityDot(isOnline = isInternetConnected)
                                     Text(
-                                        text = if (isInternetConnected) "Online" else "Offline",
+                                        text = if (isInternetConnected) {
+                                            "Online • Ruang $activeRoomCode"
+                                        } else {
+                                            "Offline • Ruang $activeRoomCode"
+                                        },
                                         style = MaterialTheme.typography.labelSmall,
                                         color = if (isInternetConnected) Emerald400 else Red100,
                                         fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -725,7 +747,7 @@ fun MainScreen(
                                 ) {
                                     Icon(Icons.Default.WifiOff, contentDescription = null, tint = Red600, modifier = Modifier.size(14.dp))
                                     Text(
-                                        text = "Koneksi internet terputus. Live Chat akan sinkron otomatis saat online.",
+                                        text = "Koneksi internet terputus. Data & Live Chat akan sinkron otomatis saat online.",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = Red800
                                     )
@@ -930,6 +952,8 @@ fun MainScreen(
                                     reportsState = reportsState,
                                     reportFilter = reportFilter,
                                     activeShift = profile.activeShift,
+                                    currentUserId = currentUserId,
+                                    isRoomCreator = activeChatRoom?.createdBy == currentUserId,
                                     isExplicitSaving = isExplicitSaving,
                                     onSelectCategory = viewModel::selectCategory,
                                     onTimeChange = viewModel::updateTimeInput,
@@ -968,7 +992,9 @@ fun MainScreen(
                                     onFilterYearChange = viewModel::updateReportFilterYear,
                                     onFilterShiftChange = viewModel::updateReportFilterShift,
                                     onFilterToday = viewModel::filterReportsToday,
-                                    onResetFilter = viewModel::resetReportFilter
+                                    onResetFilter = viewModel::resetReportFilter,
+                                    onOpenGlobalRecap = { showGlobalNotesSearch = true },
+                                    totalRecapCount = unifiedNotes.size
                                 )
                             }
                             MainTab.TABEL -> {
@@ -977,6 +1003,8 @@ fun MainScreen(
                                     selectedSheetId = selectedSheetId,
                                     tableFilter = tableFilter,
                                     defaultShift = profile.activeShift,
+                                    currentUserId = currentUserId,
+                                    isRoomCreator = activeChatRoom?.createdBy == currentUserId,
                                     isExplicitSaving = isExplicitSaving,
                                     onSelectSheet = viewModel::selectActivitySheet,
                                     onCreateSheet = viewModel::createNewActivitySheet,
@@ -1010,7 +1038,9 @@ fun MainScreen(
                                     onFilterYearChange = viewModel::updateTableFilterYear,
                                     onFilterShiftChange = viewModel::updateTableFilterShift,
                                     onFilterToday = viewModel::filterTableToday,
-                                    onResetFilter = viewModel::resetTableFilter
+                                    onResetFilter = viewModel::resetTableFilter,
+                                    onOpenGlobalRecap = { showGlobalNotesSearch = true },
+                                    totalRecapCount = unifiedNotes.size
                                 )
                             }
                             MainTab.ABSENSI -> {
@@ -1020,6 +1050,8 @@ fun MainScreen(
                                     attendanceFilter = attendanceFilter,
                                     defaultShift = profile.activeShift,
                                     defaultCommanderName = profile.name,
+                                    currentUserId = currentUserId,
+                                    isRoomCreator = activeChatRoom?.createdBy == currentUserId,
                                     isExplicitSaving = isExplicitSaving,
                                     onSelectSheet = viewModel::selectAttendanceSheet,
                                     onCreateSheet = { date, shift, period, commander, copy ->
@@ -1054,7 +1086,9 @@ fun MainScreen(
                                     onFilterYearChange = viewModel::updateAttendanceFilterYear,
                                     onFilterShiftChange = viewModel::updateAttendanceFilterShift,
                                     onFilterToday = viewModel::filterAttendanceToday,
-                                    onResetFilter = viewModel::resetAttendanceFilter
+                                    onResetFilter = viewModel::resetAttendanceFilter,
+                                    onOpenGlobalRecap = { showGlobalNotesSearch = true },
+                                    totalRecapCount = unifiedNotes.size
                                 )
                             }
                             MainTab.PJU -> {
@@ -1063,8 +1097,15 @@ fun MainScreen(
                                     selectedSheetId = selectedPjuSheetId,
                                     pjuFilter = pjuFilter,
                                     activeShift = profile.activeShift,
+                                    selectedPjuShift = pjuSelectedShift,
+                                    selectedPjuTime = pjuSelectedTime,
+                                    currentUserId = currentUserId,
+                                    isRoomCreator = activeChatRoom?.createdBy == currentUserId,
                                     isExplicitSaving = isExplicitSaving,
                                     onSelectSheet = viewModel::selectPjuSheet,
+                                    onSelectPjuShift = viewModel::updatePjuSelectedShift,
+                                    onPjuTimeChange = viewModel::updatePjuSelectedTime,
+                                    onSetPjuTimeNow = viewModel::setPjuSelectedTimeNow,
                                     onCreateSheet = viewModel::createNewPjuSheet,
                                     onUpdateHeader = viewModel::updatePjuHeader,
                                     onSetCellSlots = viewModel::setPjuCellSlots,
@@ -1092,12 +1133,15 @@ fun MainScreen(
                                         )
                                     },
                                     onFilterKeywordChange = viewModel::updatePjuKeyword,
+                                    onFilterHourChange = viewModel::updatePjuFilterHour,
                                     onFilterDayChange = viewModel::updatePjuFilterDay,
                                     onFilterMonthChange = viewModel::updatePjuFilterMonth,
                                     onFilterYearChange = viewModel::updatePjuFilterYear,
                                     onFilterShiftChange = viewModel::updatePjuFilterShift,
                                     onFilterCurrentMonth = viewModel::filterPjuCurrentMonth,
-                                    onResetFilter = viewModel::resetPjuFilter
+                                    onResetFilter = viewModel::resetPjuFilter,
+                                    onOpenGlobalRecap = { showGlobalNotesSearch = true },
+                                    totalRecapCount = unifiedNotes.size
                                 )
                             }
                             MainTab.CHAT -> {
@@ -1159,7 +1203,9 @@ fun MainScreen(
                                     onFilterMonthChange = viewModel::updateChatFilterMonth,
                                     onFilterYearChange = viewModel::updateChatFilterYear,
                                     onFilterShiftChange = viewModel::updateChatFilterShift,
-                                    onResetFilter = viewModel::resetChatFilter
+                                    onResetFilter = viewModel::resetChatFilter,
+                                    onOpenGlobalRecap = { showGlobalNotesSearch = true },
+                                    totalRecapCount = unifiedNotes.size
                                 )
                             }
                             }
@@ -1348,6 +1394,9 @@ fun MainScreen(
     if (showGlobalNotesSearch) {
         GlobalNotesSearchDialog(
             allNotes = unifiedNotes,
+            activeRoomCode = activeRoomCode,
+            currentUserId = currentUserId,
+            isRoomCreator = activeChatRoom?.createdBy == currentUserId,
             defaultShift = profile.activeShift,
             isSavingNote = isExplicitSaving,
             onDismiss = { showGlobalNotesSearch = false },

@@ -200,9 +200,48 @@ class NotesSearchAndSaveUnitTest {
             lastUpdatedTime = "18:00"
         )
         assertTrue(filterS2.matchesPjuSheet(pjuS2))
+        assertFalse(TimeKeywordFilter(shift = ShiftOption.SHIFT_1.label).matchesPjuSheet(pjuS2))
+        assertTrue(TimeKeywordFilter(hour = 18).matchesPjuSheet(pjuS2))
+        assertFalse(TimeKeywordFilter(hour = 9).matchesPjuSheet(pjuS2))
         assertEquals(18, pjuS2.resolvedHour())
         assertEquals(ShiftOption.SHIFT_1.label, inferShiftFromHour(8))
         assertEquals(ShiftOption.SHIFT_2.label, inferShiftFromHour(17))
         assertEquals(ShiftOption.SHIFT_3.label, inferShiftFromHour(2))
+    }
+
+    @Test
+    fun buildUnifiedNotes_indexesSavedPjuSheetWithChecksEvenWithoutFreeTextNotes() {
+        val checkedOnlyPju = PjuChecklistSheet(
+            id = "p_checks_only",
+            monthYear = "November 2026",
+            sheetMonth = 11L,
+            sheetYear = 2026L,
+            clusters = listOf(
+                com.example.data.model.PjuClusterRow(
+                    clusterName = "PJU KRISAN",
+                    checks = mapOf("18" to "✓|✓|!|✕")
+                )
+            ),
+            notes = "",
+            lastShift = ShiftOption.SHIFT_3.label,
+            lastUpdatedTime = "23:40"
+        )
+
+        val notes = NoteIndexBuilder.buildUnifiedNotes(
+            reports = emptyList(),
+            activitySheets = emptyList(),
+            attendanceSheets = emptyList(),
+            pjuSheets = listOf(checkedOnlyPju),
+            chatMessages = emptyList(),
+            quickNotes = emptyList()
+        )
+
+        val pjuRecap = notes.firstOrNull { it.id == "pju_note_p_checks_only" }
+        assertTrue(pjuRecap != null)
+        assertEquals("Shift 3", pjuRecap!!.shift)
+        assertEquals("23:40", pjuRecap.timeWib)
+        assertEquals(23, pjuRecap.hour)
+        assertTrue(pjuRecap.content.contains("Nyala"))
+        assertTrue(pjuRecap.matches(TimeKeywordFilter(keyword = "KRISAN", shift = "Shift 3", hour = 23)))
     }
 }

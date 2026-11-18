@@ -551,7 +551,7 @@ test("Authenticated owner: QuickNote CRUD with shift and timestamp succeed; inva
       noteDate: "2026-11-18",
       noteTime: "23:40",
       shift: "Shift 3",
-      authorName: "Hendra Wijaya",
+      officerName: "Hendra Wijaya",
       createdAt: created,
       updatedAt: created,
     })
@@ -566,7 +566,7 @@ test("Authenticated owner: QuickNote CRUD with shift and timestamp succeed; inva
       noteDate: "2026-11-18",
       noteTime: "23:40",
       shift: "Shift 9",
-      authorName: "Hendra Wijaya",
+      officerName: "Hendra Wijaya",
       createdAt: created,
       updatedAt: created,
     })
@@ -576,3 +576,336 @@ test("Authenticated owner: QuickNote CRUD with shift and timestamp succeed; inva
     aliceDb.collection("users").doc(ALICE_UID).collection("quick_notes").doc("qn_1").delete()
   );
 });
+
+test("Shared Room Workspace (1 database, 1 room): all logged-in officers can monitor reports, sheets, attendance, PJU, and notes", async () => {
+  const unauthDb = testEnv.unauthenticatedContext().firestore();
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  const roomCode = "PLOT-BPS";
+  const created = new Date(Date.now() - 10000);
+  const future = new Date(Date.now() + 3600 * 1000);
+
+  // Unauthenticated access to shared workspace subcollections must fail
+  await assertFails(
+    unauthDb.collection("chat_rooms").doc(roomCode).collection("reports").where("roomCode", "==", roomCode).get()
+  );
+  await assertFails(
+    unauthDb.collection("chat_rooms").doc(roomCode).collection("activity_sheets").where("roomCode", "==", roomCode).get()
+  );
+  await assertFails(
+    unauthDb.collection("chat_rooms").doc(roomCode).collection("attendance_sheets").where("roomCode", "==", roomCode).get()
+  );
+  await assertFails(
+    unauthDb.collection("chat_rooms").doc(roomCode).collection("pju_sheets").where("roomCode", "==", roomCode).get()
+  );
+  await assertFails(
+    unauthDb.collection("chat_rooms").doc(roomCode).collection("quick_notes").where("roomCode", "==", roomCode).get()
+  );
+
+  // Writing to a nonexistent room must fail
+  await assertFails(
+    aliceDb.collection("chat_rooms").doc(roomCode).collection("reports").doc("rep_no_room").set({
+      userId: ALICE_UID,
+      roomCode,
+      category: 1,
+      time: "07:05",
+      reportDate: "2026-11-18",
+      shift: "Shift 1",
+      status: "Aman & Terkendali",
+      description: "Test tanpa ruang",
+      photos: [],
+      photoCaptions: [],
+      officerName: "Hendra Wijaya",
+      officerNrp: "SEC-BPS-042",
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  // Alice creates shared room PLOT-BPS
+  await assertSucceeds(
+    aliceDb.collection("chat_rooms").doc(roomCode).set({
+      roomCode,
+      title: "Channel Koordinasi Plot BPS",
+      createdBy: ALICE_UID,
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  // Alice creates shared report, activity sheet, attendance sheet, PJU sheet, and quick note
+  await assertSucceeds(
+    aliceDb.collection("chat_rooms").doc(roomCode).collection("reports").doc("rep_shared_1").set({
+      userId: ALICE_UID,
+      roomCode,
+      category: 2,
+      time: "09:15",
+      reportDate: "2026-11-18",
+      shift: "Shift 1",
+      status: "Aman & Terkendali",
+      description: "Patroli keliling gedung BPS terpantau aman terkendali.",
+      photos: [],
+      photoCaptions: [],
+      officerName: "Hendra Wijaya",
+      officerNrp: "SEC-BPS-042",
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  await assertSucceeds(
+    aliceDb.collection("chat_rooms").doc(roomCode).collection("activity_sheets").doc("sheet_shared_1").set({
+      userId: ALICE_UID,
+      roomCode,
+      docNumber: "001",
+      sheetDate: "2026-11-18",
+      shift: "Shift 1",
+      personnelRows: [
+        { nama: "Hendra Wijaya", jabatan: "DANRU", plot: "BPS", kehadiran: "Hadir", ket: "" }
+      ],
+      inventoryRows: [
+        { inventaris: "HT Motorolla", jumlah: "3", kondisi: "Baik", keterangan: "Lengkap" }
+      ],
+      activityRows: [
+        { jam: "07.00", uraian: "Apel serah terima regu Shift 1" }
+      ],
+      officerName: "Hendra Wijaya",
+      officerNrp: "SEC-BPS-042",
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  const fifteenRows = Array.from({ length: 15 }, (_, i) => ({
+    nama: `Anggota ${i + 1}`,
+    nrp: `SEC-BPS-${String(i + 1).padStart(3, "0")}`,
+    jabatan: i === 0 ? "DANRU" : "ANGGOTA",
+    plot: "BPS",
+    status: "H",
+    jamMasuk: "07.00",
+    jamPulang: "15.00",
+    recordedAt: "07:01",
+    keterangan: "",
+  }));
+
+  await assertSucceeds(
+    aliceDb.collection("chat_rooms").doc(roomCode).collection("attendance_sheets").doc("att_shared_1").set({
+      userId: ALICE_UID,
+      roomCode,
+      sheetDate: "2026-11-18",
+      shift: "Shift 1",
+      periodLabel: "Regu Plot BPS",
+      commanderName: "Hendra Wijaya",
+      rows: fifteenRows,
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  await assertSucceeds(
+    aliceDb.collection("chat_rooms").doc(roomCode).collection("pju_sheets").doc("pju_shared_1").set({
+      userId: ALICE_UID,
+      roomCode,
+      monthYear: "November 2026",
+      sheetMonth: 11,
+      sheetYear: 2026,
+      periodStartDay: 16,
+      periodEndDay: 30,
+      clusters: [
+        { clusterName: "PJU KRISAN", checks: { "18": "✓|✓|✓|✓" } }
+      ],
+      issues: [],
+      notes: "Cek rutin PJU.",
+      responsibleNames: "R. MOH. GANDI / NERI WELAS ANTORO",
+      lastShift: "Shift 1",
+      lastUpdatedTime: "07:30",
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  await assertSucceeds(
+    aliceDb.collection("chat_rooms").doc(roomCode).collection("quick_notes").doc("qn_shared_1").set({
+      userId: ALICE_UID,
+      roomCode,
+      sourceTab: "LAPORAN",
+      title: "Catatan Serah Terima",
+      content: "Kunci gudang arsip diserahkan lengkap ke Shift 2.",
+      noteDate: "2026-11-18",
+      noteTime: "14:55",
+      shift: "Shift 1",
+      officerName: "Hendra Wijaya",
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  // Unfiltered list queries must fail; filtered roomCode list queries succeed for Bob
+  for (const col of ["reports", "activity_sheets", "attendance_sheets", "pju_sheets", "quick_notes"]) {
+    await assertFails(bobDb.collection("chat_rooms").doc(roomCode).collection(col).get());
+    await assertSucceeds(
+      bobDb.collection("chat_rooms").doc(roomCode).collection(col).where("roomCode", "==", roomCode).get()
+    );
+  }
+
+  // Bob can get single docs created by Alice
+  await assertSucceeds(bobDb.collection("chat_rooms").doc(roomCode).collection("reports").doc("rep_shared_1").get());
+  await assertSucceeds(bobDb.collection("chat_rooms").doc(roomCode).collection("quick_notes").doc("qn_shared_1").get());
+
+  // Bob CANNOT spoof Alice's userId or mismatch roomCode on create
+  await assertFails(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("reports").doc("rep_spoof").set({
+      userId: ALICE_UID,
+      roomCode,
+      category: 1,
+      time: "10:00",
+      reportDate: "2026-11-18",
+      shift: "Shift 1",
+      status: "Aman & Terkendali",
+      description: "Spoof",
+      photos: [],
+      photoCaptions: [],
+      officerName: "Bapak Suroto",
+      officerNrp: "SEC-BPS-001",
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+  await assertFails(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("quick_notes").doc("qn_wrong_room").set({
+      userId: BOB_UID,
+      roomCode: "OTHER-ROOM",
+      sourceTab: "LAPORAN",
+      title: "Mismatch",
+      content: "Mismatch",
+      noteDate: "2026-11-18",
+      noteTime: "10:00",
+      shift: "Shift 1",
+      officerName: "Bapak Suroto",
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  // Bob CAN collaboratively update shared team sheets (activity, attendance, PJU)
+  const updateTime = new Date(Date.now() - 1000);
+  await assertSucceeds(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("activity_sheets").doc("sheet_shared_1").update({
+      activityRows: [
+        { jam: "07.00", uraian: "Apel serah terima regu Shift 1" },
+        { jam: "15.00", uraian: "Dilanjutkan oleh regu Shift 2 (Bapak Suroto)" }
+      ],
+      officerName: "Bapak Suroto",
+      officerNrp: "SEC-BPS-001",
+      updatedAt: updateTime,
+    })
+  );
+  await assertSucceeds(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("attendance_sheets").doc("att_shared_1").update({
+      shift: "Shift 2",
+      rows: fifteenRows,
+      updatedAt: updateTime,
+    })
+  );
+  await assertSucceeds(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("pju_sheets").doc("pju_shared_1").update({
+      notes: "Dicek ulang Shift 2: semua lampu menyala normal.",
+      lastShift: "Shift 2",
+      lastUpdatedTime: "19:30",
+      updatedAt: updateTime,
+    })
+  );
+
+  // Collaborative update CANNOT alter userId, roomCode, createdAt, add ghost fields, or use future timestamp
+  await assertFails(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("pju_sheets").doc("pju_shared_1").update({
+      userId: BOB_UID,
+      updatedAt: new Date(Date.now() - 500),
+    })
+  );
+  await assertFails(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("activity_sheets").doc("sheet_shared_1").update({
+      roomCode: "HACK-01",
+      updatedAt: new Date(Date.now() - 500),
+    })
+  );
+  await assertFails(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("attendance_sheets").doc("att_shared_1").update({
+      extraField: "ghost",
+      updatedAt: new Date(Date.now() - 500),
+    })
+  );
+  await assertFails(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("pju_sheets").doc("pju_shared_1").update({
+      notes: "Future timestamp",
+      updatedAt: future,
+    })
+  );
+
+  // Bob CANNOT edit or delete Alice's reports or quick_notes, and CANNOT delete Alice's shared sheets
+  await assertFails(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("reports").doc("rep_shared_1").update({
+      description: "Diubah paksa",
+      updatedAt: new Date(Date.now() - 500),
+    })
+  );
+  await assertFails(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("reports").doc("rep_shared_1").delete()
+  );
+  await assertFails(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("quick_notes").doc("qn_shared_1").delete()
+  );
+  await assertFails(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("activity_sheets").doc("sheet_shared_1").delete()
+  );
+  await assertFails(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("attendance_sheets").doc("att_shared_1").delete()
+  );
+  await assertFails(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("pju_sheets").doc("pju_shared_1").delete()
+  );
+
+  // Bob creates his own shared report & quick_note; Bob can delete his own, and Alice (room creator) can also moderate/delete
+  await assertSucceeds(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("reports").doc("rep_bob_1").set({
+      userId: BOB_UID,
+      roomCode,
+      category: 3,
+      time: "16:10",
+      reportDate: "2026-11-18",
+      shift: "Shift 2",
+      status: "Aman & Terkendali",
+      description: "Pelayanan tamu sore berjalan tertib.",
+      photos: [],
+      photoCaptions: [],
+      officerName: "Bapak Suroto",
+      officerNrp: "SEC-BPS-001",
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+  await assertSucceeds(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("quick_notes").doc("qn_bob_1").set({
+      userId: BOB_UID,
+      roomCode,
+      sourceTab: "PJU",
+      title: "PJU Sore",
+      content: "Semua lampu cluster Akasia menyala normal.",
+      noteDate: "2026-11-18",
+      noteTime: "18:05",
+      shift: "Shift 2",
+      officerName: "Bapak Suroto",
+      createdAt: created,
+      updatedAt: created,
+    })
+  );
+
+  // Room creator Alice can delete Bob's items in PLOT-BPS
+  await assertSucceeds(
+    aliceDb.collection("chat_rooms").doc(roomCode).collection("reports").doc("rep_bob_1").delete()
+  );
+  await assertSucceeds(
+    aliceDb.collection("chat_rooms").doc(roomCode).collection("quick_notes").doc("qn_bob_1").delete()
+  );
+});
+

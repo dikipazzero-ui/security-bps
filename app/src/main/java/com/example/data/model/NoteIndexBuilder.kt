@@ -44,6 +44,7 @@ object NoteIndexBuilder {
                     month = ymd?.second,
                     day = ymd?.third,
                     officerName = note.officerName.ifBlank { defaultOfficerName },
+                    creatorUserId = note.userId,
                     quickNoteId = note.id,
                     sortTimestamp = ts
                 )
@@ -132,6 +133,29 @@ object NoteIndexBuilder {
                     )
                 )
             }
+            if (sheet.activityRows.isEmpty() && personnelNotes.isEmpty()) {
+                val timeStr = sheet.updatedAt?.toDate()?.let { timeFmt.format(it) }.orEmpty()
+                val hour = timeStr.trim().substringBefore(":").toIntOrNull()?.takeIf { it in 0..23 }
+                items.add(
+                    UnifiedNoteItem(
+                        id = "act_sheet_${sheet.id}",
+                        source = NoteSourceTab.TABEL,
+                        title = "Rekap Tabel Jurnal (${sheet.docNumber.ifBlank { sheet.sheetDate }})",
+                        content = "Personel: ${sheet.personnelRows.size} org • Inventaris: ${sheet.inventoryRows.size} item",
+                        shift = sheet.shift,
+                        timeWib = timeStr,
+                        dateIso = sheet.sheetDate,
+                        dateDisplay = sheetDateBadge,
+                        hour = hour,
+                        year = ymd?.first,
+                        month = ymd?.second,
+                        day = ymd?.third,
+                        officerName = sheet.officerName.ifBlank { defaultOfficerName },
+                        sheetId = sheet.id,
+                        sortTimestamp = baseTs
+                    )
+                )
+            }
         }
 
         // 4. 15-Member Attendance Sheets & Member Notes
@@ -184,15 +208,35 @@ object NoteIndexBuilder {
             val baseTs = updatedDate?.time ?: sheet.createdAt?.toDate()?.time
                 ?: estimateMillis(Triple(sheet.sheetYear.toInt(), sheet.sheetMonth.toInt(), sheet.periodStartDay.toInt()), pjuHour)
 
-            if (sheet.notes.isNotBlank()) {
+            val checkedDays = sheet.checkedDays()
+            val slotCounts = sheet.countSlotsByStatus()
+            val baikCount = slotCounts[PjuLampStatus.BAIK] ?: 0
+            val redupCount = slotCounts[PjuLampStatus.REDUP] ?: 0
+            val matiCount = slotCounts[PjuLampStatus.MATI] ?: 0
+            val hasChecklistOrNotes = sheet.notes.isNotBlank() ||
+                checkedDays.isNotEmpty() ||
+                sheet.lastShift.isNotBlank() ||
+                sheet.lastUpdatedTime.isNotBlank()
+
+            if (hasChecklistOrNotes) {
                 val ymd = updatedDate?.let { dateToTriple(it) }
                     ?: Triple(sheet.sheetYear.toInt(), sheet.sheetMonth.toInt(), sheet.latestCheckedDay() ?: sheet.periodStartDay.toInt())
+                val statusSummary = "Kondisi PJU: ✓ Nyala $baikCount • ! Redup $redupCount • ✕ Mati $matiCount"
+                val daysSummary = if (checkedDays.isNotEmpty()) "Tgl dicek: ${checkedDays.joinToString(", ")}" else null
+                val checkedClusterNames = sheet.clusters
+                    .filter { row -> checkedDays.any { d -> row.hasAnyCheckOnDay(d) } }
+                    .map { it.clusterName }
+                    .filter { it.isNotBlank() }
+                val clustersSummary = checkedClusterNames.takeIf { it.isNotEmpty() }
+                    ?.let { "Cluster: ${it.joinToString(", ")}" }
+                val notesPart = sheet.notes.takeIf { it.isNotBlank() }?.let { "Catatan: $it" }
+                val combinedContent = listOfNotNull(notesPart, statusSummary, daysSummary, clustersSummary).joinToString("\n")
                 items.add(
                     UnifiedNoteItem(
                         id = "pju_note_${sheet.id}",
                         source = NoteSourceTab.PJU,
-                        title = "Catatan Checklist PJU (${sheet.monthYear})",
-                        content = sheet.notes,
+                        title = "Rekap Checklist PJU (${sheet.monthYear})",
+                        content = combinedContent,
                         shift = pjuShift,
                         timeWib = pjuTime,
                         dateIso = updatedIso,

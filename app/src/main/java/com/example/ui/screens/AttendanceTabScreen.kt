@@ -126,6 +126,8 @@ fun AttendanceTabScreen(
     attendanceFilter: TimeKeywordFilter,
     defaultShift: String,
     defaultCommanderName: String,
+    currentUserId: String = "",
+    isRoomCreator: Boolean = false,
     isExplicitSaving: Boolean,
     onSelectSheet: (String) -> Unit,
     onCreateSheet: (sheetDate: String, shift: String, periodLabel: String, commanderName: String, copyExisting: Boolean) -> Unit,
@@ -147,7 +149,9 @@ fun AttendanceTabScreen(
     onFilterYearChange: (Int?) -> Unit,
     onFilterShiftChange: (String?) -> Unit,
     onFilterToday: () -> Unit,
-    onResetFilter: () -> Unit
+    onResetFilter: () -> Unit,
+    onOpenGlobalRecap: () -> Unit,
+    totalRecapCount: Int
 ) {
     val allSheets = (sheetsState as? UiState.Success)?.data.orEmpty()
     val filteredSheets = remember(allSheets, attendanceFilter) {
@@ -336,7 +340,7 @@ fun AttendanceTabScreen(
                                             Spacer(modifier = Modifier.width(5.dp))
                                             Text("PDF Tabel", style = MaterialTheme.typography.labelSmall)
                                         }
-                                        if (allSheets.size > 1) {
+                                        if (allSheets.size > 1 && (isRoomCreator || currentUserId.isBlank() || activeSheet.userId == currentUserId)) {
                                             IconButton(
                                                 onClick = { showDeleteSheetConfirm = true },
                                                 modifier = Modifier
@@ -370,7 +374,9 @@ fun AttendanceTabScreen(
                                 onYearChange = onFilterYearChange,
                                 onShiftChange = onFilterShiftChange,
                                 onSelectToday = onFilterToday,
-                                onReset = onResetFilter
+                                onReset = onResetFilter,
+                                onOpenGlobalRecap = onOpenGlobalRecap,
+                                globalRecapCount = totalRecapCount
                             )
                         }
                     }
@@ -631,7 +637,9 @@ fun AttendanceTabScreen(
                                 statusSubtitle = "Simpan catatan absensi, status & jam terekam (${activeSheet.sheetDate})",
                                 isSaving = isExplicitSaving,
                                 testTag = "bottom_save_absensi_button",
-                                onSaveClick = onExplicitSave
+                                onSaveClick = onExplicitSave,
+                                onOpenRecapSearch = onOpenGlobalRecap,
+                                recapCount = totalRecapCount
                             )
                         }
                         item { Spacer(modifier = Modifier.height(16.dp)) }

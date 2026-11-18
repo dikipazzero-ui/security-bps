@@ -644,7 +644,7 @@ fun JoinOrCreateRoomDialog(
                     ) {
                         Icon(Icons.Default.Key, contentDescription = null, tint = Gold400)
                         Text(
-                            text = "Ruang Live Chat (Kode)",
+                            text = "Ruang Kerja Tim (1 Database)",
                             style = MaterialTheme.typography.titleMedium,
                             color = Color.White
                         )
@@ -672,9 +672,9 @@ fun JoinOrCreateRoomDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Kode Ruang Aktif Saat Ini",
+                                    text = "Ruang & Database Bersama Aktif",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = Slate500
                                 )
@@ -684,7 +684,13 @@ fun JoinOrCreateRoomDialog(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = Navy900
                                 )
+                                Text(
+                                    text = "Semua laporan, tabel, absensi, PJU, catatan & chat dilihat bersama anggota di ruang ini.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Slate500
+                                )
                             }
+                            Spacer(modifier = Modifier.width(8.dp))
                             OutlinedButton(
                                 onClick = { onCopyCode(currentRoomCode) },
                                 shape = RoundedCornerShape(10.dp)

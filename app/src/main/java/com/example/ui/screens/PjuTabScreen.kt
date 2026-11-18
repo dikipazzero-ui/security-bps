@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.ReportProblem
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -55,6 +56,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -82,6 +84,7 @@ import com.example.data.model.PjuComplianceLevel
 import com.example.data.model.PjuIssueEntry
 import com.example.data.model.PjuLampStatus
 import com.example.data.model.PjuTemplates
+import com.example.data.model.ShiftOption
 import com.example.data.model.TimeKeywordFilter
 import com.example.data.model.UiState
 import com.example.data.model.currentIsoDate
@@ -135,8 +138,15 @@ fun PjuTabScreen(
     selectedSheetId: String?,
     pjuFilter: TimeKeywordFilter,
     activeShift: String,
+    selectedPjuShift: String,
+    selectedPjuTime: String,
+    currentUserId: String = "",
+    isRoomCreator: Boolean = false,
     isExplicitSaving: Boolean,
     onSelectSheet: (String) -> Unit,
+    onSelectPjuShift: (String) -> Unit,
+    onPjuTimeChange: (String) -> Unit,
+    onSetPjuTimeNow: () -> Unit,
     onCreateSheet: (month: Int, year: Int, startDay: Int, endDay: Int, responsibleNames: String, copyClusters: Boolean) -> Unit,
     onUpdateHeader: (month: Int, year: Int, startDay: Int, endDay: Int, responsibleNames: String) -> Unit,
     onSetCellSlots: (clusterIndex: Int, day: Int, slots: List<PjuLampStatus>) -> Unit,
@@ -151,12 +161,15 @@ fun PjuTabScreen(
     onCopyWhatsApp: (PjuChecklistSheet) -> Unit,
     onPrintPdf: (PjuChecklistSheet) -> Unit,
     onFilterKeywordChange: (String) -> Unit,
+    onFilterHourChange: (Int?) -> Unit,
     onFilterDayChange: (Int?) -> Unit,
     onFilterMonthChange: (Int?) -> Unit,
     onFilterYearChange: (Int?) -> Unit,
     onFilterShiftChange: (String?) -> Unit,
     onFilterCurrentMonth: () -> Unit,
-    onResetFilter: () -> Unit
+    onResetFilter: () -> Unit,
+    onOpenGlobalRecap: () -> Unit,
+    totalRecapCount: Int
 ) {
     val allSheets = (sheetsState as? UiState.Success)?.data.orEmpty()
     val filteredSheets = remember(allSheets, pjuFilter) {
@@ -370,20 +383,22 @@ fun PjuTabScreen(
                     item {
                         AnimatedVisibility(visible = showSearchPanel) {
                             SearchAndTimeFilterPanel(
-                                title = "Cari & Saring PJU (Cluster / Bulan / Tahun / Shift)",
+                                title = "Cari & Saring PJU (Cluster / Jam / Bulan / Tahun / Shift)",
                                 filter = pjuFilter,
                                 availableYears = availableYears,
                                 totalCount = allSheets.size,
                                 filteredCount = filteredSheets.size,
                                 testTagPrefix = "pju",
                                 onKeywordChange = onFilterKeywordChange,
-                                onHourChange = {},
+                                onHourChange = onFilterHourChange,
                                 onDayChange = onFilterDayChange,
                                 onMonthChange = onFilterMonthChange,
                                 onYearChange = onFilterYearChange,
                                 onShiftChange = onFilterShiftChange,
                                 onSelectToday = onFilterCurrentMonth,
-                                onReset = onResetFilter
+                                onReset = onResetFilter,
+                                onOpenGlobalRecap = onOpenGlobalRecap,
+                                globalRecapCount = totalRecapCount
                             )
                         }
                     }
@@ -569,6 +584,144 @@ fun PjuTabScreen(
                             }
                         }
 
+                        // 3B. PJU SHIFT & WAKTU PENGECEKAN SELECTOR CARD
+                        item(key = "pju_shift_time_card") {
+                            val effectiveShift = selectedPjuShift.ifBlank { activeShift }
+                            Card(
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.94f)),
+                                border = BorderStroke(1.dp, Slate200)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Schedule,
+                                                contentDescription = null,
+                                                tint = Navy900,
+                                                modifier = Modifier.size(17.dp)
+                                            )
+                                            Text(
+                                                text = "Shift & Waktu Pengecekan PJU",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = Navy900
+                                            )
+                                        }
+                                        Surface(
+                                            color = Navy900,
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text(
+                                                text = "$effectiveShift • ${selectedPjuTime.ifBlank { "--:--" }} WIB",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Gold400,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                            )
+                                        }
+                                    }
+
+                                    // 3 Shift Pilihan untuk Opsi PJU
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        ShiftOption.entries.forEach { shiftOpt ->
+                                            val isSelected = effectiveShift == shiftOpt.label
+                                            Surface(
+                                                onClick = { onSelectPjuShift(shiftOpt.label) },
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = if (isSelected) Navy900 else Slate100,
+                                                border = BorderStroke(
+                                                    1.2.dp,
+                                                    if (isSelected) Gold500 else Slate200
+                                                ),
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .testTag("pju_shift_option_${shiftOpt.label.replace(" ", "_").lowercase()}")
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 7.dp),
+                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                    Text(
+                                                        text = shiftOpt.label,
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                        fontWeight = FontWeight.ExtraBold,
+                                                        color = if (isSelected) Gold400 else Navy900
+                                                    )
+                                                    Text(
+                                                        text = shiftOpt.timeRange.removeSuffix(" WIB"),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = if (isSelected) Color.White.copy(alpha = 0.85f) else Slate500,
+                                                        maxLines = 1
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Waktu Pengecekan PJU + Tombol Sekarang
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = selectedPjuTime,
+                                            onValueChange = { if (it.length <= 8) onPjuTimeChange(it) },
+                                            label = { Text("Waktu Pengecekan (WIB)") },
+                                            placeholder = { Text("HH:mm") },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Default.Schedule,
+                                                    contentDescription = null,
+                                                    tint = Navy700,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            },
+                                            singleLine = true,
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedContainerColor = Color.White,
+                                                unfocusedContainerColor = Slate50,
+                                                focusedBorderColor = Gold500,
+                                                unfocusedBorderColor = Slate200
+                                            ),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .testTag("pju_time_input")
+                                        )
+                                        OutlinedButton(
+                                            onClick = onSetPjuTimeNow,
+                                            shape = RoundedCornerShape(10.dp),
+                                            border = BorderStroke(1.dp, Navy800),
+                                            modifier = Modifier
+                                                .height(52.dp)
+                                                .testTag("pju_set_time_now_button")
+                                        ) {
+                                            Text(
+                                                text = "Sekarang",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Navy900
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         // 4. HORIZONTALLY SCROLLABLE PJU SUB-OPTION TABS
                         item {
                             Row(
@@ -725,7 +878,7 @@ fun PjuTabScreen(
                                                 fontWeight = FontWeight.ExtraBold
                                             )
                                         }
-                                        if (allSheets.size > 1) {
+                                        if (allSheets.size > 1 && (isRoomCreator || currentUserId.isBlank() || activeSheet.userId == currentUserId)) {
                                             TextButton(
                                                 onClick = { showDeleteSheetConfirm = true },
                                                 colors = ButtonDefaults.textButtonColors(contentColor = Red600)
@@ -742,13 +895,16 @@ fun PjuTabScreen(
 
                         // 7. DEDICATED BOTTOM SAVE BUTTON (very bottom of PJU option)
                         item(key = "pju_bottom_save") {
-                            val timeSuffix = activeSheet.resolvedUpdatedTime().takeIf { it.isNotBlank() }?.let { " • Terakhir $it WIB" }.orEmpty()
+                            val chosenShift = selectedPjuShift.ifBlank { activeSheet.resolvedShift().ifBlank { activeShift } }
+                            val chosenTime = selectedPjuTime.ifBlank { activeSheet.resolvedUpdatedTime() }.ifBlank { "--:--" }
                             BottomOptionSaveCard(
-                                buttonLabel = "Simpan Checklist & Catatan PJU ($activeShift)",
-                                statusSubtitle = "Simpan kondisi lampu, masalah & catatan PJU (${activeSheet.monthYear}$timeSuffix)",
+                                buttonLabel = "Simpan Checklist & Catatan PJU ($chosenShift)",
+                                statusSubtitle = "Simpan kondisi lampu, masalah & catatan PJU (${activeSheet.monthYear} • $chosenShift • $chosenTime WIB)",
                                 isSaving = isExplicitSaving,
                                 testTag = "bottom_save_pju_button",
-                                onSaveClick = { onExplicitSave(notesDraft) }
+                                onSaveClick = { onExplicitSave(notesDraft) },
+                                onOpenRecapSearch = onOpenGlobalRecap,
+                                recapCount = totalRecapCount
                             )
                         }
 

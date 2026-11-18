@@ -112,6 +112,8 @@ fun ReportTabScreen(
     reportsState: UiState<List<SecurityReport>>,
     reportFilter: TimeKeywordFilter,
     activeShift: String,
+    currentUserId: String = "",
+    isRoomCreator: Boolean = false,
     isExplicitSaving: Boolean,
     onSelectCategory: (Int) -> Unit,
     onTimeChange: (String) -> Unit,
@@ -138,7 +140,9 @@ fun ReportTabScreen(
     onFilterYearChange: (Int?) -> Unit,
     onFilterShiftChange: (String?) -> Unit,
     onFilterToday: () -> Unit,
-    onResetFilter: () -> Unit
+    onResetFilter: () -> Unit,
+    onOpenGlobalRecap: () -> Unit,
+    totalRecapCount: Int
 ) {
     val reportsList = (reportsState as? UiState.Success)?.data.orEmpty()
     val filteredReports = remember(reportsList, reportFilter) {
@@ -180,7 +184,7 @@ fun ReportTabScreen(
                         )
                     }
                     Text(
-                        text = "Isi rincian per kategori, tentukan waktu & tanggal, lalu tambahkan foto beserta kolom keterangan di bawah setiap foto.",
+                        text = "Semua laporan & foto di ruang ini langsung tersinkron dan dapat dipantau seluruh anggota yang login.",
                         style = MaterialTheme.typography.bodySmall,
                         color = Slate500
                     )
@@ -329,6 +333,7 @@ fun ReportTabScreen(
                                 modifier = Modifier
                                     .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                                     .fillMaxWidth()
+                                    .testTag("report_form_shift_selector")
                             )
                             ExposedDropdownMenu(
                                 expanded = shiftExpanded,
@@ -636,7 +641,9 @@ fun ReportTabScreen(
                         onYearChange = onFilterYearChange,
                         onShiftChange = onFilterShiftChange,
                         onSelectToday = onFilterToday,
-                        onReset = onResetFilter
+                        onReset = onResetFilter,
+                        onOpenGlobalRecap = onOpenGlobalRecap,
+                        globalRecapCount = totalRecapCount
                     )
                 }
 
@@ -647,6 +654,8 @@ fun ReportTabScreen(
                             category = category,
                             items = catItems,
                             isFiltered = reportFilter.isActive,
+                            currentUserId = currentUserId,
+                            isRoomCreator = isRoomCreator,
                             onDeleteReport = onDeleteReport,
                             onOpenLightbox = onOpenLightbox
                         )
@@ -657,17 +666,21 @@ fun ReportTabScreen(
 
         // 4. Dedicated Bottom Save Button (very bottom of Laporan option)
         item(key = "report_bottom_save") {
+            val syncedShift = formState.shiftInput.ifBlank { activeShift }
+            val syncedTime = formState.timeInput.trim().ifBlank { "--:--" }
             val saveLabel = if (formState.descriptionInput.trim().isNotEmpty()) {
-                "Simpan & Tambahkan Laporan (${formState.shiftInput})"
+                "Simpan & Tambahkan Laporan ($syncedShift)"
             } else {
-                "Simpan Data Laporan ($activeShift)"
+                "Simpan Data Laporan ($syncedShift)"
             }
             BottomOptionSaveCard(
                 buttonLabel = saveLabel,
-                statusSubtitle = "Simpan catatan laporan & foto ke cloud ($activeShift • ${reportsList.size} entri tersimpan)",
+                statusSubtitle = "Simpan catatan laporan & foto ke cloud ($syncedShift • $syncedTime WIB • ${reportsList.size} entri tersimpan)",
                 isSaving = isExplicitSaving || formState.isSubmitting,
                 testTag = "bottom_save_laporan_button",
-                onSaveClick = onExplicitSave
+                onSaveClick = onExplicitSave,
+                onOpenRecapSearch = onOpenGlobalRecap,
+                recapCount = totalRecapCount
             )
         }
 
@@ -891,6 +904,8 @@ private fun CategoryReportSectionCard(
     category: ReportCategory,
     items: List<SecurityReport>,
     isFiltered: Boolean,
+    currentUserId: String,
+    isRoomCreator: Boolean,
     onDeleteReport: (String) -> Unit,
     onOpenLightbox: (base64: String, caption: String?) -> Unit
 ) {
@@ -983,6 +998,7 @@ private fun CategoryReportSectionCard(
                     items.forEach { report ->
                         ReportItemCard(
                             report = report,
+                            canDelete = isRoomCreator || currentUserId.isBlank() || report.userId == currentUserId,
                             onDelete = { onDeleteReport(report.id) },
                             onOpenLightbox = onOpenLightbox
                         )
@@ -997,6 +1013,7 @@ private fun CategoryReportSectionCard(
 @Composable
 private fun ReportItemCard(
     report: SecurityReport,
+    canDelete: Boolean,
     onDelete: () -> Unit,
     onOpenLightbox: (base64: String, caption: String?) -> Unit
 ) {
@@ -1067,16 +1084,18 @@ private fun ReportItemCard(
                         )
                     }
                 }
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Hapus Rincian",
-                        tint = Slate400,
-                        modifier = Modifier.size(18.dp)
-                    )
+                if (canDelete) {
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Hapus Rincian",
+                            tint = Slate400,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
 
@@ -1089,7 +1108,8 @@ private fun ReportItemCard(
             Text(
                 text = "Petugas: ${report.officerName} (${report.officerNrp})",
                 style = MaterialTheme.typography.bodySmall,
-                color = Slate400
+                color = Slate500,
+                fontWeight = FontWeight.Medium
             )
 
             if (report.photos.isNotEmpty()) {

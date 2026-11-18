@@ -147,8 +147,17 @@ class SecurityViewModel(
     private val _isExplicitSaving = MutableStateFlow(false)
     val isExplicitSaving: StateFlow<Boolean> = _isExplicitSaving.asStateFlow()
 
+    private val _pjuSelectedShift = MutableStateFlow(ShiftOption.SHIFT_1.label)
+    val pjuSelectedShift: StateFlow<String> = _pjuSelectedShift.asStateFlow()
+
+    private val _pjuSelectedTime = MutableStateFlow(currentFormattedTime())
+    val pjuSelectedTime: StateFlow<String> = _pjuSelectedTime.asStateFlow()
+
     private val _toastEvents = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val toastEvents: SharedFlow<String> = _toastEvents.asSharedFlow()
+
+    private val _saveRecapToastEvents = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val saveRecapToastEvents: SharedFlow<String> = _saveRecapToastEvents.asSharedFlow()
 
     private val _alertEvents = MutableSharedFlow<IncomingAlertEvent>(extraBufferCapacity = 16)
     val alertEvents: SharedFlow<IncomingAlertEvent> = _alertEvents.asSharedFlow()
@@ -168,6 +177,8 @@ class SecurityViewModel(
     private var hasSyncedInitialProfile = false
     private var lastObservedRoomForMessages: String? = null
     private val knownMessageIds = mutableSetOf<String>()
+    private var lastObservedRoomForReports: String? = null
+    private val knownReportIds = mutableSetOf<String>()
     private var hasSeededRoomMembers = false
     private var lastObservedRoomForMembers: String? = null
     private val knownOnlineMemberIds = mutableSetOf<String>()
@@ -184,6 +195,7 @@ class SecurityViewModel(
             if (state is UiState.Success && !hasSyncedInitialProfile) {
                 hasSyncedInitialProfile = true
                 _formState.update { it.copy(shiftInput = state.data.activeShift) }
+                _pjuSelectedShift.value = state.data.activeShift
                 val savedRoom = state.data.activeRoomCode.takeIf { repository.isValidRoomCode(it) }
                 if (savedRoom != null) {
                     _activeRoomCode.value = savedRoom
@@ -205,7 +217,8 @@ class SecurityViewModel(
             initialValue = UiState.Loading
         )
 
-    val reportsState: StateFlow<UiState<List<SecurityReport>>> = repository.observeReports(currentUserId)
+    val reportsState: StateFlow<UiState<List<SecurityReport>>> = _activeRoomCode
+        .flatMapLatest { code -> repository.observeReports(code) }
         .map<List<SecurityReport>, UiState<List<SecurityReport>>> { UiState.Success(it) }
         .catch { error ->
             val firestoreError = generateSequence(error) { it.cause }
@@ -222,7 +235,8 @@ class SecurityViewModel(
             initialValue = UiState.Loading
         )
 
-    val activitySheetsState: StateFlow<UiState<List<DailyActivitySheet>>> = repository.observeActivitySheets(currentUserId)
+    val activitySheetsState: StateFlow<UiState<List<DailyActivitySheet>>> = _activeRoomCode
+        .flatMapLatest { code -> repository.observeActivitySheets(code) }
         .map<List<DailyActivitySheet>, UiState<List<DailyActivitySheet>>> { UiState.Success(it) }
         .onEach { state ->
             if (state is UiState.Success) {
@@ -248,7 +262,8 @@ class SecurityViewModel(
             initialValue = UiState.Loading
         )
 
-    val attendanceSheetsState: StateFlow<UiState<List<AttendanceSheet>>> = repository.observeAttendanceSheets(currentUserId)
+    val attendanceSheetsState: StateFlow<UiState<List<AttendanceSheet>>> = _activeRoomCode
+        .flatMapLatest { code -> repository.observeAttendanceSheets(code) }
         .map<List<AttendanceSheet>, UiState<List<AttendanceSheet>>> { UiState.Success(it) }
         .onEach { state ->
             if (state is UiState.Success) {
@@ -274,14 +289,18 @@ class SecurityViewModel(
             initialValue = UiState.Loading
         )
 
-    val pjuSheetsState: StateFlow<UiState<List<PjuChecklistSheet>>> = repository.observePjuSheets(currentUserId)
+    val pjuSheetsState: StateFlow<UiState<List<PjuChecklistSheet>>> = _activeRoomCode
+        .flatMapLatest { code -> repository.observePjuSheets(code) }
         .map<List<PjuChecklistSheet>, UiState<List<PjuChecklistSheet>>> { UiState.Success(it) }
         .onEach { state ->
             if (state is UiState.Success) {
                 val list = state.data
                 val cur = _selectedPjuSheetId.value
                 if (list.isNotEmpty() && (cur == null || list.none { it.id == cur })) {
-                    _selectedPjuSheetId.value = list.first().id
+                    val first = list.first()
+                    _selectedPjuSheetId.value = first.id
+                    if (first.lastShift.isNotBlank()) _pjuSelectedShift.value = first.lastShift
+                    if (first.lastUpdatedTime.isNotBlank()) _pjuSelectedTime.value = first.lastUpdatedTime
                 }
             }
         }
@@ -342,7 +361,8 @@ class SecurityViewModel(
             initialValue = UiState.Loading
         )
 
-    val quickNotesState: StateFlow<UiState<List<QuickNote>>> = repository.observeQuickNotes(currentUserId)
+    val quickNotesState: StateFlow<UiState<List<QuickNote>>> = _activeRoomCode
+        .flatMapLatest { code -> repository.observeQuickNotes(code) }
         .map<List<QuickNote>, UiState<List<QuickNote>>> { UiState.Success(it) }
         .catch { error ->
             val firestoreError = generateSequence(error) { it.cause }
@@ -529,6 +549,52 @@ class SecurityViewModel(
                 }
             }
         }
+
+        // Observe new reports posted by teammates in the shared room
+        viewModelScope.launch {
+            combine(reportsState, _activeRoomCode) { state, room ->
+                state to room
+            }.collect { (state, room) ->
+                if (state !is UiState.Success) return@collect
+                val reports = state.data
+                if (lastObservedRoomForReports != room) {
+                    lastObservedRoomForReports = room
+                    knownReportIds.clear()
+                    reports.forEach { rep ->
+                        val key = rep.id.ifBlank { "${rep.officerName}_${rep.time}_${rep.description.hashCode()}" }
+                        knownReportIds.add(key)
+                    }
+                    return@collect
+                }
+
+                val newlyArrived = mutableListOf<SecurityReport>()
+                reports.forEach { rep ->
+                    val key = rep.id.ifBlank { "${rep.officerName}_${rep.time}_${rep.description.hashCode()}" }
+                    if (knownReportIds.add(key)) {
+                        newlyArrived.add(rep)
+                    }
+                }
+
+                val fromTeammates = newlyArrived.filter { it.userId != currentUserId }
+                if (fromTeammates.isNotEmpty()) {
+                    val latest = fromTeammates.last()
+                    val cat = ReportCategory.fromNumber(latest.category.toInt())
+                    val isUrgent = latest.statusEnum == ReportStatus.TINDAK_LANJUT
+                    val event = IncomingAlertEvent(
+                        id = "rep_${latest.id.ifBlank { System.currentTimeMillis().toString() }}",
+                        kind = AlertKind.ANNOUNCEMENT,
+                        title = "Laporan Masuk • $room",
+                        senderName = latest.officerName,
+                        senderRole = "${cat.shortTitle} • ${latest.shift}",
+                        roomCode = room,
+                        messagePreview = "[${latest.time} WIB • ${latest.status}] ${latest.description}",
+                        timeLabel = "${latest.time} WIB",
+                        isUrgent = isUrgent
+                    )
+                    dispatchIncomingAlert(event, showBubbleOnChat = false)
+                }
+            }
+        }
     }
 
     private fun dispatchIncomingAlert(event: IncomingAlertEvent, showBubbleOnChat: Boolean) {
@@ -668,7 +734,8 @@ class SecurityViewModel(
     }
 
     fun updateFormShift(shift: String) {
-        _formState.update { it.copy(shiftInput = shift) }
+        if (shift !in ShiftOption.entries.map { it.label }) return
+        setGlobalShift(shift)
     }
 
     fun updateFormStatus(status: ReportStatus) {
@@ -906,9 +973,11 @@ class SecurityViewModel(
             }
         }
 
+        val roomCode = _activeRoomCode.value
         viewModelScope.launch {
             _formState.update { it.copy(isSubmitting = true) }
             val result = repository.addReport(
+                roomCode = roomCode,
                 category = form.selectedCategory,
                 time = form.timeInput.ifBlank { currentFormattedTime() },
                 reportDate = form.reportDateInput.ifBlank { currentIsoDate() },
@@ -932,7 +1001,9 @@ class SecurityViewModel(
                     )
                 }
                 val suffix = if (isInternetConnected.value) "" else " (antrean offline)"
-                _toastEvents.tryEmit("Rincian berhasil ditambahkan ke Kategori ${form.selectedCategory}$suffix!")
+                _saveRecapToastEvents.tryEmit(
+                    "Laporan Kategori ${form.selectedCategory} (${form.shiftInput} • ${form.timeInput} WIB) tersimpan$suffix!"
+                )
             } else {
                 _formState.update { it.copy(isSubmitting = false) }
                 _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menyimpan laporan.")
@@ -941,12 +1012,13 @@ class SecurityViewModel(
     }
 
     fun deleteReportItem(reportId: String) {
+        val roomCode = _activeRoomCode.value
         viewModelScope.launch {
-            val result = repository.deleteReport(reportId)
+            val result = repository.deleteReport(roomCode, reportId)
             if (result.isSuccess) {
                 _toastEvents.tryEmit("Rincian kegiatan dihapus dari laporan.")
             } else {
-                _toastEvents.tryEmit("Gagal menghapus rincian.")
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Hanya pembuat laporan atau pembuat ruang yang dapat menghapus.")
             }
         }
     }
@@ -957,12 +1029,29 @@ class SecurityViewModel(
             _toastEvents.tryEmit("Data laporan sudah kosong.")
             return
         }
+        val room = activeChatRoom.value
+        val isRoomCreator = room?.createdBy == currentUserId
+        val deletableIds = currentReports.filter { report ->
+            report.id.isNotBlank() && (report.userId == currentUserId || isRoomCreator)
+        }.map { it.id }
+
+        if (deletableIds.isEmpty()) {
+            _toastEvents.tryEmit("Hanya pembuat ruang atau pelapor asli yang dapat mereset laporan tersebut.")
+            return
+        }
+
+        val skippedCount = currentReports.size - deletableIds.size
+        val roomCode = _activeRoomCode.value
         viewModelScope.launch {
-            val result = repository.resetAllReports(currentReports.map { it.id })
+            val result = repository.resetAllReports(roomCode, deletableIds)
             if (result.isSuccess) {
-                _toastEvents.tryEmit("Data laporan shift berhasil direset bersih.")
+                if (skippedCount > 0) {
+                    _toastEvents.tryEmit("${deletableIds.size} laporan Anda direset ($skippedCount laporan anggota lain tetap tersimpan).")
+                } else {
+                    _toastEvents.tryEmit("Data laporan shift berhasil direset bersih.")
+                }
             } else {
-                _toastEvents.tryEmit("Gagal mereset data laporan.")
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal mereset data laporan.")
             }
         }
     }
@@ -1226,9 +1315,11 @@ class SecurityViewModel(
             _toastEvents.tryEmit("Format tanggal harus yyyy-MM-dd (contoh: 2026-11-18).")
             return
         }
+        val roomCode = _activeRoomCode.value
         val newSheet = DailyActivitySheet(
             id = "",
             userId = currentUserId,
+            roomCode = roomCode,
             docNumber = docNumber.trim().take(40),
             sheetDate = cleanDate,
             shift = shift,
@@ -1239,7 +1330,7 @@ class SecurityViewModel(
             officerNrp = profile.nrp
         )
         viewModelScope.launch {
-            val result = repository.saveActivitySheet(newSheet)
+            val result = repository.saveActivitySheet(roomCode, newSheet)
             if (result.isSuccess) {
                 _selectedSheetId.value = result.getOrThrow()
                 _toastEvents.tryEmit("Lembar tabel baru ($cleanDate • $shift) berhasil dibuat.")
@@ -1253,12 +1344,14 @@ class SecurityViewModel(
     private fun saveMutatedSheet(successToast: String, mutator: (DailyActivitySheet) -> DailyActivitySheet) {
         val current = currentActiveSheet() ?: return
         val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
+        val roomCode = _activeRoomCode.value
         val updated = mutator(current).copy(
+            roomCode = roomCode,
             officerName = profile.name,
             officerNrp = profile.nrp
         )
         viewModelScope.launch {
-            val result = repository.saveActivitySheet(updated)
+            val result = repository.saveActivitySheet(roomCode, updated)
             if (result.isSuccess) {
                 if (successToast.isNotBlank()) _toastEvents.tryEmit(successToast)
             } else {
@@ -1365,12 +1458,13 @@ class SecurityViewModel(
     fun deleteActiveActivitySheet() {
         val current = currentActiveSheet() ?: return
         if (current.id.isBlank()) return
+        val roomCode = _activeRoomCode.value
         viewModelScope.launch {
-            val result = repository.deleteActivitySheet(current.id)
+            val result = repository.deleteActivitySheet(roomCode, current.id)
             if (result.isSuccess) {
                 _toastEvents.tryEmit("Lembar tabel (${current.sheetDate}) berhasil dihapus.")
             } else {
-                _toastEvents.tryEmit("Gagal menghapus lembar tabel.")
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Hanya pembuat ruang atau pembuat lembar yang dapat menghapus.")
             }
         }
     }
@@ -1502,9 +1596,11 @@ class SecurityViewModel(
             )
         }
 
+        val roomCode = _activeRoomCode.value
         val newSheet = AttendanceSheet(
             id = "",
             userId = currentUserId,
+            roomCode = roomCode,
             sheetDate = cleanDate,
             shift = shift,
             periodLabel = periodLabel.trim().ifBlank { "Regu Plot BPS (15 Anggota)" }.take(60),
@@ -1512,7 +1608,7 @@ class SecurityViewModel(
             rows = rows
         )
         viewModelScope.launch {
-            val result = repository.saveAttendanceSheet(newSheet)
+            val result = repository.saveAttendanceSheet(roomCode, newSheet)
             if (result.isSuccess) {
                 _selectedAttendanceSheetId.value = result.getOrThrow()
                 _toastEvents.tryEmit("Lembar absensi 15 anggota ($cleanDate • $shift) dibuat.")
@@ -1528,9 +1624,10 @@ class SecurityViewModel(
         mutator: (AttendanceSheet) -> AttendanceSheet
     ) {
         val current = currentActiveAttendanceSheet() ?: return
-        val updated = mutator(current)
+        val roomCode = _activeRoomCode.value
+        val updated = mutator(current).copy(roomCode = roomCode)
         viewModelScope.launch {
-            val result = repository.saveAttendanceSheet(updated)
+            val result = repository.saveAttendanceSheet(roomCode, updated)
             if (result.isSuccess) {
                 if (successToast.isNotBlank()) _toastEvents.tryEmit(successToast)
             } else {
@@ -1653,12 +1750,13 @@ class SecurityViewModel(
     fun deleteActiveAttendanceSheet() {
         val current = currentActiveAttendanceSheet() ?: return
         if (current.id.isBlank()) return
+        val roomCode = _activeRoomCode.value
         viewModelScope.launch {
-            val result = repository.deleteAttendanceSheet(current.id)
+            val result = repository.deleteAttendanceSheet(roomCode, current.id)
             if (result.isSuccess) {
                 _toastEvents.tryEmit("Lembar absensi (${current.sheetDate}) berhasil dihapus.")
             } else {
-                _toastEvents.tryEmit("Gagal menghapus lembar absensi.")
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Hanya pembuat ruang atau pembuat lembar yang dapat menghapus.")
             }
         }
     }
@@ -1692,10 +1790,36 @@ class SecurityViewModel(
 
     fun selectPjuSheet(sheetId: String) {
         _selectedPjuSheetId.value = sheetId
+        val matched = (pjuSheetsState.value as? UiState.Success)?.data?.firstOrNull { it.id == sheetId }
+        if (matched != null) {
+            if (matched.lastShift.isNotBlank()) {
+                _pjuSelectedShift.value = matched.lastShift
+            }
+            if (matched.lastUpdatedTime.isNotBlank()) {
+                _pjuSelectedTime.value = matched.lastUpdatedTime
+            }
+        }
+    }
+
+    fun updatePjuSelectedShift(shift: String) {
+        if (shift !in ShiftOption.entries.map { it.label }) return
+        _pjuSelectedShift.value = shift
+    }
+
+    fun updatePjuSelectedTime(time: String) {
+        _pjuSelectedTime.value = time.take(8)
+    }
+
+    fun setPjuSelectedTimeNow() {
+        _pjuSelectedTime.value = currentFormattedTime()
     }
 
     fun updatePjuKeyword(keyword: String) {
         _pjuFilter.update { it.copy(keyword = keyword) }
+    }
+
+    fun updatePjuFilterHour(hour: Int?) {
+        _pjuFilter.update { it.copy(hour = hour) }
     }
 
     fun updatePjuFilterDay(day: Int?) {
@@ -1742,6 +1866,8 @@ class SecurityViewModel(
         endDay: Int,
         responsibleNames: String,
         copyExistingClusters: Boolean,
+        shift: String = _pjuSelectedShift.value,
+        checkTime: String = _pjuSelectedTime.value,
         onSuccess: () -> Unit = {}
     ) {
         val cleanMonth = month.coerceIn(1, 12)
@@ -1749,7 +1875,10 @@ class SecurityViewModel(
         val cleanStart = startDay.coerceIn(1, 31)
         val cleanEnd = endDay.coerceIn(cleanStart, 31)
         val cleanResp = responsibleNames.trim().ifBlank { PjuTemplates.DEFAULT_RESPONSIBLE }.take(120)
-        val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
+        val cleanShift = if (shift in ShiftOption.entries.map { it.label }) shift else _pjuSelectedShift.value
+        val cleanTime = checkTime.trim().ifBlank { currentFormattedTime() }.take(8)
+        _pjuSelectedShift.value = cleanShift
+        _pjuSelectedTime.value = cleanTime
 
         val existingClusters = currentActivePjuSheet()?.clusters.orEmpty()
         val clusters = if (copyExistingClusters && existingClusters.isNotEmpty()) {
@@ -1757,10 +1886,12 @@ class SecurityViewModel(
         } else {
             PjuTemplates.defaultClusterRows()
         }
+        val roomCode = _activeRoomCode.value
         val monthYearLabel = PjuTemplates.monthYearLabel(cleanMonth, cleanYear)
         val newSheet = PjuChecklistSheet(
             id = "",
             userId = currentUserId,
+            roomCode = roomCode,
             monthYear = monthYearLabel,
             sheetMonth = cleanMonth.toLong(),
             sheetYear = cleanYear.toLong(),
@@ -1770,14 +1901,14 @@ class SecurityViewModel(
             issues = emptyList(),
             notes = "",
             responsibleNames = cleanResp,
-            lastShift = profile.activeShift,
-            lastUpdatedTime = currentFormattedTime()
+            lastShift = cleanShift,
+            lastUpdatedTime = cleanTime
         )
         viewModelScope.launch {
-            val result = repository.savePjuSheet(newSheet)
+            val result = repository.savePjuSheet(roomCode, newSheet)
             if (result.isSuccess) {
                 _selectedPjuSheetId.value = result.getOrThrow()
-                _toastEvents.tryEmit("Lembar Checklist PJU $monthYearLabel (Tgl $cleanStart–$cleanEnd) dibuat.")
+                _toastEvents.tryEmit("Lembar Checklist PJU $monthYearLabel ($cleanShift • $cleanTime WIB) dibuat.")
                 onSuccess()
             } else {
                 _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal membuat lembar PJU baru.")
@@ -1790,13 +1921,16 @@ class SecurityViewModel(
         mutator: (PjuChecklistSheet) -> PjuChecklistSheet
     ) {
         val current = currentActivePjuSheet() ?: return
-        val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
+        val selectedShift = _pjuSelectedShift.value.ifBlank { ShiftOption.SHIFT_1.label }
+        val selectedTime = _pjuSelectedTime.value.trim().ifBlank { currentFormattedTime() }
+        val roomCode = _activeRoomCode.value
         val updated = mutator(current).copy(
-            lastShift = profile.activeShift,
-            lastUpdatedTime = currentFormattedTime()
+            roomCode = roomCode,
+            lastShift = selectedShift,
+            lastUpdatedTime = selectedTime
         )
         viewModelScope.launch {
-            val result = repository.savePjuSheet(updated)
+            val result = repository.savePjuSheet(roomCode, updated)
             if (result.isSuccess) {
                 if (successToast.isNotBlank()) _toastEvents.tryEmit(successToast)
             } else {
@@ -1929,12 +2063,13 @@ class SecurityViewModel(
     fun deleteActivePjuSheet() {
         val current = currentActivePjuSheet() ?: return
         if (current.id.isBlank()) return
+        val roomCode = _activeRoomCode.value
         viewModelScope.launch {
-            val result = repository.deletePjuSheet(current.id)
+            val result = repository.deletePjuSheet(roomCode, current.id)
             if (result.isSuccess) {
                 _toastEvents.tryEmit("Lembar Checklist PJU (${current.monthYear}) dihapus.")
             } else {
-                _toastEvents.tryEmit("Gagal menghapus lembar PJU.")
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Hanya pembuat ruang atau pembuat lembar yang dapat menghapus.")
             }
         }
     }
@@ -1981,7 +2116,8 @@ class SecurityViewModel(
     fun saveReportTabDataExplicitly() {
         val form = _formState.value
         val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
-        val now = currentFormattedTime()
+        val syncedShift = form.shiftInput.ifBlank { profile.activeShift }
+        val targetTime = form.timeInput.trim().ifBlank { currentFormattedTime() }
         if (form.descriptionInput.trim().isNotEmpty()) {
             submitReportItem()
             return
@@ -1992,7 +2128,9 @@ class SecurityViewModel(
             return
         }
         val total = (reportsState.value as? UiState.Success)?.data?.size ?: 0
-        _toastEvents.tryEmit("Semua data Laporan ($total entri) tersimpan aman di cloud (${profile.activeShift} • $now WIB).")
+        _saveRecapToastEvents.tryEmit(
+            "Data Laporan ($total entri • $syncedShift • $targetTime WIB) tersimpan & siap dicari di Filter Hasil Rekap!"
+        )
     }
 
     fun saveActiveActivitySheetExplicitly() {
@@ -2003,16 +2141,20 @@ class SecurityViewModel(
         }
         val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
         val now = currentFormattedTime()
+        val roomCode = _activeRoomCode.value
         val updated = current.copy(
+            roomCode = roomCode,
             officerName = profile.name,
             officerNrp = profile.nrp
         )
         viewModelScope.launch {
             _isExplicitSaving.value = true
-            val result = repository.saveActivitySheet(updated)
+            val result = repository.saveActivitySheet(roomCode, updated)
             _isExplicitSaving.value = false
             if (result.isSuccess) {
-                _toastEvents.tryEmit("Tabel Kegiatan (${updated.sheetDate} • ${updated.shift}) berhasil disimpan ($now WIB).")
+                _saveRecapToastEvents.tryEmit(
+                    "Tabel Kegiatan (${updated.sheetDate} • ${updated.shift} • $now WIB) disimpan ke Rekap Penyimpanan!"
+                )
             } else {
                 _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menyimpan tabel kegiatan.")
             }
@@ -2025,13 +2167,16 @@ class SecurityViewModel(
             _toastEvents.tryEmit("Buat lembar absensi terlebih dahulu untuk menyimpan data.")
             return
         }
+        val roomCode = _activeRoomCode.value
         val now = currentFormattedTime()
         viewModelScope.launch {
             _isExplicitSaving.value = true
-            val result = repository.saveAttendanceSheet(current)
+            val result = repository.saveAttendanceSheet(roomCode, current.copy(roomCode = roomCode))
             _isExplicitSaving.value = false
             if (result.isSuccess) {
-                _toastEvents.tryEmit("Absensi ${current.rows.size} Anggota (${current.sheetDate} • ${current.shift}) berhasil disimpan ($now WIB).")
+                _saveRecapToastEvents.tryEmit(
+                    "Absensi ${current.rows.size} Anggota (${current.sheetDate} • ${current.shift} • $now WIB) disimpan ke Rekap!"
+                )
             } else {
                 _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menyimpan tabel absensi.")
             }
@@ -2044,20 +2189,26 @@ class SecurityViewModel(
             _toastEvents.tryEmit("Buat lembar PJU terlebih dahulu untuk menyimpan data.")
             return
         }
-        val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
-        val now = currentFormattedTime()
+        val roomCode = _activeRoomCode.value
+        val chosenShift = _pjuSelectedShift.value.ifBlank { ShiftOption.SHIFT_1.label }
+        val chosenTime = _pjuSelectedTime.value.trim().ifBlank { currentFormattedTime() }
         val mergedNotes = latestNotesDraft?.trim()?.take(2000) ?: current.notes
         val updated = current.copy(
+            roomCode = roomCode,
             notes = mergedNotes,
-            lastShift = profile.activeShift,
-            lastUpdatedTime = now
+            lastShift = chosenShift,
+            lastUpdatedTime = chosenTime
         )
         viewModelScope.launch {
             _isExplicitSaving.value = true
-            val result = repository.savePjuSheet(updated)
+            val result = repository.savePjuSheet(roomCode, updated)
             _isExplicitSaving.value = false
             if (result.isSuccess) {
-                _toastEvents.tryEmit("Checklist & Catatan PJU (${updated.monthYear} • ${profile.activeShift}) tersimpan ($now WIB).")
+                _pjuSelectedShift.value = chosenShift
+                _pjuSelectedTime.value = chosenTime
+                _saveRecapToastEvents.tryEmit(
+                    "Checklist PJU (${updated.monthYear} • $chosenShift • $chosenTime WIB) tersimpan ke Filter Rekap!"
+                )
             } else {
                 _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menyimpan checklist PJU.")
             }
@@ -2082,6 +2233,7 @@ class SecurityViewModel(
             viewModelScope.launch {
                 _isExplicitSaving.value = true
                 val note = QuickNote(
+                    roomCode = roomCode,
                     title = "Catatan Live Chat • $roomCode",
                     content = textToSave,
                     sourceTab = NoteSourceTab.CHAT.name,
@@ -2090,16 +2242,20 @@ class SecurityViewModel(
                     shift = profile.activeShift,
                     officerName = profile.name
                 )
-                val result = repository.saveQuickNote(note)
+                val result = repository.saveQuickNote(roomCode, note)
                 _isExplicitSaving.value = false
                 if (result.isSuccess) {
-                    _toastEvents.tryEmit("Teks chat disimpan ke arsip Catatan (${profile.activeShift} • $now WIB).")
+                    _saveRecapToastEvents.tryEmit(
+                        "Teks chat disimpan ke Filter Hasil Rekap Penyimpanan (${profile.activeShift} • $now WIB)!"
+                    )
                 } else {
                     _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menyimpan catatan chat.")
                 }
             }
         } else {
-            _toastEvents.tryEmit("Riwayat Live Chat $roomCode (${messages.size} pesan) tersimpan aman (${profile.activeShift} • $now WIB).")
+            _saveRecapToastEvents.tryEmit(
+                "Riwayat Live Chat $roomCode (${messages.size} pesan • ${profile.activeShift} • $now WIB) tersinkron di Rekap Penyimpanan!"
+            )
         }
     }
 
@@ -2113,6 +2269,7 @@ class SecurityViewModel(
         onSuccess: () -> Unit = {}
     ) {
         val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
+        val roomCode = _activeRoomCode.value
         if (content.trim().isEmpty()) {
             _toastEvents.tryEmit("Isi catatan tidak boleh kosong.")
             return
@@ -2120,7 +2277,9 @@ class SecurityViewModel(
         viewModelScope.launch {
             _isExplicitSaving.value = true
             val result = repository.saveQuickNote(
+                roomCode,
                 QuickNote(
+                    roomCode = roomCode,
                     title = title.trim().ifBlank { "Catatan ${sourceTab.label}" },
                     content = content.trim(),
                     sourceTab = sourceTab.name,
@@ -2141,12 +2300,13 @@ class SecurityViewModel(
     }
 
     fun deleteQuickNote(noteId: String) {
+        val roomCode = _activeRoomCode.value
         viewModelScope.launch {
-            val result = repository.deleteQuickNote(noteId)
+            val result = repository.deleteQuickNote(roomCode, noteId)
             if (result.isSuccess) {
                 _toastEvents.tryEmit("Catatan dihapus.")
             } else {
-                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menghapus catatan.")
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Hanya pembuat ruang atau pembuat catatan yang dapat menghapus.")
             }
         }
     }
