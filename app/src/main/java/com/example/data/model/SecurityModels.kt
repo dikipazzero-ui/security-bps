@@ -89,6 +89,7 @@ data class OfficerProfile(
     val activeShift: String = "Shift 1",
     val activeRoomCode: String = DEFAULT_ROOM_CODE,
     val onlineStatus: String = "online",
+    val photoData: String = "",
     val lastSeenAt: Timestamp? = null,
     @ServerTimestamp val createdAt: Timestamp? = null,
     @ServerTimestamp val updatedAt: Timestamp? = null
@@ -174,6 +175,7 @@ data class RoomMember(
     val role: String = "Danru Plot BPS",
     val activeShift: String = "Shift 1",
     val onlineStatus: String = "offline",
+    val photoData: String = "",
     val lastSeenAt: Timestamp? = null,
     val joinedAt: Timestamp? = null
 ) {
@@ -200,6 +202,9 @@ data class ChatMessage(
     val audioType: String = "none", // "none", "recorded", "simulated"
     val audioData: String? = null,
     val audioDuration: String? = null,
+    val senderPhoto: String? = null,
+    val edited: Boolean = false,
+    val updatedAt: Timestamp? = null,
     @ServerTimestamp val createdAt: Timestamp? = null
 ) {
     fun resolvedHour(): Int? {
@@ -336,6 +341,60 @@ data class TimeKeywordFilter(
         }
         return true
     }
+
+    fun matchesAttendanceSheet(sheet: AttendanceSheet): Boolean {
+        val q = keyword.trim().lowercase(Locale.getDefault())
+        if (q.isNotEmpty()) {
+            val inHeader = sheet.sheetDate.lowercase(Locale.getDefault()).contains(q) ||
+                sheet.shift.lowercase(Locale.getDefault()).contains(q) ||
+                sheet.periodLabel.lowercase(Locale.getDefault()).contains(q) ||
+                sheet.commanderName.lowercase(Locale.getDefault()).contains(q)
+            val inRows = sheet.rows.any { matchesAttendanceKeywordOnly(it, q) }
+            if (!inHeader && !inRows) return false
+        }
+        if (day != null || month != null || year != null) {
+            val ymd = parseIsoDateTriple(sheet.sheetDate) ?: return false
+            if (year != null && ymd.first != year) return false
+            if (month != null && ymd.second != month) return false
+            if (day != null && ymd.third != day) return false
+        }
+        if (hour != null) {
+            val hourStr = hour.toString().padStart(2, '0')
+            val matchesTime = sheet.rows.any {
+                it.jamMasuk.startsWith(hourStr) || it.recordedAt.startsWith(hourStr)
+            }
+            if (!matchesTime) return false
+        }
+        return true
+    }
+
+    fun matchesAttendanceRow(row: AttendanceMemberRow, sheetDate: String): Boolean {
+        val q = keyword.trim().lowercase(Locale.getDefault())
+        if (q.isNotEmpty() && !matchesAttendanceKeywordOnly(row, q)) {
+            return false
+        }
+        if (day != null || month != null || year != null) {
+            val ymd = parseIsoDateTriple(sheetDate) ?: return false
+            if (year != null && ymd.first != year) return false
+            if (month != null && ymd.second != month) return false
+            if (day != null && ymd.third != day) return false
+        }
+        if (hour != null) {
+            val hourStr = hour.toString().padStart(2, '0')
+            if (!row.jamMasuk.startsWith(hourStr) && !row.recordedAt.startsWith(hourStr)) return false
+        }
+        return true
+    }
+
+    private fun matchesAttendanceKeywordOnly(row: AttendanceMemberRow, q: String): Boolean {
+        return row.nama.lowercase(Locale.getDefault()).contains(q) ||
+            row.nrp.lowercase(Locale.getDefault()).contains(q) ||
+            row.jabatan.lowercase(Locale.getDefault()).contains(q) ||
+            row.plot.lowercase(Locale.getDefault()).contains(q) ||
+            row.statusEnum.label.lowercase(Locale.getDefault()).contains(q) ||
+            row.status.lowercase(Locale.getDefault()).contains(q) ||
+            row.keterangan.lowercase(Locale.getDefault()).contains(q)
+    }
 }
 
 @Keep
@@ -440,6 +499,120 @@ object ActivitySheetTemplates {
                 uraian = "Petugas jaga melaksanakan standby di Portal utama BPS. Situasi terpantau aman kondusif."
             )
         )
+    }
+}
+
+enum class AttendanceStatus(val code: String, val label: String) {
+    HADIR("H", "Hadir"),
+    IZIN("I", "Izin"),
+    SAKIT("S", "Sakit"),
+    ALPHA("A", "Alpha"),
+    LIBUR("L", "Libur");
+
+    fun next(): AttendanceStatus {
+        val all = entries
+        return all[(ordinal + 1) % all.size]
+    }
+
+    companion object {
+        fun fromCode(code: String): AttendanceStatus {
+            val clean = code.trim()
+            return entries.firstOrNull {
+                it.code.equals(clean, ignoreCase = true) || it.label.equals(clean, ignoreCase = true)
+            } ?: HADIR
+        }
+    }
+}
+
+@Keep
+@IgnoreExtraProperties
+data class AttendanceMemberRow(
+    val nama: String = "",
+    val nrp: String = "",
+    val jabatan: String = "ANGGOTA",
+    val plot: String = "BPS",
+    val status: String = AttendanceStatus.HADIR.code,
+    val jamMasuk: String = "07.00",
+    val jamPulang: String = "15.00",
+    val recordedAt: String = "",
+    val keterangan: String = ""
+) {
+    val statusEnum: AttendanceStatus
+        get() = AttendanceStatus.fromCode(status)
+}
+
+@Keep
+@IgnoreExtraProperties
+data class AttendanceSheet(
+    @DocumentId val id: String = "",
+    val userId: String = "",
+    val sheetDate: String = currentIsoDate(),
+    val shift: String = ShiftOption.SHIFT_1.label,
+    val periodLabel: String = "Regu Plot BPS (15 Anggota)",
+    val commanderName: String = "Danru Plot BPS",
+    val rows: List<AttendanceMemberRow> = emptyList(),
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null
+) {
+    fun formattedDisplayDate(): String {
+        val ymd = parseIsoDateTriple(sheetDate) ?: return sheetDate
+        return try {
+            val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(sheetDate)
+            if (parsed != null) {
+                SimpleDateFormat("EEEE, dd/MM/yyyy", Locale("id", "ID")).format(parsed)
+            } else {
+                "${ymd.third.toString().padStart(2, '0')}/${ymd.second.toString().padStart(2, '0')}/${ymd.first}"
+            }
+        } catch (_: Exception) {
+            sheetDate
+        }
+    }
+}
+
+object AttendanceTemplates {
+    fun shiftTimes(shift: String): Pair<String, String> = when (shift) {
+        ShiftOption.SHIFT_2.label -> "15.00" to "23.00"
+        ShiftOption.SHIFT_3.label -> "23.00" to "07.00"
+        else -> "07.00" to "15.00"
+    }
+
+    fun default15Members(commanderName: String, shift: String): List<AttendanceMemberRow> {
+        val (masuk, pulang) = shiftTimes(shift)
+        val nowStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+        val firstCommander = commanderName.trim().ifBlank { "DANRU PLOT BPS" }
+        val presets = listOf(
+            "DANRU" to "Pos Utama",
+            "WADANRU" to "Pos Utama",
+            "KA. SHIFT" to "Lobi BPS",
+            "ANGGOTA" to "Gerbang Depan",
+            "ANGGOTA" to "Gerbang Depan",
+            "ANGGOTA" to "Gedung Utama",
+            "ANGGOTA" to "Ruang Server",
+            "ANGGOTA" to "Ruang Arsip",
+            "ANGGOTA" to "Parkir Depan",
+            "ANGGOTA" to "Parkir Belakang",
+            "ANGGOTA" to "Patroli Keliling",
+            "ANGGOTA" to "Patroli Keliling",
+            "ANGGOTA" to "Pos Belakang",
+            "ANGGOTA" to "Cadangan Shift",
+            "ANGGOTA" to "Cadangan Shift"
+        )
+        return presets.mapIndexed { idx, (jabatan, plot) ->
+            val num = (idx + 1).toString().padStart(2, '0')
+            val nrpNum = (idx + 1).toString().padStart(3, '0')
+            val name = if (idx == 0) firstCommander else "Anggota Security $num"
+            AttendanceMemberRow(
+                nama = name,
+                nrp = "SEC-BPS-$nrpNum",
+                jabatan = jabatan,
+                plot = plot,
+                status = AttendanceStatus.HADIR.code,
+                jamMasuk = masuk,
+                jamPulang = pulang,
+                recordedAt = nowStr,
+                keterangan = ""
+            )
+        }
     }
 }
 

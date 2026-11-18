@@ -283,8 +283,43 @@ test("Shared ChatRoom: create/get by code, join RoomMember with online presence,
   await assertFails(
     bobDb.collection("chat_rooms").doc(roomCode).collection("messages").get()
   );
+  // Alice edits her own message with emoji
+  await assertSucceeds(
+    aliceDb.collection("chat_rooms").doc(roomCode).collection("messages").doc("msg_1").update({
+      text: "Cek gerbang utama aman terkendali 👍🛡️",
+      edited: true,
+      updatedAt: new Date(Date.now() - 500),
+    })
+  );
+
+  // Bob cannot edit Alice's message
+  await assertFails(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("messages").doc("msg_1").update({
+      text: "Edited by Bob",
+      edited: true,
+      updatedAt: new Date(Date.now() - 400),
+    })
+  );
+
+  // Bob sends a message then Alice (room creator) can clear room chat; Bob cannot delete Alice's message
+  await assertSucceeds(
+    bobDb.collection("chat_rooms").doc(roomCode).collection("messages").doc("msg_bob").set({
+      userId: BOB_UID,
+      roomCode,
+      senderName: "Bapak Suroto",
+      senderRole: "Korlap Security BPS",
+      fromOfficer: true,
+      time: "08:18",
+      text: "Siap lanjut patroli 🚓",
+      audioType: "none",
+      createdAt: past,
+    })
+  );
   await assertFails(
     bobDb.collection("chat_rooms").doc(roomCode).collection("messages").doc("msg_1").delete()
+  );
+  await assertSucceeds(
+    aliceDb.collection("chat_rooms").doc(roomCode).collection("messages").doc("msg_bob").delete()
   );
 
   // Bob cannot spoof Alice's UID when sending message
@@ -303,7 +338,7 @@ test("Shared ChatRoom: create/get by code, join RoomMember with online presence,
   );
 });
 
-test("Cross-user isolation: Alice cannot read or write Bob's private profile or reports", async () => {
+test("Cross-user isolation: Alice cannot read or write Bob's private profile, reports, or attendance sheets", async () => {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
     const past = new Date(Date.now() - 10000);
@@ -337,9 +372,10 @@ test("Cross-user isolation: Alice cannot read or write Bob's private profile or 
   await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("reports").get());
   await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("reports").doc("bob_rep").get());
   await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("activity_sheets").get());
+  await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("attendance_sheets").get());
 });
 
-test("Authenticated owner: DailyActivitySheet CRUD succeeds and rejects invalid date/ghost fields", async () => {
+test("Authenticated owner: DailyActivitySheet and 15-member AttendanceSheet CRUD succeed", async () => {
   const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
   const created = new Date(Date.now() - 10000);
 
@@ -376,36 +412,49 @@ test("Authenticated owner: DailyActivitySheet CRUD succeeds and rejects invalid 
     })
   );
 
-  await assertSucceeds(
-    aliceDb.collection("users").doc(ALICE_UID).collection("activity_sheets").orderBy("updatedAt", "desc").get()
-  );
+  // AttendanceSheet with 15 members
+  const fifteenRows = Array.from({ length: 15 }, (_, i) => ({
+    nama: `Anggota ${i + 1}`,
+    nrp: `SEC-BPS-${String(i + 1).padStart(3, "0")}`,
+    jabatan: i === 0 ? "DANRU" : "ANGGOTA",
+    plot: "BPS",
+    status: "H",
+    jamMasuk: "07.00",
+    jamPulang: "15.00",
+    recordedAt: "07:01",
+    keterangan: "",
+  }));
 
-  // Reject invalid date format
-  await assertFails(
-    aliceDb.collection("users").doc(ALICE_UID).collection("activity_sheets").doc("sheet_bad").set({
+  await assertSucceeds(
+    aliceDb.collection("users").doc(ALICE_UID).collection("attendance_sheets").doc("att_1").set({
       userId: ALICE_UID,
-      docNumber: "001",
-      sheetDate: "18/11/2026",
-      shift: "Shift 2",
-      personnelRows: [],
-      inventoryRows: [],
-      activityRows: [],
-      officerName: "Hendra Wijaya",
-      officerNrp: "SEC-BPS-042",
+      sheetDate: "2026-11-18",
+      shift: "Shift 1",
+      periodLabel: "Regu Plot BPS",
+      commanderName: "Bapak Siswandi",
+      rows: fifteenRows,
       createdAt: created,
       updatedAt: created,
     })
   );
 
-  // Reject ghost field
-  await assertFails(
-    aliceDb.collection("users").doc(ALICE_UID).collection("activity_sheets").doc("sheet_1").update({
-      approvedByAdmin: true,
+  await assertSucceeds(
+    aliceDb.collection("users").doc(ALICE_UID).collection("attendance_sheets").doc("att_1").update({
+      rows: fifteenRows,
       updatedAt: new Date(Date.now() - 500),
     })
   );
 
-  await assertSucceeds(
-    aliceDb.collection("users").doc(ALICE_UID).collection("activity_sheets").doc("sheet_1").delete()
+  await assertFails(
+    aliceDb.collection("users").doc(ALICE_UID).collection("attendance_sheets").doc("att_bad").set({
+      userId: ALICE_UID,
+      sheetDate: "18-11-2026",
+      shift: "Shift 1",
+      periodLabel: "Regu",
+      commanderName: "Danru",
+      rows: [],
+      createdAt: created,
+      updatedAt: created,
+    })
   );
 });

@@ -41,6 +41,10 @@
           "enum": ["online", "offline"],
           "description": "Status koneksi online petugas (opsional)"
         },
+        "photoData": {
+          "type": "string",
+          "description": "Foto profil petugas terkompresi base64 JPEG (opsional)"
+        },
         "lastSeenAt": {
           "type": "string",
           "format": "date-time",
@@ -202,6 +206,19 @@
           "type": "string",
           "description": "Durasi voice note format MM:SS (opsional)"
         },
+        "senderPhoto": {
+          "type": "string",
+          "description": "Foto profil pengirim pesan base64 JPEG (opsional)"
+        },
+        "edited": {
+          "type": "boolean",
+          "description": "Penanda pesan pernah diedit (opsional)"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp terakhir pesan diedit (opsional)"
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time",
@@ -301,6 +318,10 @@
           "format": "date-time",
           "description": "Waktu heartbeat online terakhir (FieldValue.serverTimestamp())"
         },
+        "photoData": {
+          "type": "string",
+          "description": "Foto profil anggota ruang chat terkompresi base64 JPEG (opsional)"
+        },
         "joinedAt": {
           "type": "string",
           "format": "date-time",
@@ -385,6 +406,58 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "AttendanceSheet": {
+      "title": "AttendanceSheet",
+      "description": "Lembar tabel absensi harian untuk 15 anggota Security Plot BPS lengkap dengan status kehadiran, jam masuk/pulang, dan waktu rekam.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID pemilik lembar absensi"
+        },
+        "sheetDate": {
+          "type": "string",
+          "description": "Tanggal absensi format yyyy-MM-dd"
+        },
+        "shift": {
+          "type": "string",
+          "enum": ["Shift 1", "Shift 2", "Shift 3"],
+          "description": "Shift absensi"
+        },
+        "periodLabel": {
+          "type": "string",
+          "description": "Keterangan regu / periode absensi"
+        },
+        "commanderName": {
+          "type": "string",
+          "description": "Nama Danru / penanggung jawab absensi"
+        },
+        "rows": {
+          "type": "array",
+          "description": "Daftar 15 baris absensi anggota (nama, nrp, jabatan, plot, status, jamMasuk, jamPulang, recordedAt, keterangan)"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembuatan lembar absensi (FieldValue.serverTimestamp())"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Waktu pembaruan terakhir (FieldValue.serverTimestamp())"
+        }
+      },
+      "required": [
+        "userId",
+        "sheetDate",
+        "shift",
+        "periodLabel",
+        "commanderName",
+        "rows",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -429,6 +502,12 @@
         "$ref": "#/entities/DailyActivitySheet"
       },
       "description": "Lembar tabel pelaporan kegiatan (Personel, Inventaris, dan Uraian Kegiatan per jam)"
+    },
+    "/users/{userId}/attendance_sheets/{sheetId}": {
+      "schema": {
+        "$ref": "#/entities/AttendanceSheet"
+      },
+      "description": "Lembar tabel absensi 15 anggota Security Plot BPS"
     }
   }
 }

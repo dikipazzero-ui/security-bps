@@ -40,6 +40,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.TableChart
@@ -109,7 +110,8 @@ import kotlinx.coroutines.launch
 
 private enum class PhotoTarget {
     REPORT_SLOT,
-    CHAT_ATTACHMENT
+    CHAT_ATTACHMENT,
+    PROFILE_PHOTO
 }
 
 private data class LightboxPayload(
@@ -138,10 +140,13 @@ fun MainScreen(
     val reportsState by viewModel.reportsState.collectAsStateWithLifecycle()
     val activitySheetsState by viewModel.activitySheetsState.collectAsStateWithLifecycle()
     val selectedSheetId by viewModel.selectedSheetId.collectAsStateWithLifecycle()
+    val attendanceSheetsState by viewModel.attendanceSheetsState.collectAsStateWithLifecycle()
+    val selectedAttendanceSheetId by viewModel.selectedAttendanceSheetId.collectAsStateWithLifecycle()
     val chatState by viewModel.chatState.collectAsStateWithLifecycle()
     val formState by viewModel.formState.collectAsStateWithLifecycle()
     val reportFilter by viewModel.reportFilter.collectAsStateWithLifecycle()
     val tableFilter by viewModel.tableFilter.collectAsStateWithLifecycle()
+    val attendanceFilter by viewModel.attendanceFilter.collectAsStateWithLifecycle()
     val chatFilter by viewModel.chatFilter.collectAsStateWithLifecycle()
     val chatTextInput by viewModel.chatTextInput.collectAsStateWithLifecycle()
     val pendingChatPhoto by viewModel.pendingChatPhoto.collectAsStateWithLifecycle()
@@ -174,6 +179,7 @@ fun MainScreen(
     val profile = (profileState as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
     val reports = (reportsState as? UiState.Success)?.data.orEmpty()
     val activitySheets = (activitySheetsState as? UiState.Success)?.data.orEmpty()
+    val attendanceSheets = (attendanceSheetsState as? UiState.Success)?.data.orEmpty()
 
     var showRecapModal by remember { mutableStateOf(false) }
     var showOfficerModal by remember { mutableStateOf(false) }
@@ -200,6 +206,16 @@ fun MainScreen(
 
     fun processPickedUri(uri: Uri) {
         scope.launch {
+            if (pendingPhotoTarget == PhotoTarget.PROFILE_PHOTO) {
+                val base64 = ImageUtils.compressProfilePhotoUri(context = context, uri = uri)
+                if (base64 == null) {
+                    viewModel.emitToast("Gagal memproses foto profil. Coba pilih foto lain.")
+                    return@launch
+                }
+                viewModel.updateProfilePhoto(base64)
+                return@launch
+            }
+
             val base64 = ImageUtils.compressAndWatermarkUri(
                 context = context,
                 uri = uri,
@@ -453,6 +469,11 @@ fun MainScreen(
                             OfficerAvatarWithPresence(
                                 name = profile.name,
                                 isOnline = isInternetConnected,
+                                photoData = profile.photoData,
+                                onClick = {
+                                    pendingPhotoTarget = PhotoTarget.PROFILE_PHOTO
+                                    showPhotoSourcePicker = true
+                                },
                                 size = 38.dp,
                                 containerColor = Navy700,
                                 textColor = Gold400,
@@ -550,7 +571,7 @@ fun MainScreen(
                     }
                 }
 
-                // 3-Tab Switcher
+                // 4-Tab Switcher
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -579,6 +600,18 @@ fun MainScreen(
                         modifier = Modifier
                             .weight(1f)
                             .testTag("tab_tabel")
+                    )
+                    TabHeaderButton(
+                        selected = activeTab == MainTab.ABSENSI,
+                        icon = Icons.Default.FactCheck,
+                        label = stringResource(R.string.tab_absensi),
+                        badgeCount = attendanceSheets.size,
+                        badgeContainerColor = Gold500,
+                        badgeContentColor = Navy950,
+                        onClick = { viewModel.switchTab(MainTab.ABSENSI) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("tab_absensi")
                     )
                     TabHeaderButton(
                         selected = activeTab == MainTab.CHAT,
@@ -693,6 +726,47 @@ fun MainScreen(
                                 onResetFilter = viewModel::resetTableFilter
                             )
                         }
+                        MainTab.ABSENSI -> {
+                            AttendanceTabScreen(
+                                sheetsState = attendanceSheetsState,
+                                selectedSheetId = selectedAttendanceSheetId,
+                                attendanceFilter = attendanceFilter,
+                                defaultShift = profile.activeShift,
+                                defaultCommanderName = profile.name,
+                                onSelectSheet = viewModel::selectAttendanceSheet,
+                                onCreateSheet = { date, shift, period, commander, copy ->
+                                    viewModel.createNewAttendanceSheet(date, shift, period, commander, copy)
+                                },
+                                onUpdateHeader = viewModel::updateAttendanceHeader,
+                                onUpsertRow = viewModel::upsertAttendanceRow,
+                                onQuickCycleStatus = viewModel::quickCycleAttendanceStatus,
+                                onMarkAllStatus = viewModel::markAllAttendanceStatus,
+                                onFillShiftTimes = viewModel::fillAttendanceShiftTimes,
+                                onEnsure15Rows = viewModel::ensure15AttendanceRows,
+                                onDeleteRow = viewModel::deleteAttendanceRow,
+                                onDeleteSheet = viewModel::deleteActiveAttendanceSheet,
+                                onCopyWhatsApp = { sheet ->
+                                    val text = viewModel.buildAttendanceWhatsAppRecap(sheet, profile)
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                    clipboard?.setPrimaryClip(ClipData.newPlainText("Absensi 15 Anggota Security BPS", text))
+                                    viewModel.emitToast("Rekap Absensi 15 Anggota berhasil disalin ke Clipboard!")
+                                },
+                                onPrintPdf = { sheet ->
+                                    PdfReportPrinter.printAttendanceSheet(
+                                        context = context,
+                                        sheet = sheet,
+                                        profile = profile
+                                    )
+                                },
+                                onFilterKeywordChange = viewModel::updateAttendanceKeyword,
+                                onFilterHourChange = viewModel::updateAttendanceFilterHour,
+                                onFilterDayChange = viewModel::updateAttendanceFilterDay,
+                                onFilterMonthChange = viewModel::updateAttendanceFilterMonth,
+                                onFilterYearChange = viewModel::updateAttendanceFilterYear,
+                                onFilterToday = viewModel::filterAttendanceToday,
+                                onResetFilter = viewModel::resetAttendanceFilter
+                            )
+                        }
                         MainTab.CHAT -> {
                             ChatTabScreen(
                                 currentUserId = currentUserId,
@@ -718,6 +792,9 @@ fun MainScreen(
                                 onPendingPhotoCaptionChange = viewModel::updatePendingChatPhotoCaption,
                                 onClearChatPhoto = { viewModel.setPendingChatPhoto(null) },
                                 onSendTextOrPhoto = viewModel::sendTextOrPhotoChat,
+                                onEditMessage = viewModel::editChatMessage,
+                                onDeleteMessage = viewModel::deleteChatMessage,
+                                onClearAllChat = viewModel::clearAllChatMessages,
                                 onStartVoiceRecording = { launchVoiceRecordingFlow() },
                                 onCancelVoiceRecording = {
                                     voiceNoteManager.cancelRecording()
@@ -776,6 +853,11 @@ fun MainScreen(
         EditOfficerDialog(
             profile = profile,
             onDismiss = { showOfficerModal = false },
+            onPickProfilePhoto = {
+                pendingPhotoTarget = PhotoTarget.PROFILE_PHOTO
+                showPhotoSourcePicker = true
+            },
+            onRemoveProfilePhoto = { viewModel.clearProfilePhoto() },
             onSave = { name, nrp, role ->
                 viewModel.saveOfficerProfile(name, nrp, role)
                 showOfficerModal = false
@@ -890,7 +972,7 @@ private fun TabHeaderButton(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
+                    .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
@@ -898,18 +980,19 @@ private fun TabHeaderButton(
                     imageVector = icon,
                     contentDescription = null,
                     tint = if (selected) Gold400 else Slate400,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(16.dp)
                 )
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold,
                     color = if (selected) Gold400 else Slate400,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 if (badgeCount > 0) {
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Surface(
                         color = badgeContainerColor,
                         shape = RoundedCornerShape(50)
@@ -919,7 +1002,7 @@ private fun TabHeaderButton(
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.ExtraBold,
                             color = badgeContentColor,
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
                         )
                     }
                 }

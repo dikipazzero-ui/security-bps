@@ -17,6 +17,8 @@ import android.print.pdf.PrintedPdfDocument
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
+import com.example.data.model.AttendanceSheet
+import com.example.data.model.AttendanceStatus
 import com.example.data.model.DailyActivitySheet
 import com.example.data.model.OfficerProfile
 import com.example.data.model.ReportCategory
@@ -58,6 +60,27 @@ object PdfReportPrinter {
         val printManager = context.getSystemService(Context.PRINT_SERVICE) as? PrintManager ?: return
         val jobName = "Tabel_Kegiatan_BPS_${sheet.sheetDate}_${sheet.shift.replace(" ", "_")}"
         val adapter = SecurityTablePrintAdapter(
+            context = context,
+            sheet = sheet,
+            profile = profile
+        )
+        printManager.print(
+            jobName,
+            adapter,
+            PrintAttributes.Builder()
+                .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                .build()
+        )
+    }
+
+    fun printAttendanceSheet(
+        context: Context,
+        sheet: AttendanceSheet,
+        profile: OfficerProfile
+    ) {
+        val printManager = context.getSystemService(Context.PRINT_SERVICE) as? PrintManager ?: return
+        val jobName = "Absensi_15_Anggota_BPS_${sheet.sheetDate}"
+        val adapter = SecurityAttendancePrintAdapter(
             context = context,
             sheet = sheet,
             profile = profile
@@ -511,6 +534,229 @@ private class SecurityTablePrintAdapter(
             callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
         } catch (e: Exception) {
             callback.onWriteFailed(e.localizedMessage ?: "Gagal menulis PDF tabel.")
+        } finally {
+            doc.close()
+            pdfDocument = null
+        }
+    }
+
+    override fun onFinish() {
+        pdfDocument?.close()
+        pdfDocument = null
+    }
+}
+
+private class SecurityAttendancePrintAdapter(
+    private val context: Context,
+    private val sheet: AttendanceSheet,
+    private val profile: OfficerProfile
+) : PrintDocumentAdapter() {
+
+    private var pdfDocument: PrintedPdfDocument? = null
+
+    override fun onLayout(
+        oldAttributes: PrintAttributes?,
+        newAttributes: PrintAttributes,
+        cancellationSignal: CancellationSignal?,
+        callback: LayoutResultCallback,
+        extras: Bundle?
+    ) {
+        pdfDocument = PrintedPdfDocument(context, newAttributes)
+        if (cancellationSignal?.isCanceled == true) {
+            callback.onLayoutCancelled()
+            return
+        }
+        val info = PrintDocumentInfo.Builder("Absensi_15_Anggota_BPS_${sheet.sheetDate}.pdf")
+            .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+            .setPageCount(PrintDocumentInfo.PAGE_COUNT_UNKNOWN)
+            .build()
+        callback.onLayoutFinished(info, true)
+    }
+
+    override fun onWrite(
+        pages: Array<out PageRange>,
+        destination: ParcelFileDescriptor,
+        cancellationSignal: CancellationSignal?,
+        callback: WriteResultCallback
+    ) {
+        val doc = pdfDocument ?: run {
+            callback.onWriteFailed("Dokumen PDF absensi gagal dibuat.")
+            return
+        }
+
+        try {
+            val pageWidth = 595
+            val pageHeight = 842
+            val margin = 24f
+            val tableWidth = pageWidth - margin * 2
+
+            var pageNumber = 1
+            var page = doc.startPage(pageNumber - 1)
+            var canvas = page.canvas
+            var y = margin
+
+            fun startNewPage() {
+                doc.finishPage(page)
+                pageNumber++
+                page = doc.startPage(pageNumber - 1)
+                canvas = page.canvas
+                y = margin
+            }
+
+            fun ensureSpace(neededHeight: Float) {
+                if (y + neededHeight > pageHeight - margin) {
+                    startNewPage()
+                }
+            }
+
+            val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(15, 23, 42)
+                textSize = 13f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            val metaPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(30, 41, 59)
+                textSize = 8.8f
+            }
+            val headerFill = Paint().apply {
+                color = Color.rgb(15, 23, 42)
+                style = Paint.Style.FILL
+            }
+            val altFill = Paint().apply {
+                color = Color.rgb(248, 250, 252)
+                style = Paint.Style.FILL
+            }
+            val headerText = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(251, 191, 36)
+                textSize = 8f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            }
+            val cellText = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(15, 23, 42)
+                textSize = 8f
+            }
+            val cellStroke = Paint().apply {
+                color = Color.rgb(100, 116, 139)
+                style = Paint.Style.STROKE
+                strokeWidth = 0.7f
+            }
+
+            val hCount = sheet.rows.count { it.statusEnum == AttendanceStatus.HADIR }
+            val iCount = sheet.rows.count { it.statusEnum == AttendanceStatus.IZIN }
+            val sCount = sheet.rows.count { it.statusEnum == AttendanceStatus.SAKIT }
+            val aCount = sheet.rows.count { it.statusEnum == AttendanceStatus.ALPHA }
+            val lCount = sheet.rows.count { it.statusEnum == AttendanceStatus.LIBUR }
+
+            canvas.drawText("DAFTAR ABSENSI ANGGOTA SECURITY - PLOT BPS", margin, y + 12f, titlePaint)
+            y += 18f
+            canvas.drawText(
+                "Tanggal: ${sheet.formattedDisplayDate()}  |  Shift: ${sheet.shift}  |  Regu: ${sheet.periodLabel}",
+                margin,
+                y + 10f,
+                metaPaint
+            )
+            y += 13f
+            canvas.drawText(
+                "Danru: ${sheet.commanderName}  |  Pelapor: ${profile.name} (${profile.nrp})",
+                margin,
+                y + 10f,
+                metaPaint
+            )
+            y += 13f
+            canvas.drawText(
+                "Rekap: Total ${sheet.rows.size} Anggota  |  Hadir: $hCount  |  Izin: $iCount  |  Sakit: $sCount  |  Alpha: $aCount  |  Libur: $lCount",
+                margin,
+                y + 10f,
+                metaPaint
+            )
+            y += 16f
+
+            // Columns: NO | NAMA | NRP | JABATAN | PLOT | STATUS | MASUK | PULANG | TEREKAM | KET
+            val cols = floatArrayOf(
+                tableWidth * 0.05f,
+                tableWidth * 0.19f,
+                tableWidth * 0.12f,
+                tableWidth * 0.11f,
+                tableWidth * 0.12f,
+                tableWidth * 0.08f,
+                tableWidth * 0.07f,
+                tableWidth * 0.07f,
+                tableWidth * 0.07f,
+                tableWidth * 0.12f
+            )
+
+            fun drawRow(values: List<String>, isHeader: Boolean, isAlt: Boolean) {
+                val layouts = values.mapIndexed { idx, txt ->
+                    val w = (cols[idx] - 6f).toInt().coerceAtLeast(8)
+                    StaticLayout.Builder.obtain(
+                        txt,
+                        0,
+                        txt.length,
+                        if (isHeader) headerText else cellText,
+                        w
+                    ).setAlignment(Layout.Alignment.ALIGN_NORMAL).build()
+                }
+                val rowHeight = (layouts.maxOfOrNull { it.height } ?: 11) + 9f
+                ensureSpace(rowHeight + 2f)
+
+                var x = margin
+                layouts.forEachIndexed { idx, layout ->
+                    val colW = cols[idx]
+                    if (isHeader) {
+                        canvas.drawRect(x, y, x + colW, y + rowHeight, headerFill)
+                    } else if (isAlt) {
+                        canvas.drawRect(x, y, x + colW, y + rowHeight, altFill)
+                    }
+                    canvas.drawRect(x, y, x + colW, y + rowHeight, cellStroke)
+                    canvas.save()
+                    canvas.translate(x + 3f, y + 4.5f)
+                    layout.draw(canvas)
+                    canvas.restore()
+                    x += colW
+                }
+                y += rowHeight
+            }
+
+            drawRow(
+                listOf("NO", "NAMA ANGGOTA", "NRP / ID", "JABATAN", "PLOT", "STATUS", "MASUK", "PULANG", "REKAM", "KET"),
+                isHeader = true,
+                isAlt = false
+            )
+
+            sheet.rows.forEachIndexed { idx, r ->
+                drawRow(
+                    listOf(
+                        (idx + 1).toString().padStart(2, '0'),
+                        r.nama,
+                        r.nrp,
+                        r.jabatan,
+                        r.plot,
+                        "${r.statusEnum.code} (${r.statusEnum.label})",
+                        r.jamMasuk.ifBlank { "-" },
+                        r.jamPulang.ifBlank { "-" },
+                        r.recordedAt.ifBlank { "-" },
+                        r.keterangan.ifBlank { "-" }
+                    ),
+                    isHeader = false,
+                    isAlt = idx % 2 == 1
+                )
+            }
+
+            y += 22f
+            ensureSpace(55f)
+            canvas.drawText("Mengetahui,", margin + 20f, y, metaPaint)
+            canvas.drawText("Danru / Petugas Absensi,", pageWidth - margin - 140f, y, metaPaint)
+            y += 38f
+            canvas.drawText("( Korlap Security BPS )", margin + 10f, y, metaPaint)
+            canvas.drawText("( ${sheet.commanderName} )", pageWidth - margin - 140f, y, metaPaint)
+
+            doc.finishPage(page)
+            FileOutputStream(destination.fileDescriptor).use { out ->
+                doc.writeTo(out)
+            }
+            callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
+        } catch (e: Exception) {
+            callback.onWriteFailed(e.localizedMessage ?: "Gagal menulis PDF absensi.")
         } finally {
             doc.close()
             pdfDocument = null

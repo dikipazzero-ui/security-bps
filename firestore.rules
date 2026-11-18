@@ -38,6 +38,7 @@ service cloud.firestore {
              data.activeShift in ['Shift 1', 'Shift 2', 'Shift 3'] &&
              (!('activeRoomCode' in data) || isValidRoomCode(data.activeRoomCode)) &&
              (!('onlineStatus' in data) || data.onlineStatus in ['online', 'offline']) &&
+             (!('photoData' in data) || (data.photoData is string && data.photoData.size() <= 120000)) &&
              (!('lastSeenAt' in data) || (data.lastSeenAt is timestamp && data.lastSeenAt <= request.time)) &&
              data.createdAt is timestamp && data.createdAt <= request.time &&
              data.updatedAt is timestamp && data.updatedAt <= request.time;
@@ -92,6 +93,7 @@ service cloud.firestore {
              data.role in ['Danru Plot BPS', 'Anggota Pos Utama BPS', 'Anggota Patroli Gedung BPS', 'Korlap Security BPS'] &&
              data.activeShift in ['Shift 1', 'Shift 2', 'Shift 3'] &&
              data.onlineStatus in ['online', 'offline'] &&
+             (!('photoData' in data) || (data.photoData is string && data.photoData.size() <= 120000)) &&
              data.lastSeenAt is timestamp && data.lastSeenAt <= request.time &&
              data.joinedAt is timestamp && data.joinedAt <= request.time;
     }
@@ -109,6 +111,9 @@ service cloud.firestore {
              (!('imageCaption' in data) || (data.imageCaption is string && data.imageCaption.size() <= 300)) &&
              (!('audioData' in data) || (data.audioData is string && data.audioData.size() <= 250000)) &&
              (!('audioDuration' in data) || (data.audioDuration is string && data.audioDuration.size() <= 20)) &&
+             (!('senderPhoto' in data) || (data.senderPhoto is string && data.senderPhoto.size() <= 120000)) &&
+             (!('edited' in data) || data.edited is bool) &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time)) &&
              (data.text.size() > 0 || ('imageData' in data && data.imageData.size() > 0) || data.audioType != 'none') &&
              data.createdAt is timestamp && data.createdAt <= request.time;
     }
@@ -130,6 +135,18 @@ service cloud.firestore {
              data.updatedAt is timestamp && data.updatedAt <= request.time;
     }
 
+    function isValidAttendanceSheet(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.sheetDate is string && data.sheetDate.size() == 10 && data.sheetDate.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+             data.shift in ['Shift 1', 'Shift 2', 'Shift 3'] &&
+             data.periodLabel is string && data.periodLabel.size() <= 60 &&
+             data.commanderName is string && data.commanderName.size() >= 1 && data.commanderName.size() <= 80 &&
+             data.rows is list && data.rows.size() <= 25 &&
+             (data.rows.size() == 0 || data.rows[0] is map) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
     match /users/{userId} {
       allow get: if isOwner(userId) && isValidId(userId);
       allow list: if false;
@@ -137,7 +154,7 @@ service cloud.firestore {
       allow create: if isOwner(userId) &&
                        isValidId(userId) &&
                        incoming().keys().hasAll(['userId', 'name', 'nrp', 'role', 'activeShift', 'createdAt', 'updatedAt']) &&
-                       incoming().keys().hasOnly(['userId', 'name', 'nrp', 'role', 'activeShift', 'activeRoomCode', 'onlineStatus', 'lastSeenAt', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'name', 'nrp', 'role', 'activeShift', 'activeRoomCode', 'onlineStatus', 'photoData', 'lastSeenAt', 'createdAt', 'updatedAt']) &&
                        isValidOfficerProfile(incoming(), userId);
 
       allow update: if isOwner(userId) &&
@@ -145,7 +162,7 @@ service cloud.firestore {
                        isValidOfficerProfile(incoming(), userId) &&
                        incoming().userId == existing().userId &&
                        incoming().createdAt == existing().createdAt &&
-                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'nrp', 'role', 'activeShift', 'activeRoomCode', 'onlineStatus', 'lastSeenAt', 'updatedAt']);
+                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'nrp', 'role', 'activeShift', 'activeRoomCode', 'onlineStatus', 'photoData', 'lastSeenAt', 'updatedAt']);
 
       allow delete: if isOwner(userId) && isValidId(userId);
 
@@ -207,6 +224,28 @@ service cloud.firestore {
 
         allow delete: if isOwner(userId) && isValidId(userId) && isValidId(sheetId);
       }
+
+      match /attendance_sheets/{sheetId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(sheetId);
+        allow list: if isOwner(userId) && isValidId(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(sheetId) &&
+                         incoming().keys().hasAll(['userId', 'sheetDate', 'shift', 'periodLabel', 'commanderName', 'rows', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'sheetDate', 'shift', 'periodLabel', 'commanderName', 'rows', 'createdAt', 'updatedAt']) &&
+                         isValidAttendanceSheet(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(sheetId) &&
+                         isValidAttendanceSheet(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['sheetDate', 'shift', 'periodLabel', 'commanderName', 'rows', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(sheetId);
+      }
     }
 
     match /chat_rooms/{roomCode} {
@@ -239,7 +278,7 @@ service cloud.firestore {
                          isValidRoomCode(roomCode) &&
                          isValidId(userId) &&
                          incoming().keys().hasAll(['userId', 'roomCode', 'name', 'nrp', 'role', 'activeShift', 'onlineStatus', 'lastSeenAt', 'joinedAt']) &&
-                         incoming().keys().hasOnly(['userId', 'roomCode', 'name', 'nrp', 'role', 'activeShift', 'onlineStatus', 'lastSeenAt', 'joinedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'roomCode', 'name', 'nrp', 'role', 'activeShift', 'onlineStatus', 'photoData', 'lastSeenAt', 'joinedAt']) &&
                          isValidRoomMember(incoming(), roomCode, userId) &&
                          exists(/databases/$(database)/documents/chat_rooms/$(roomCode));
 
@@ -250,7 +289,7 @@ service cloud.firestore {
                          incoming().userId == existing().userId &&
                          incoming().roomCode == existing().roomCode &&
                          incoming().joinedAt == existing().joinedAt &&
-                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'nrp', 'role', 'activeShift', 'onlineStatus', 'lastSeenAt']);
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'nrp', 'role', 'activeShift', 'onlineStatus', 'photoData', 'lastSeenAt']);
 
         allow delete: if isOwner(userId) && isValidRoomCode(roomCode) && isValidId(userId);
       }
@@ -263,12 +302,30 @@ service cloud.firestore {
                          isValidRoomCode(roomCode) &&
                          isValidId(messageId) &&
                          incoming().keys().hasAll(['userId', 'roomCode', 'senderName', 'senderRole', 'fromOfficer', 'time', 'text', 'audioType', 'createdAt']) &&
-                         incoming().keys().hasOnly(['userId', 'roomCode', 'senderName', 'senderRole', 'fromOfficer', 'time', 'text', 'imageData', 'imageCaption', 'audioType', 'audioData', 'audioDuration', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'roomCode', 'senderName', 'senderRole', 'fromOfficer', 'time', 'text', 'imageData', 'imageCaption', 'audioType', 'audioData', 'audioDuration', 'senderPhoto', 'edited', 'updatedAt', 'createdAt']) &&
                          isValidRoomChatMessage(incoming(), roomCode) &&
                          exists(/databases/$(database)/documents/chat_rooms/$(roomCode));
 
-        allow update: if false;
-        allow delete: if isSignedIn() && isValidRoomCode(roomCode) && isValidId(messageId) && existing().userId == request.auth.uid;
+        allow update: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(messageId) &&
+                         existing().userId == request.auth.uid &&
+                         isValidRoomChatMessage(incoming(), roomCode) &&
+                         incoming().userId == existing().userId &&
+                         incoming().roomCode == existing().roomCode &&
+                         incoming().senderName == existing().senderName &&
+                         incoming().senderRole == existing().senderRole &&
+                         incoming().fromOfficer == existing().fromOfficer &&
+                         incoming().time == existing().time &&
+                         incoming().audioType == existing().audioType &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['text', 'imageCaption', 'edited', 'updatedAt']);
+
+        allow delete: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(messageId) &&
+                         (existing().userId == request.auth.uid ||
+                          get(/databases/$(database)/documents/chat_rooms/$(roomCode)).data.createdBy == request.auth.uid);
       }
     }
   }

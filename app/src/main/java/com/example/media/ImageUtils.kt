@@ -86,6 +86,55 @@ object ImageUtils {
         }
     }
 
+    suspend fun compressProfilePhotoUri(
+        context: Context,
+        uri: Uri
+    ): String? = withContext(Dispatchers.IO) {
+        try {
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: return@withContext null
+
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+
+            var sampleSize = 1
+            val longest = maxOf(bounds.outWidth, bounds.outHeight)
+            while (longest / sampleSize > 512) {
+                sampleSize *= 2
+            }
+
+            val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+            val rawBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOpts)
+                ?: return@withContext null
+
+            val rotated = rotateIfRequired(bytes, rawBitmap)
+            if (rotated !== rawBitmap) rawBitmap.recycle()
+
+            val minSide = minOf(rotated.width, rotated.height)
+            val cropX = ((rotated.width - minSide) / 2).coerceAtLeast(0)
+            val cropY = ((rotated.height - minSide) / 2).coerceAtLeast(0)
+            val square = Bitmap.createBitmap(rotated, cropX, cropY, minSide, minSide)
+            if (square !== rotated) rotated.recycle()
+
+            val scaled = scaleDown(square, 240)
+            if (scaled !== square) square.recycle()
+
+            var quality = 78
+            var base64: String
+            do {
+                val out = ByteArrayOutputStream()
+                scaled.compress(Bitmap.CompressFormat.JPEG, quality, out)
+                base64 = Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+                quality -= 8
+            } while (base64.length > 90_000 && quality >= 35)
+
+            scaled.recycle()
+            if (base64.length > 100_000) null else base64
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     fun decodeBase64ToImageBitmap(base64: String): ImageBitmap? {
         if (base64.isBlank()) return null
         val key = base64.hashCode()

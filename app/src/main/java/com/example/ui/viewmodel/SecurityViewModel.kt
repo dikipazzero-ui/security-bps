@@ -7,6 +7,10 @@ import com.example.data.NetworkMonitor
 import com.example.data.firebase.SecurityRepository
 import com.example.data.model.ActivitySheetTemplates
 import com.example.data.model.ActivityTableRow
+import com.example.data.model.AttendanceMemberRow
+import com.example.data.model.AttendanceSheet
+import com.example.data.model.AttendanceStatus
+import com.example.data.model.AttendanceTemplates
 import com.example.data.model.ChatMessage
 import com.example.data.model.ChatRoom
 import com.example.data.model.DEFAULT_ROOM_CODE
@@ -49,6 +53,7 @@ import java.util.Locale
 enum class MainTab {
     LAPORAN,
     TABEL,
+    ABSENSI,
     CHAT
 }
 
@@ -96,6 +101,12 @@ class SecurityViewModel(
 
     private val _selectedSheetId = MutableStateFlow<String?>(null)
     val selectedSheetId: StateFlow<String?> = _selectedSheetId.asStateFlow()
+
+    private val _attendanceFilter = MutableStateFlow(TimeKeywordFilter())
+    val attendanceFilter: StateFlow<TimeKeywordFilter> = _attendanceFilter.asStateFlow()
+
+    private val _selectedAttendanceSheetId = MutableStateFlow<String?>(null)
+    val selectedAttendanceSheetId: StateFlow<String?> = _selectedAttendanceSheetId.asStateFlow()
 
     private val _chatFilter = MutableStateFlow(TimeKeywordFilter())
     val chatFilter: StateFlow<TimeKeywordFilter> = _chatFilter.asStateFlow()
@@ -189,6 +200,32 @@ class SecurityViewModel(
             val rootError = firestoreError ?: error
             Log.w(TAG, "Error observing activity sheets", rootError)
             emit(UiState.Error(rootError.localizedMessage ?: "Gagal memuat tabel pelaporan kegiatan."))
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            initialValue = UiState.Loading
+        )
+
+    val attendanceSheetsState: StateFlow<UiState<List<AttendanceSheet>>> = repository.observeAttendanceSheets(currentUserId)
+        .map<List<AttendanceSheet>, UiState<List<AttendanceSheet>>> { UiState.Success(it) }
+        .onEach { state ->
+            if (state is UiState.Success) {
+                val list = state.data
+                val cur = _selectedAttendanceSheetId.value
+                if (list.isNotEmpty() && (cur == null || list.none { it.id == cur })) {
+                    _selectedAttendanceSheetId.value = list.first().id
+                }
+            }
+        }
+        .catch { error ->
+            val firestoreError = generateSequence(error) { it.cause }
+                .filterIsInstance<FirebaseFirestoreException>()
+                .firstOrNull()
+            if (firestoreError == null && error is CancellationException) throw error
+            val rootError = firestoreError ?: error
+            Log.w(TAG, "Error observing attendance sheets", rootError)
+            emit(UiState.Error(rootError.localizedMessage ?: "Gagal memuat tabel absensi anggota."))
         }
         .stateIn(
             scope = viewModelScope,
@@ -433,15 +470,44 @@ class SecurityViewModel(
         }
     }
 
-    fun saveOfficerProfile(name: String, nrp: String, role: String) {
-        val currentShift = (profileState.value as? UiState.Success)?.data?.activeShift
-            ?: _formState.value.shiftInput
+    fun saveOfficerProfile(name: String, nrp: String, role: String, photoData: String? = null) {
+        val existingProfile = (profileState.value as? UiState.Success)?.data
+        val currentShift = existingProfile?.activeShift ?: _formState.value.shiftInput
         viewModelScope.launch {
-            val result = repository.saveProfile(name, nrp, role, currentShift, _activeRoomCode.value)
+            val result = repository.saveProfile(
+                name = name,
+                nrp = nrp,
+                role = role,
+                activeShift = currentShift,
+                activeRoomCode = _activeRoomCode.value,
+                photoData = photoData
+            )
             if (result.isSuccess) {
                 _toastEvents.tryEmit("Identitas petugas berhasil diperbarui.")
             } else {
                 _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menyimpan profil.")
+            }
+        }
+    }
+
+    fun updateProfilePhoto(photoBase64: String) {
+        viewModelScope.launch {
+            val result = repository.updateProfilePhoto(photoBase64, _activeRoomCode.value)
+            if (result.isSuccess) {
+                _toastEvents.tryEmit("Foto profil berhasil diperbarui!")
+            } else {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal mengganti foto profil.")
+            }
+        }
+    }
+
+    fun clearProfilePhoto() {
+        viewModelScope.launch {
+            val result = repository.updateProfilePhoto("", _activeRoomCode.value)
+            if (result.isSuccess) {
+                _toastEvents.tryEmit("Foto profil dikembalikan ke inisial default.")
+            } else {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menghapus foto profil.")
             }
         }
     }
@@ -609,7 +675,8 @@ class SecurityViewModel(
                 fromOfficer = true,
                 text = text,
                 imageData = photo,
-                imageCaption = photoCaption
+                imageCaption = photoCaption,
+                senderPhoto = profile.photoData
             )
             _isSendingChat.value = false
             if (result.isSuccess) {
@@ -635,13 +702,76 @@ class SecurityViewModel(
                 text = "",
                 audioType = "recorded",
                 audioData = audioBase64,
-                audioDuration = duration
+                audioDuration = duration,
+                senderPhoto = profile.photoData
             )
             _isSendingChat.value = false
             if (result.isSuccess) {
                 _toastEvents.tryEmit("Voice Note berhasil dikirim ke ruang $roomCode!")
             } else {
                 _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal mengirim Voice Note.")
+            }
+        }
+    }
+
+    fun editChatMessage(messageId: String, newText: String, newImageCaption: String?) {
+        val roomCode = _activeRoomCode.value
+        viewModelScope.launch {
+            val result = repository.editRoomChatMessage(
+                roomCode = roomCode,
+                messageId = messageId,
+                newText = newText,
+                newImageCaption = newImageCaption
+            )
+            if (result.isSuccess) {
+                _toastEvents.tryEmit("Pesan berhasil diperbarui.")
+            } else {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal mengedit pesan.")
+            }
+        }
+    }
+
+    fun deleteChatMessage(messageId: String) {
+        val roomCode = _activeRoomCode.value
+        viewModelScope.launch {
+            val result = repository.deleteRoomChatMessage(roomCode, messageId)
+            if (result.isSuccess) {
+                _toastEvents.tryEmit("Pesan dihapus.")
+            } else {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menghapus pesan.")
+            }
+        }
+    }
+
+    fun clearAllChatMessages() {
+        val messages = (chatState.value as? UiState.Success)?.data.orEmpty()
+        if (messages.isEmpty()) {
+            _toastEvents.tryEmit("Live chat sudah kosong.")
+            return
+        }
+        val room = activeChatRoom.value
+        val isRoomCreator = room?.createdBy == currentUserId
+        val deletableIds = messages.filter { msg ->
+            msg.id.isNotBlank() && (msg.userId == currentUserId || isRoomCreator)
+        }.map { it.id }
+
+        if (deletableIds.isEmpty()) {
+            _toastEvents.tryEmit("Hanya pembuat ruang atau pengirim pesan yang dapat menghapus pesan tersebut.")
+            return
+        }
+
+        val skippedCount = messages.size - deletableIds.size
+        viewModelScope.launch {
+            val result = repository.clearRoomChatMessages(_activeRoomCode.value, deletableIds)
+            if (result.isSuccess) {
+                val count = result.getOrDefault(0)
+                if (skippedCount > 0) {
+                    _toastEvents.tryEmit("$count pesan Anda dihapus ($skippedCount pesan anggota lain tetap tersimpan).")
+                } else {
+                    _toastEvents.tryEmit("Semua chat ($count pesan) berhasil dibersihkan.")
+                }
+            } else {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menghapus semua chat.")
             }
         }
     }
@@ -953,6 +1083,273 @@ class SecurityViewModel(
         }
         sb.appendLine()
         sb.append("====================================")
+        return sb.toString()
+    }
+
+    // --- 15-Member Attendance Table Actions ---
+
+    fun selectAttendanceSheet(sheetId: String) {
+        _selectedAttendanceSheetId.value = sheetId
+    }
+
+    fun updateAttendanceKeyword(keyword: String) {
+        _attendanceFilter.update { it.copy(keyword = keyword) }
+    }
+
+    fun updateAttendanceFilterHour(hour: Int?) {
+        _attendanceFilter.update { it.copy(hour = hour) }
+    }
+
+    fun updateAttendanceFilterDay(day: Int?) {
+        _attendanceFilter.update { it.copy(day = day) }
+    }
+
+    fun updateAttendanceFilterMonth(month: Int?) {
+        _attendanceFilter.update { it.copy(month = month) }
+    }
+
+    fun updateAttendanceFilterYear(year: Int?) {
+        _attendanceFilter.update { it.copy(year = year) }
+    }
+
+    fun filterAttendanceToday() {
+        val cal = Calendar.getInstance()
+        _attendanceFilter.update {
+            it.copy(
+                day = cal.get(Calendar.DAY_OF_MONTH),
+                month = cal.get(Calendar.MONTH) + 1,
+                year = cal.get(Calendar.YEAR)
+            )
+        }
+    }
+
+    fun resetAttendanceFilter() {
+        _attendanceFilter.value = TimeKeywordFilter()
+    }
+
+    private fun currentActiveAttendanceSheet(): AttendanceSheet? {
+        val list = (attendanceSheetsState.value as? UiState.Success)?.data.orEmpty()
+        val id = _selectedAttendanceSheetId.value
+        return list.firstOrNull { it.id == id } ?: list.firstOrNull()
+    }
+
+    fun createNewAttendanceSheet(
+        sheetDate: String,
+        shift: String,
+        periodLabel: String,
+        commanderName: String,
+        copyExistingNames: Boolean,
+        onSuccess: () -> Unit = {}
+    ) {
+        val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
+        val cleanDate = sheetDate.trim().ifBlank { currentIsoDate() }
+        if (!cleanDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
+            _toastEvents.tryEmit("Format tanggal harus yyyy-MM-dd (contoh: 2026-11-18).")
+            return
+        }
+        val (masuk, pulang) = AttendanceTemplates.shiftTimes(shift)
+        val nowStr = currentFormattedTime()
+        val existingRows = currentActiveAttendanceSheet()?.rows.orEmpty()
+        val rows = if (copyExistingNames && existingRows.isNotEmpty()) {
+            existingRows.take(25).map { prev ->
+                prev.copy(
+                    status = AttendanceStatus.HADIR.code,
+                    jamMasuk = masuk,
+                    jamPulang = pulang,
+                    recordedAt = nowStr,
+                    keterangan = ""
+                )
+            }
+        } else {
+            AttendanceTemplates.default15Members(
+                commanderName = commanderName.ifBlank { profile.name },
+                shift = shift
+            )
+        }
+
+        val newSheet = AttendanceSheet(
+            id = "",
+            userId = currentUserId,
+            sheetDate = cleanDate,
+            shift = shift,
+            periodLabel = periodLabel.trim().ifBlank { "Regu Plot BPS (15 Anggota)" }.take(60),
+            commanderName = commanderName.trim().ifBlank { profile.name }.take(80),
+            rows = rows
+        )
+        viewModelScope.launch {
+            val result = repository.saveAttendanceSheet(newSheet)
+            if (result.isSuccess) {
+                _selectedAttendanceSheetId.value = result.getOrThrow()
+                _toastEvents.tryEmit("Lembar absensi 15 anggota ($cleanDate • $shift) dibuat.")
+                onSuccess()
+            } else {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal membuat lembar absensi.")
+            }
+        }
+    }
+
+    private fun saveMutatedAttendanceSheet(
+        successToast: String,
+        mutator: (AttendanceSheet) -> AttendanceSheet
+    ) {
+        val current = currentActiveAttendanceSheet() ?: return
+        val updated = mutator(current)
+        viewModelScope.launch {
+            val result = repository.saveAttendanceSheet(updated)
+            if (result.isSuccess) {
+                if (successToast.isNotBlank()) _toastEvents.tryEmit(successToast)
+            } else {
+                _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menyimpan absensi.")
+            }
+        }
+    }
+
+    fun updateAttendanceHeader(sheetDate: String, shift: String, periodLabel: String, commanderName: String) {
+        val cleanDate = sheetDate.trim().ifBlank { currentIsoDate() }
+        if (!cleanDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) {
+            _toastEvents.tryEmit("Format tanggal harus yyyy-MM-dd.")
+            return
+        }
+        saveMutatedAttendanceSheet("Header absensi diperbarui.") { sheet ->
+            sheet.copy(
+                sheetDate = cleanDate,
+                shift = shift,
+                periodLabel = periodLabel.trim().ifBlank { "Regu Plot BPS" }.take(60),
+                commanderName = commanderName.trim().ifBlank { "Danru Plot BPS" }.take(80)
+            )
+        }
+    }
+
+    fun upsertAttendanceRow(editIndex: Int?, row: AttendanceMemberRow) {
+        if (row.nama.trim().isEmpty()) {
+            _toastEvents.tryEmit("Nama anggota tidak boleh kosong.")
+            return
+        }
+        val stampedRow = row.copy(
+            recordedAt = row.recordedAt.ifBlank { currentFormattedTime() }
+        )
+        saveMutatedAttendanceSheet(
+            if (editIndex == null) "Anggota ditambahkan ke tabel absensi." else "Absensi ${row.nama} tercatat."
+        ) { sheet ->
+            val list = sheet.rows.toMutableList()
+            if (editIndex != null && editIndex in list.indices) {
+                list[editIndex] = stampedRow
+            } else if (list.size < 25) {
+                list.add(stampedRow)
+            }
+            sheet.copy(rows = list)
+        }
+    }
+
+    fun quickCycleAttendanceStatus(rowIndex: Int) {
+        val nowStr = currentFormattedTime()
+        saveMutatedAttendanceSheet("") { sheet ->
+            val list = sheet.rows.toMutableList()
+            if (rowIndex in list.indices) {
+                val cur = list[rowIndex]
+                val nextStatus = cur.statusEnum.next()
+                list[rowIndex] = cur.copy(
+                    status = nextStatus.code,
+                    recordedAt = nowStr
+                )
+            }
+            sheet.copy(rows = list)
+        }
+    }
+
+    fun markAllAttendanceStatus(statusCode: String) {
+        val status = AttendanceStatus.fromCode(statusCode)
+        val nowStr = currentFormattedTime()
+        saveMutatedAttendanceSheet("Semua anggota ditandai ${status.label} ($nowStr WIB).") { sheet ->
+            val (masuk, pulang) = AttendanceTemplates.shiftTimes(sheet.shift)
+            val updated = sheet.rows.map { row ->
+                row.copy(
+                    status = status.code,
+                    jamMasuk = if (status == AttendanceStatus.HADIR) row.jamMasuk.ifBlank { masuk } else "-",
+                    jamPulang = if (status == AttendanceStatus.HADIR) row.jamPulang.ifBlank { pulang } else "-",
+                    recordedAt = nowStr
+                )
+            }
+            sheet.copy(rows = updated)
+        }
+    }
+
+    fun fillAttendanceShiftTimes() {
+        val nowStr = currentFormattedTime()
+        saveMutatedAttendanceSheet("Jam masuk & pulang disesuaikan ke standar shift aktif.") { sheet ->
+            val (masuk, pulang) = AttendanceTemplates.shiftTimes(sheet.shift)
+            sheet.copy(
+                rows = sheet.rows.map { row ->
+                    row.copy(
+                        jamMasuk = masuk,
+                        jamPulang = pulang,
+                        recordedAt = nowStr
+                    )
+                }
+            )
+        }
+    }
+
+    fun deleteAttendanceRow(rowIndex: Int) {
+        saveMutatedAttendanceSheet("Baris anggota dihapus.") { sheet ->
+            val list = sheet.rows.toMutableList()
+            if (rowIndex in list.indices) list.removeAt(rowIndex)
+            sheet.copy(rows = list)
+        }
+    }
+
+    fun ensure15AttendanceRows() {
+        val current = currentActiveAttendanceSheet() ?: return
+        if (current.rows.size >= 15) {
+            _toastEvents.tryEmit("Tabel sudah memuat ${current.rows.size} anggota.")
+            return
+        }
+        val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
+        val template = AttendanceTemplates.default15Members(profile.name, current.shift)
+        saveMutatedAttendanceSheet("Daftar anggota dilengkapi menjadi 15 personel.") { sheet ->
+            val combined = sheet.rows.toMutableList()
+            for (idx in combined.size until 15) {
+                combined.add(template[idx])
+            }
+            sheet.copy(rows = combined)
+        }
+    }
+
+    fun deleteActiveAttendanceSheet() {
+        val current = currentActiveAttendanceSheet() ?: return
+        if (current.id.isBlank()) return
+        viewModelScope.launch {
+            val result = repository.deleteAttendanceSheet(current.id)
+            if (result.isSuccess) {
+                _toastEvents.tryEmit("Lembar absensi (${current.sheetDate}) berhasil dihapus.")
+            } else {
+                _toastEvents.tryEmit("Gagal menghapus lembar absensi.")
+            }
+        }
+    }
+
+    fun buildAttendanceWhatsAppRecap(sheet: AttendanceSheet, profile: OfficerProfile): String {
+        val hCount = sheet.rows.count { it.statusEnum == AttendanceStatus.HADIR }
+        val iCount = sheet.rows.count { it.statusEnum == AttendanceStatus.IZIN }
+        val sCount = sheet.rows.count { it.statusEnum == AttendanceStatus.SAKIT }
+        val aCount = sheet.rows.count { it.statusEnum == AttendanceStatus.ALPHA }
+        val lCount = sheet.rows.count { it.statusEnum == AttendanceStatus.LIBUR }
+
+        val sb = StringBuilder()
+        sb.appendLine("*DAFTAR ABSENSI ANGGOTA SECURITY - PLOT BPS*")
+        sb.appendLine("Tanggal : ${sheet.formattedDisplayDate()}")
+        sb.appendLine("Shift   : ${sheet.shift} (${sheet.periodLabel})")
+        sb.appendLine("Danru   : ${sheet.commanderName}")
+        sb.appendLine("Rekap   : Total ${sheet.rows.size} | Hadir $hCount | Izin $iCount | Sakit $sCount | Alpha $aCount | Libur $lCount")
+        sb.appendLine("====================================")
+        sheet.rows.forEachIndexed { idx, row ->
+            val no = (idx + 1).toString().padStart(2, '0')
+            val ketPart = if (row.keterangan.isNotBlank()) " | Ket: ${row.keterangan}" else ""
+            val recPart = if (row.recordedAt.isNotBlank()) " (Terekam ${row.recordedAt})" else ""
+            sb.appendLine("$no. ${row.nama} [${row.nrp}] • ${row.jabatan} (${row.plot}) -> *${row.statusEnum.label}* [${row.jamMasuk}-${row.jamPulang}]$recPart$ketPart")
+        }
+        sb.appendLine("====================================")
+        sb.append("Dilaporkan oleh: ${profile.name} (${profile.nrp})")
         return sb.toString()
     }
 

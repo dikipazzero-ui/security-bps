@@ -4,6 +4,10 @@ import android.content.Context
 import com.example.R
 import com.example.data.model.ActivitySheetTemplates
 import com.example.data.model.ActivityTableRow
+import com.example.data.model.AttendanceMemberRow
+import com.example.data.model.AttendanceSheet
+import com.example.data.model.AttendanceStatus
+import com.example.data.model.AttendanceTemplates
 import com.example.data.model.ChatMessage
 import com.example.data.model.ChatRoom
 import com.example.data.model.DEFAULT_ROOM_CODE
@@ -121,6 +125,30 @@ class SecurityRepository(
             .map { snapshot ->
                 snapshot.toObjects(
                     DailyActivitySheet::class.java,
+                    DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
+                )
+            }
+            .catch { error ->
+                val firestoreError = generateSequence(error) { it.cause }
+                    .filterIsInstance<FirebaseFirestoreException>()
+                    .firstOrNull()
+                if (firestoreError == null && error is CancellationException) throw error
+                val exceptionToLog = firestoreError ?: (error as? Exception)
+                if (exceptionToLog != null && auth.currentUser?.uid == userId) {
+                    handleFirestoreError(exceptionToLog, OperationType.LIST, path)
+                }
+                throw error
+            }
+    }
+
+    fun observeAttendanceSheets(userId: String): Flow<List<AttendanceSheet>> {
+        val path = "users/$userId/attendance_sheets"
+        return db.collection("users").document(userId).collection("attendance_sheets")
+            .orderBy("updatedAt", Query.Direction.DESCENDING)
+            .snapshots()
+            .map { snapshot ->
+                snapshot.toObjects(
+                    AttendanceSheet::class.java,
                     DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
                 )
             }
@@ -313,6 +341,23 @@ class SecurityRepository(
                 sheetsCol.document("init_sheet_1").set(starterPayload).await()
             }
 
+            // Ensure at least one starter 15-member AttendanceSheet exists
+            val attCol = profileRef.collection("attendance_sheets")
+            val existingAtt = attCol.limit(1).get().await()
+            if (existingAtt.isEmpty) {
+                val starterShift = resolvedProfile.activeShift
+                val starterAttPayload = buildAttendanceSheetPayload(
+                    uid = uid,
+                    sheetDate = currentIsoDate(),
+                    shift = starterShift,
+                    periodLabel = "Regu Plot BPS (15 Anggota)",
+                    commanderName = resolvedProfile.name,
+                    rows = AttendanceTemplates.default15Members(resolvedProfile.name, starterShift),
+                    includeCreatedAt = true
+                )
+                attCol.document("init_att_1").set(starterAttPayload).await()
+            }
+
             // Join & mark online inside the active shared room
             upsertRoomMember(resolvedRoom, resolvedProfile, isOnline = true)
             Result.success(resolvedRoom)
@@ -384,6 +429,7 @@ class SecurityRepository(
         val cleanNrp = profile.nrp.trim().ifBlank { "SEC-BPS" }.take(40)
         val cleanRole = if (profile.role in OfficerRoles.options) profile.role else OfficerRoles.options.first()
         val cleanShift = if (profile.activeShift in ShiftOption.entries.map { it.label }) profile.activeShift else ShiftOption.SHIFT_1.label
+        val cleanPhoto = profile.photoData.takeIf { it.length <= 120_000 } ?: ""
 
         val snap = memberRef.get().await()
         if (snap.exists()) {
@@ -394,6 +440,7 @@ class SecurityRepository(
                     "role" to cleanRole,
                     "activeShift" to cleanShift,
                     "onlineStatus" to statusStr,
+                    "photoData" to cleanPhoto,
                     "lastSeenAt" to FieldValue.serverTimestamp()
                 )
             ).await()
@@ -407,6 +454,7 @@ class SecurityRepository(
                     "role" to cleanRole,
                     "activeShift" to cleanShift,
                     "onlineStatus" to statusStr,
+                    "photoData" to cleanPhoto,
                     "lastSeenAt" to FieldValue.serverTimestamp(),
                     "joinedAt" to FieldValue.serverTimestamp()
                 )
@@ -588,7 +636,8 @@ class SecurityRepository(
         nrp: String,
         role: String,
         activeShift: String,
-        activeRoomCode: String = DEFAULT_ROOM_CODE
+        activeRoomCode: String = DEFAULT_ROOM_CODE,
+        photoData: String? = null
     ): Result<Unit> {
         val uid = auth.currentUser?.uid ?: return Result.failure(IllegalStateException("Belum login"))
         val path = "users/$uid"
@@ -601,19 +650,25 @@ class SecurityRepository(
             require(cleanNrp.length in 1..40) { "NRP/ID harus 1-40 karakter." }
             require(role in OfficerRoles.options) { "Jabatan tidak valid." }
             require(activeShift in ShiftOption.entries.map { it.label }) { "Shift tidak valid." }
+            if (photoData != null) {
+                require(photoData.length <= 120_000) { "Ukuran foto profil melebihi batas." }
+            }
 
             val docRef = db.collection("users").document(verifiedUid)
-            val exists = docRef.get().await().exists()
-            if (exists) {
-                docRef.update(
-                    mapOf(
-                        "name" to cleanName,
-                        "nrp" to cleanNrp,
-                        "role" to role,
-                        "activeShift" to activeShift,
-                        "updatedAt" to FieldValue.serverTimestamp()
-                    )
-                ).await()
+            val snap = docRef.get().await()
+            val resolvedPhoto = photoData ?: (snap.getString("photoData") ?: "")
+            if (snap.exists()) {
+                val updates = mutableMapOf<String, Any>(
+                    "name" to cleanName,
+                    "nrp" to cleanNrp,
+                    "role" to role,
+                    "activeShift" to activeShift,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+                if (photoData != null) {
+                    updates["photoData"] = photoData
+                }
+                docRef.update(updates).await()
             } else {
                 docRef.set(
                     mapOf(
@@ -624,6 +679,7 @@ class SecurityRepository(
                         "activeShift" to activeShift,
                         "activeRoomCode" to cleanRoom,
                         "onlineStatus" to "online",
+                        "photoData" to resolvedPhoto,
                         "lastSeenAt" to FieldValue.serverTimestamp(),
                         "createdAt" to FieldValue.serverTimestamp(),
                         "updatedAt" to FieldValue.serverTimestamp()
@@ -642,10 +698,52 @@ class SecurityRepository(
                         nrp = cleanNrp,
                         role = role,
                         activeShift = activeShift,
-                        activeRoomCode = cleanRoom
+                        activeRoomCode = cleanRoom,
+                        photoData = resolvedPhoto
                     ),
                     isOnline = true
                 )
+            }
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateProfilePhoto(
+        photoData: String,
+        activeRoomCode: String = DEFAULT_ROOM_CODE
+    ): Result<Unit> {
+        val uid = auth.currentUser?.uid ?: return Result.failure(IllegalStateException("Belum login"))
+        val path = "users/$uid"
+        return try {
+            val verifiedUid = requireUserId()
+            require(photoData.length <= 120_000) { "Ukuran foto profil melebihi batas maksimal." }
+            val userRef = db.collection("users").document(verifiedUid)
+            val snap = userRef.get().await()
+            if (snap.exists()) {
+                userRef.update(
+                    mapOf(
+                        "photoData" to photoData,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            }
+            val cleanRoom = normalizeRoomCode(activeRoomCode).ifBlank { DEFAULT_ROOM_CODE }
+            runCatching {
+                val memberRef = db.collection("chat_rooms").document(cleanRoom)
+                    .collection("members").document(verifiedUid)
+                if (memberRef.get().await().exists()) {
+                    memberRef.update(
+                        mapOf(
+                            "photoData" to photoData,
+                            "lastSeenAt" to FieldValue.serverTimestamp()
+                        )
+                    ).await()
+                }
             }
             Result.success(Unit)
         } catch (e: CancellationException) {
@@ -799,7 +897,8 @@ class SecurityRepository(
         imageCaption: String? = null,
         audioType: String = "none",
         audioData: String? = null,
-        audioDuration: String? = null
+        audioDuration: String? = null,
+        senderPhoto: String? = null
     ): Result<Unit> {
         val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
         var path = "chat_rooms/$cleanCode/messages"
@@ -810,6 +909,7 @@ class SecurityRepository(
             val cleanCaption = imageCaption?.trim()?.take(300)?.ifBlank { null }
             val cleanName = senderName.trim().ifBlank { "Petugas Security" }.take(80)
             val cleanRole = senderRole.trim().ifBlank { "Plot BPS" }.take(80)
+            val cleanSenderPhoto = senderPhoto?.takeIf { it.isNotBlank() && it.length <= 120_000 }
             require(cleanText.length <= 2000) { "Pesan maksimal 2000 karakter." }
             require(audioType in listOf("none", "recorded", "simulated")) { "Tipe audio tidak valid." }
             if (imageData != null) require(imageData.length <= 200000) { "Ukuran foto melebihi batas." }
@@ -839,6 +939,8 @@ class SecurityRepository(
                 "audioType" to audioType,
                 "audioData" to audioData?.takeIf { it.isNotEmpty() },
                 "audioDuration" to audioDuration?.takeIf { it.isNotEmpty() },
+                "senderPhoto" to cleanSenderPhoto,
+                "edited" to false,
                 "createdAt" to FieldValue.serverTimestamp()
             ).filterValues { it != null } as Map<String, Any>
 
@@ -852,11 +954,90 @@ class SecurityRepository(
         }
     }
 
+    suspend fun editRoomChatMessage(
+        roomCode: String,
+        messageId: String,
+        newText: String,
+        newImageCaption: String? = null
+    ): Result<Unit> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        var path = "chat_rooms/$cleanCode/messages/$messageId"
+        return try {
+            requireUserId()
+            require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
+            require(messageId.isNotBlank()) { "ID pesan tidak valid." }
+            val cleanText = newText.trim()
+            require(cleanText.length <= 2000) { "Pesan maksimal 2000 karakter." }
+            val docRef = db.collection("chat_rooms").document(cleanCode)
+                .collection("messages").document(messageId)
+            path = docRef.path
+
+            val updates = mutableMapOf<String, Any>(
+                "text" to cleanText,
+                "edited" to true,
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            if (newImageCaption != null) {
+                updates["imageCaption"] = newImageCaption.trim().take(300)
+            }
+            docRef.update(updates).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteRoomChatMessage(roomCode: String, messageId: String): Result<Unit> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        var path = "chat_rooms/$cleanCode/messages/$messageId"
+        return try {
+            requireUserId()
+            require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
+            require(messageId.isNotBlank()) { "ID pesan tidak valid." }
+            val docRef = db.collection("chat_rooms").document(cleanCode)
+                .collection("messages").document(messageId)
+            path = docRef.path
+            docRef.delete().await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.DELETE, path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun clearRoomChatMessages(roomCode: String, messageIds: List<String>): Result<Int> {
+        val cleanCode = normalizeRoomCode(roomCode).ifBlank { DEFAULT_ROOM_CODE }
+        val path = "chat_rooms/$cleanCode/messages"
+        return try {
+            requireUserId()
+            require(isValidRoomCode(cleanCode)) { "Kode ruang tidak valid." }
+            val col = db.collection("chat_rooms").document(cleanCode).collection("messages")
+            val validIds = messageIds.filter { it.isNotBlank() }
+            val chunks = validIds.chunked(400)
+            for (chunk in chunks) {
+                val batch = db.batch()
+                chunk.forEach { id -> batch.delete(col.document(id)) }
+                batch.commit().await()
+            }
+            Result.success(validIds.size)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.DELETE, path)
+            Result.failure(e)
+        }
+    }
+
     suspend fun simulateTeamReply(roomCode: String): Result<Unit> {
         val replies = listOf(
-            Triple("Bapak Suroto", "Korlap Security BPS", "Terima kasih laporannya, lanjutkan pemantauan berkala di seluruh titik Plot BPS."),
-            Triple("Rizky Pratama", "Pos Gerbang Depan", "Copy Danru! Gerbang utama terpantau aman, situasi kondusif."),
-            Triple("Dedi Kurniawan", "Patroli Gedung Belakang", "Siap laksanakan, area parkir belakang & ruang genset sudah dicek.")
+            Triple("Bapak Suroto", "Korlap Security BPS", "Terima kasih laporannya, lanjutkan pemantauan berkala di seluruh titik Plot BPS. 👍"),
+            Triple("Rizky Pratama", "Pos Gerbang Depan", "Copy Danru! Gerbang utama terpantau aman, situasi kondusif. 🫡"),
+            Triple("Dedi Kurniawan", "Patroli Gedung Belakang", "Siap laksanakan, area parkir belakang & ruang genset sudah dicek. 🛡️")
         )
         val pick = replies.random()
         return sendRoomChatMessage(
@@ -989,6 +1170,113 @@ class SecurityRepository(
             val uid = requireUserId()
             require(sheetId.isNotBlank()) { "ID lembar tabel tidak valid." }
             val docRef = db.collection("users").document(uid).collection("activity_sheets").document(sheetId)
+            path = docRef.path
+            docRef.delete().await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.DELETE, path)
+            Result.failure(e)
+        }
+    }
+
+    private fun buildAttendanceSheetPayload(
+        uid: String,
+        sheetDate: String,
+        shift: String,
+        periodLabel: String,
+        commanderName: String,
+        rows: List<AttendanceMemberRow>,
+        includeCreatedAt: Boolean
+    ): Map<String, Any> {
+        val cleanDate = sheetDate.trim().ifBlank { currentIsoDate() }
+        val cleanShift = if (shift in ShiftOption.entries.map { it.label }) shift else ShiftOption.SHIFT_1.label
+        val cleanPeriod = periodLabel.trim().take(60)
+        val cleanCommander = commanderName.trim().ifBlank { "Danru Plot BPS" }.take(80)
+
+        require(cleanDate.matches(Regex("^\\d{4}-\\d{2}-\\d{2}$"))) { "Format tanggal harus yyyy-MM-dd." }
+        require(rows.size <= 25) { "Maksimal 25 baris anggota per lembar absensi." }
+
+        val rowMaps = rows.map { row ->
+            mapOf(
+                "nama" to row.nama.trim().take(80),
+                "nrp" to row.nrp.trim().take(40),
+                "jabatan" to row.jabatan.trim().take(40),
+                "plot" to row.plot.trim().take(30),
+                "status" to AttendanceStatus.fromCode(row.status).code,
+                "jamMasuk" to row.jamMasuk.trim().take(16),
+                "jamPulang" to row.jamPulang.trim().take(16),
+                "recordedAt" to row.recordedAt.trim().take(24),
+                "keterangan" to row.keterangan.trim().take(150)
+            )
+        }
+
+        val map = mutableMapOf<String, Any>(
+            "userId" to uid,
+            "sheetDate" to cleanDate,
+            "shift" to cleanShift,
+            "periodLabel" to cleanPeriod,
+            "commanderName" to cleanCommander,
+            "rows" to rowMaps,
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+        if (includeCreatedAt) {
+            map["createdAt"] = FieldValue.serverTimestamp()
+        }
+        return map
+    }
+
+    suspend fun saveAttendanceSheet(sheet: AttendanceSheet): Result<String> {
+        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/attendance_sheets"
+        return try {
+            val uid = requireUserId()
+            val col = db.collection("users").document(uid).collection("attendance_sheets")
+            val isNew = sheet.id.isBlank()
+            val docRef = if (isNew) col.document() else col.document(sheet.id)
+            path = docRef.path
+
+            val exists = if (isNew) false else docRef.get().await().exists()
+            if (!exists) {
+                val payload = buildAttendanceSheetPayload(
+                    uid = uid,
+                    sheetDate = sheet.sheetDate,
+                    shift = sheet.shift,
+                    periodLabel = sheet.periodLabel,
+                    commanderName = sheet.commanderName,
+                    rows = sheet.rows,
+                    includeCreatedAt = true
+                )
+                docRef.set(payload).await()
+            } else {
+                val updatePayload = buildAttendanceSheetPayload(
+                    uid = uid,
+                    sheetDate = sheet.sheetDate,
+                    shift = sheet.shift,
+                    periodLabel = sheet.periodLabel,
+                    commanderName = sheet.commanderName,
+                    rows = sheet.rows,
+                    includeCreatedAt = false
+                ).toMutableMap().apply {
+                    remove("userId")
+                }
+                docRef.update(updatePayload).await()
+            }
+            Result.success(docRef.id)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.WRITE, path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteAttendanceSheet(sheetId: String): Result<Unit> {
+        var path = "users/${auth.currentUser?.uid ?: "unauthenticated"}/attendance_sheets/$sheetId"
+        return try {
+            val uid = requireUserId()
+            require(sheetId.isNotBlank()) { "ID lembar absensi tidak valid." }
+            val docRef = db.collection("users").document(uid).collection("attendance_sheets").document(sheetId)
             path = docRef.path
             docRef.delete().await()
             Result.success(Unit)

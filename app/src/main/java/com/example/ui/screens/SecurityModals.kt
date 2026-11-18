@@ -209,6 +209,8 @@ fun WhatsAppRecapDialog(
 fun EditOfficerDialog(
     profile: OfficerProfile,
     onDismiss: () -> Unit,
+    onPickProfilePhoto: () -> Unit,
+    onRemoveProfilePhoto: () -> Unit,
     onSave: (name: String, nrp: String, role: String) -> Unit
 ) {
     var name by remember(profile) { mutableStateOf(profile.name) }
@@ -241,7 +243,7 @@ fun EditOfficerDialog(
                             tint = Gold400
                         )
                         Text(
-                            text = "Identitas Petugas BPS",
+                            text = "Identitas & Foto Profil",
                             style = MaterialTheme.typography.titleMedium,
                             color = Color.White
                         )
@@ -256,9 +258,74 @@ fun EditOfficerDialog(
                 }
 
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // Profile Photo Picker Section
+                    Surface(
+                        color = Slate50,
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, Slate200),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OfficerAvatarWithPresence(
+                                name = name.ifBlank { profile.name },
+                                isOnline = true,
+                                photoData = profile.photoData,
+                                size = 60.dp,
+                                containerColor = Navy800,
+                                textColor = Gold400,
+                                borderColor = Gold500,
+                                ringColor = Slate50
+                            )
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "Foto Profil Petugas",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = Navy900
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = onPickProfilePhoto,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Navy900,
+                                            contentColor = Gold400
+                                        ),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.testTag("change_profile_photo_button")
+                                    ) {
+                                        Icon(
+                                            Icons.Default.CameraAlt,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Ganti Foto", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                    if (profile.photoData.isNotBlank()) {
+                                        OutlinedButton(
+                                            onClick = onRemoveProfilePhoto,
+                                            shape = RoundedCornerShape(10.dp),
+                                            modifier = Modifier.testTag("remove_profile_photo_button")
+                                        ) {
+                                            Text("Hapus", style = MaterialTheme.typography.labelSmall, color = Red600)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     OutlinedTextField(
                         value = name,
                         onValueChange = { if (it.length <= 80) name = it },
@@ -866,6 +933,7 @@ fun RoomMembersDialog(
                                     OfficerAvatarWithPresence(
                                         name = member.name,
                                         isOnline = online,
+                                        photoData = member.photoData,
                                         size = 42.dp,
                                         containerColor = if (online) Navy800 else Slate200,
                                         textColor = if (online) Gold400 else Slate700,
