@@ -88,23 +88,25 @@ import com.example.data.model.ShiftOption
 import com.example.data.model.TimeKeywordFilter
 import com.example.data.model.UiState
 import com.example.data.model.currentIsoDate
-import com.example.ui.theme.Amber100
-import com.example.ui.theme.Amber800
+import com.example.ui.theme.Blue800
+import com.example.ui.theme.Blue800Text
+import com.example.ui.theme.Blue900
 import com.example.ui.theme.Emerald100
 import com.example.ui.theme.Emerald600
 import com.example.ui.theme.Emerald800
-import com.example.ui.theme.Gold400
-import com.example.ui.theme.Gold500
-import com.example.ui.theme.Gold600
+import com.example.ui.theme.IceBlue100
+import com.example.ui.theme.IceBlue50
 import com.example.ui.theme.Navy50
-import com.example.ui.theme.Navy100
 import com.example.ui.theme.Navy700
 import com.example.ui.theme.Navy800
 import com.example.ui.theme.Navy900
-import com.example.ui.theme.Navy950
 import com.example.ui.theme.Red100
 import com.example.ui.theme.Red600
 import com.example.ui.theme.Red800
+import com.example.ui.theme.Sky300
+import com.example.ui.theme.Sky400
+import com.example.ui.theme.Sky500
+import com.example.ui.theme.Sky600
 import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
 import com.example.ui.theme.Slate400
@@ -200,7 +202,7 @@ fun PjuTabScreen(
         when (sheetsState) {
             is UiState.Loading -> {
                 CircularProgressIndicator(
-                    color = Gold400,
+                    color = Sky400,
                     modifier = Modifier.align(Alignment.Center)
                 )
             }
@@ -230,8 +232,8 @@ fun PjuTabScreen(
                     item {
                         Card(
                             shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.92f)),
-                            border = BorderStroke(1.dp, Slate200)
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.74f)),
+                            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f))
                         ) {
                             Column(
                                 modifier = Modifier.padding(10.dp),
@@ -251,13 +253,13 @@ fun PjuTabScreen(
                                             modifier = Modifier
                                                 .size(36.dp)
                                                 .clip(RoundedCornerShape(10.dp))
-                                                .background(Navy900),
+                                                .background(Blue900),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Lightbulb,
                                                 contentDescription = null,
-                                                tint = Gold400
+                                                tint = Sky300
                                             )
                                         }
                                         Column {
@@ -272,7 +274,7 @@ fun PjuTabScreen(
                                             Text(
                                                 text = "Checklist PJU • ${activeSheet?.monthYear ?: "Baru"}",
                                                 style = MaterialTheme.typography.titleSmall,
-                                                color = Navy900,
+                                                color = Blue900,
                                                 fontWeight = FontWeight.ExtraBold,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
@@ -288,7 +290,7 @@ fun PjuTabScreen(
                                             Icon(
                                                 imageVector = Icons.Default.Search,
                                                 contentDescription = "Cari & Saring PJU",
-                                                tint = if (showSearchPanel || pjuFilter.isActive) Gold500 else Navy800
+                                                tint = if (showSearchPanel || pjuFilter.isActive) Sky500 else Blue800
                                             )
                                         }
                                         if (activeSheet != null) {
@@ -299,7 +301,7 @@ fun PjuTabScreen(
                                                 Icon(
                                                     imageVector = Icons.Default.ContentCopy,
                                                     contentDescription = "Salin Rekap WA PJU",
-                                                    tint = Navy800
+                                                    tint = Blue800
                                                 )
                                             }
                                             IconButton(
@@ -309,7 +311,7 @@ fun PjuTabScreen(
                                                 Icon(
                                                     imageVector = Icons.Default.PictureAsPdf,
                                                     contentDescription = "Cetak / PDF Checklist PJU",
-                                                    tint = Navy800
+                                                    tint = Blue800
                                                 )
                                             }
                                         }
@@ -324,7 +326,7 @@ fun PjuTabScreen(
                                     item {
                                         Surface(
                                             onClick = { showCreateDialog = true },
-                                            color = Gold500,
+                                            color = Sky500,
                                             shape = RoundedCornerShape(10.dp),
                                             modifier = Modifier.testTag("create_pju_sheet_button")
                                         ) {
@@ -336,13 +338,13 @@ fun PjuTabScreen(
                                                 Icon(
                                                     Icons.Default.Add,
                                                     contentDescription = null,
-                                                    tint = Navy950,
+                                                    tint = Color.White,
                                                     modifier = Modifier.size(16.dp)
                                                 )
                                                 Text(
                                                     text = "Periode Baru",
                                                     style = MaterialTheme.typography.labelMedium,
-                                                    color = Navy950,
+                                                    color = Color.White,
                                                     fontWeight = FontWeight.ExtraBold
                                                 )
                                             }
@@ -354,10 +356,10 @@ fun PjuTabScreen(
                                         Surface(
                                             onClick = { onSelectSheet(sheet.id) },
                                             shape = RoundedCornerShape(10.dp),
-                                            color = if (isSelected) Navy900 else Slate100,
+                                            color = if (isSelected) Blue900 else Slate100.copy(alpha = 0.85f),
                                             border = BorderStroke(
                                                 1.dp,
-                                                if (isSelected) Gold500 else Slate200
+                                                if (isSelected) Sky400 else Slate200
                                             )
                                         ) {
                                             Row(
@@ -369,7 +371,7 @@ fun PjuTabScreen(
                                                     text = "${sheet.monthYear} (${sheet.periodStartDay}–${sheet.periodEndDay})",
                                                     style = MaterialTheme.typography.labelMedium,
                                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                    color = if (isSelected) Gold400 else Navy900
+                                                    color = if (isSelected) Sky300 else Blue900
                                                 )
                                             }
                                         }
@@ -407,8 +409,8 @@ fun PjuTabScreen(
                         item {
                             Surface(
                                 shape = RoundedCornerShape(14.dp),
-                                color = Color.White.copy(alpha = 0.90f),
-                                border = BorderStroke(1.dp, Slate200),
+                                color = Color.White.copy(alpha = 0.74f),
+                                border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f)),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(
@@ -416,7 +418,7 @@ fun PjuTabScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Icon(Icons.Default.Lightbulb, contentDescription = null, tint = Gold500, modifier = Modifier.size(36.dp))
+                                    Icon(Icons.Default.Lightbulb, contentDescription = null, tint = Sky500, modifier = Modifier.size(36.dp))
                                     Text(
                                         text = if (pjuFilter.isActive) "Tidak ada lembar PJU yang cocok dengan filter." else "Belum ada lembar checklist PJU.",
                                         style = MaterialTheme.typography.bodyMedium,
@@ -436,9 +438,9 @@ fun PjuTabScreen(
                             val counts = remember(activeSheet) { activeSheet.countSlotsByStatus() }
                             val (bannerBg, bannerBorder, bannerTextColor) = when (compliance.level) {
                                 PjuComplianceLevel.COMPLIANT -> Triple(Emerald100, Emerald600, Emerald800)
-                                PjuComplianceLevel.DUE_SOON -> Triple(Amber100, Gold600, Amber800)
+                                PjuComplianceLevel.DUE_SOON -> Triple(IceBlue100, Sky600, Blue800Text)
                                 PjuComplianceLevel.OVERDUE -> Triple(Red100, Red600, Red800)
-                                PjuComplianceLevel.EMPTY -> Triple(Navy50, Navy700, Navy900)
+                                PjuComplianceLevel.EMPTY -> Triple(Navy50, Navy700, Blue900)
                             }
                             val todayCal = remember { Calendar.getInstance() }
                             val todayDay = todayCal.get(Calendar.DAY_OF_MONTH)
@@ -450,8 +452,8 @@ fun PjuTabScreen(
 
                             Card(
                                 shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(containerColor = Navy900.copy(alpha = 0.94f)),
-                                border = BorderStroke(1.dp, Gold500.copy(alpha = 0.6f))
+                                colors = CardDefaults.cardColors(containerColor = Blue900.copy(alpha = 0.80f)),
+                                border = BorderStroke(1.dp, Sky400.copy(alpha = 0.55f))
                             ) {
                                 Column(
                                     modifier = Modifier.padding(10.dp),
@@ -502,8 +504,8 @@ fun PjuTabScreen(
                                                     verticalAlignment = Alignment.CenterVertically,
                                                     horizontalArrangement = Arrangement.spacedBy(3.dp)
                                                 ) {
-                                                    Icon(Icons.Default.Edit, contentDescription = null, tint = Navy900, modifier = Modifier.size(13.dp))
-                                                    Text("Edit", style = MaterialTheme.typography.labelSmall, color = Navy900, fontWeight = FontWeight.Bold)
+                                                    Icon(Icons.Default.Edit, contentDescription = null, tint = Blue900, modifier = Modifier.size(13.dp))
+                                                    Text("Edit", style = MaterialTheme.typography.labelSmall, color = Blue900, fontWeight = FontWeight.Bold)
                                                 }
                                             }
                                         }
@@ -516,9 +518,9 @@ fun PjuTabScreen(
                                             .horizontalScroll(rememberScrollState()),
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        PjuKpiChip("Cluster", "${activeSheet.clusters.size}", Gold500, Navy950)
+                                        PjuKpiChip("Cluster", "${activeSheet.clusters.size}", Sky500, Color.White)
                                         PjuKpiChip("✓ Nyala", "${counts[PjuLampStatus.BAIK] ?: 0}", Emerald100, Emerald800)
-                                        PjuKpiChip("! Redup", "${counts[PjuLampStatus.REDUP] ?: 0}", Amber100, Amber800)
+                                        PjuKpiChip("! Redup", "${counts[PjuLampStatus.REDUP] ?: 0}", IceBlue100, Blue800Text)
                                         PjuKpiChip("✕ Mati", "${counts[PjuLampStatus.MATI] ?: 0}", Red100, Red800)
                                         PjuKpiChip("Masalah", "${activeSheet.issues.size}", if (activeSheet.issues.isNotEmpty()) Red600 else Navy700, Color.White)
                                     }
@@ -531,7 +533,7 @@ fun PjuTabScreen(
                                     ) {
                                         Surface(
                                             onClick = { quickMarkDayDialog = true },
-                                            color = Gold500,
+                                            color = Sky500,
                                             shape = RoundedCornerShape(8.dp),
                                             modifier = Modifier
                                                 .weight(1f)
@@ -542,12 +544,12 @@ fun PjuTabScreen(
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.Center
                                             ) {
-                                                Icon(Icons.Default.DoneAll, contentDescription = null, tint = Navy950, modifier = Modifier.size(15.dp))
+                                                Icon(Icons.Default.DoneAll, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
                                                 Spacer(modifier = Modifier.width(5.dp))
                                                 Text(
                                                     text = "Tandai Semua Nyala (Tgl $targetQuickDay)",
                                                     style = MaterialTheme.typography.labelMedium,
-                                                    color = Navy950,
+                                                    color = Color.White,
                                                     fontWeight = FontWeight.ExtraBold,
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis
@@ -589,8 +591,8 @@ fun PjuTabScreen(
                             val effectiveShift = selectedPjuShift.ifBlank { activeShift }
                             Card(
                                 shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.94f)),
-                                border = BorderStroke(1.dp, Slate200)
+                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.74f)),
+                                border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f))
                             ) {
                                 Column(
                                     modifier = Modifier.padding(10.dp),
@@ -608,25 +610,25 @@ fun PjuTabScreen(
                                             Icon(
                                                 imageVector = Icons.Default.Schedule,
                                                 contentDescription = null,
-                                                tint = Navy900,
+                                                tint = Blue900,
                                                 modifier = Modifier.size(17.dp)
                                             )
                                             Text(
                                                 text = "Shift & Waktu Pengecekan PJU",
                                                 style = MaterialTheme.typography.labelLarge,
                                                 fontWeight = FontWeight.ExtraBold,
-                                                color = Navy900
+                                                color = Blue900
                                             )
                                         }
                                         Surface(
-                                            color = Navy900,
+                                            color = Blue900,
                                             shape = RoundedCornerShape(8.dp)
                                         ) {
                                             Text(
                                                 text = "$effectiveShift • ${selectedPjuTime.ifBlank { "--:--" }} WIB",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.Bold,
-                                                color = Gold400,
+                                                color = Sky300,
                                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                             )
                                         }
@@ -642,10 +644,10 @@ fun PjuTabScreen(
                                             Surface(
                                                 onClick = { onSelectPjuShift(shiftOpt.label) },
                                                 shape = RoundedCornerShape(10.dp),
-                                                color = if (isSelected) Navy900 else Slate100,
+                                                color = if (isSelected) Blue900 else Slate100.copy(alpha = 0.85f),
                                                 border = BorderStroke(
                                                     1.2.dp,
-                                                    if (isSelected) Gold500 else Slate200
+                                                    if (isSelected) Sky400 else Slate200
                                                 ),
                                                 modifier = Modifier
                                                     .weight(1f)
@@ -659,7 +661,7 @@ fun PjuTabScreen(
                                                         text = shiftOpt.label,
                                                         style = MaterialTheme.typography.labelMedium,
                                                         fontWeight = FontWeight.ExtraBold,
-                                                        color = if (isSelected) Gold400 else Navy900
+                                                        color = if (isSelected) Sky300 else Blue900
                                                     )
                                                     Text(
                                                         text = shiftOpt.timeRange.removeSuffix(" WIB"),
@@ -694,8 +696,8 @@ fun PjuTabScreen(
                                             singleLine = true,
                                             colors = OutlinedTextFieldDefaults.colors(
                                                 focusedContainerColor = Color.White,
-                                                unfocusedContainerColor = Slate50,
-                                                focusedBorderColor = Gold500,
+                                                unfocusedContainerColor = Color.White.copy(alpha = 0.82f),
+                                                focusedBorderColor = Sky500,
                                                 unfocusedBorderColor = Slate200
                                             ),
                                             modifier = Modifier
@@ -705,7 +707,7 @@ fun PjuTabScreen(
                                         OutlinedButton(
                                             onClick = onSetPjuTimeNow,
                                             shape = RoundedCornerShape(10.dp),
-                                            border = BorderStroke(1.dp, Navy800),
+                                            border = BorderStroke(1.dp, Sky500),
                                             modifier = Modifier
                                                 .height(52.dp)
                                                 .testTag("pju_set_time_now_button")
@@ -714,7 +716,7 @@ fun PjuTabScreen(
                                                 text = "Sekarang",
                                                 style = MaterialTheme.typography.labelMedium,
                                                 fontWeight = FontWeight.Bold,
-                                                color = Navy900
+                                                color = Blue900
                                             )
                                         }
                                     }
@@ -740,10 +742,10 @@ fun PjuTabScreen(
                                     Surface(
                                         onClick = { subOption = option },
                                         shape = RoundedCornerShape(10.dp),
-                                        color = if (selected) Navy900 else Color.White.copy(alpha = 0.90f),
+                                        color = if (selected) Blue900 else Color.White.copy(alpha = 0.76f),
                                         border = BorderStroke(
                                             1.dp,
-                                            if (selected) Gold500 else Slate200
+                                            if (selected) Sky400 else Sky300.copy(alpha = 0.45f)
                                         ),
                                         modifier = Modifier.testTag("pju_subtab_${option.name.lowercase()}")
                                     ) {
@@ -755,14 +757,14 @@ fun PjuTabScreen(
                                             Icon(
                                                 imageVector = icon,
                                                 contentDescription = null,
-                                                tint = if (selected) Gold400 else Navy800,
+                                                tint = if (selected) Sky300 else Blue800,
                                                 modifier = Modifier.size(16.dp)
                                             )
                                             Text(
                                                 text = option.label,
                                                 style = MaterialTheme.typography.labelMedium,
                                                 fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold,
-                                                color = if (selected) Gold400 else Navy900
+                                                color = if (selected) Sky300 else Blue900
                                             )
                                             if (option == PjuSubOption.MASALAH && activeSheet.issues.isNotEmpty()) {
                                                 Surface(
@@ -834,8 +836,8 @@ fun PjuTabScreen(
                         item {
                             Card(
                                 shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.92f)),
-                                border = BorderStroke(1.dp, Slate200)
+                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.74f)),
+                                border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f))
                             ) {
                                 Column(
                                     modifier = Modifier.padding(12.dp),
@@ -967,14 +969,14 @@ fun PjuTabScreen(
                             Surface(
                                 onClick = { selectedDay = d },
                                 shape = RoundedCornerShape(8.dp),
-                                color = if (isSel) Navy900 else Slate100,
-                                border = BorderStroke(1.dp, if (isSel) Gold500 else Slate200)
+                                color = if (isSel) Blue900 else Slate100.copy(alpha = 0.85f),
+                                border = BorderStroke(1.dp, if (isSel) Sky400 else Slate200)
                             ) {
                                 Text(
                                     text = d.toString(),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isSel) Gold400 else Navy900,
+                                    color = if (isSel) Sky300 else Blue900,
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                 )
                             }
@@ -1151,8 +1153,8 @@ private fun PjuMatrixTableCard(
 
     Card(
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.94f)),
-        border = BorderStroke(1.dp, Slate200)
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.76f)),
+        border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f))
     ) {
         Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
@@ -1164,7 +1166,7 @@ private fun PjuMatrixTableCard(
                     Text(
                         text = "FORM CHECKLIST PENERANGAN JALAN UMUM",
                         style = MaterialTheme.typography.titleSmall,
-                        color = Navy900,
+                        color = Blue900,
                         fontWeight = FontWeight.ExtraBold
                     )
                     Text(
@@ -1192,7 +1194,7 @@ private fun PjuMatrixTableCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 PjuLegendChip("✓ Nyala", Emerald100, Emerald800)
-                PjuLegendChip("! Redup", Amber100, Amber800)
+                PjuLegendChip("! Redup", IceBlue100, Blue800Text)
                 PjuLegendChip("✕ Mati", Red100, Red800)
                 PjuLegendChip("- Kosong", Slate100, Slate500)
             }
@@ -1202,22 +1204,22 @@ private fun PjuMatrixTableCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, Navy800, RoundedCornerShape(8.dp))
+                    .border(1.dp, Sky400.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
                     .clip(RoundedCornerShape(8.dp))
             ) {
                 // LEFT PINNED COLUMNS: NO. & CLUSTER
                 Column(
                     modifier = Modifier
                         .width(PJU_COL_NO + PJU_COL_CLUSTER)
-                        .background(Color.White)
+                        .background(Color.White.copy(alpha = 0.82f))
                 ) {
                     // Two-row header height matching "KONDISI LAMPU" + "TANGGAL" (32.dp + 24.dp = 56.dp)
                     Row(
                         modifier = Modifier
                             .height(56.dp)
                             .fillMaxWidth()
-                            .background(Navy900)
-                            .border(0.5.dp, Navy700),
+                            .background(Blue900.copy(alpha = 0.90f))
+                            .border(0.5.dp, Sky400.copy(alpha = 0.35f)),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
@@ -1230,10 +1232,10 @@ private fun PjuMatrixTableCard(
                                 text = "NO.",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = Gold400
+                                color = Sky300
                             )
                         }
-                        VerticalDivider(color = Navy700, thickness = 1.dp)
+                        VerticalDivider(color = Sky400.copy(alpha = 0.35f), thickness = 1.dp)
                         Box(
                             modifier = Modifier
                                 .width(PJU_COL_CLUSTER)
@@ -1245,14 +1247,14 @@ private fun PjuMatrixTableCard(
                                 text = "CLUSTER",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = Gold400
+                                color = Sky300
                             )
                         }
                     }
 
                     // Cluster rows
                     indexedClusters.forEachIndexed { displayIdx, (actualIdx, cluster) ->
-                        val rowBg = if (displayIdx % 2 == 0) Color.White else Slate50
+                        val rowBg = if (displayIdx % 2 == 0) Color.White.copy(alpha = 0.80f) else IceBlue50.copy(alpha = 0.70f)
                         Row(
                             modifier = Modifier
                                 .height(PJU_ROW_HEIGHT)
@@ -1311,7 +1313,7 @@ private fun PjuMatrixTableCard(
                     }
                 }
 
-                VerticalDivider(color = Navy800, thickness = 1.5.dp)
+                VerticalDivider(color = Sky400.copy(alpha = 0.55f), thickness = 1.5.dp)
 
                 // RIGHT SCROLLABLE COLUMNS: KONDISI LAMPU -> TANGGAL -> [16..30]
                 Column(
@@ -1325,23 +1327,23 @@ private fun PjuMatrixTableCard(
                         modifier = Modifier
                             .width(totalDaysWidth)
                             .height(28.dp)
-                            .background(Navy900),
+                            .background(Blue900.copy(alpha = 0.90f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "KONDISI LAMPU",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.ExtraBold,
-                            color = Gold400
+                            color = Sky300
                         )
                     }
-                    HorizontalDivider(color = Navy700, thickness = 1.dp)
+                    HorizontalDivider(color = Sky400.copy(alpha = 0.35f), thickness = 1.dp)
                     // Header row 2: TANGGAL / numbers
                     Row(
                         modifier = Modifier
                             .width(totalDaysWidth)
                             .height(28.dp)
-                            .background(Navy800),
+                            .background(Blue800.copy(alpha = 0.90f)),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         days.forEachIndexed { idx, day ->
@@ -1350,25 +1352,25 @@ private fun PjuMatrixTableCard(
                                 modifier = Modifier
                                     .width(PJU_COL_DAY)
                                     .fillMaxHeight()
-                                    .background(if (isToday) Gold500 else Navy800),
+                                    .background(if (isToday) Sky500 else Blue800.copy(alpha = 0.90f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = day.toString(),
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = if (isToday) Navy950 else Color.White
+                                    color = Color.White
                                 )
                             }
                             if (idx < days.lastIndex) {
-                                VerticalDivider(color = Navy700, thickness = 1.dp)
+                                VerticalDivider(color = Sky400.copy(alpha = 0.35f), thickness = 1.dp)
                             }
                         }
                     }
 
                     // Body rows with 4 sub-lamp bands per cell (faithful to paper form)
                     indexedClusters.forEachIndexed { displayIdx, (actualIdx, cluster) ->
-                        val rowBg = if (displayIdx % 2 == 0) Color.White else Slate50
+                        val rowBg = if (displayIdx % 2 == 0) Color.White.copy(alpha = 0.80f) else IceBlue50.copy(alpha = 0.70f)
                         Row(
                             modifier = Modifier
                                 .height(PJU_ROW_HEIGHT)
@@ -1382,7 +1384,7 @@ private fun PjuMatrixTableCard(
                                     modifier = Modifier
                                         .width(PJU_COL_DAY)
                                         .fillMaxHeight()
-                                        .background(if (isToday) Navy50.copy(alpha = 0.55f) else Color.Transparent)
+                                        .background(if (isToday) Sky500.copy(alpha = 0.14f) else Color.Transparent)
                                         .clickable {
                                             onTapCell(actualIdx, cluster.clusterName, day, slots)
                                         }
@@ -1438,7 +1440,7 @@ private fun PjuLegendChip(text: String, bg: Color, fg: Color) {
 
 private fun pjuSlotColors(status: PjuLampStatus): Pair<Color, Color> = when (status) {
     PjuLampStatus.BAIK -> Emerald100.copy(alpha = 0.85f) to Emerald800
-    PjuLampStatus.REDUP -> Amber100 to Amber800
+    PjuLampStatus.REDUP -> IceBlue100 to Blue800Text
     PjuLampStatus.MATI -> Red100 to Red800
     PjuLampStatus.NONE -> Color.Transparent to Slate400
 }
@@ -1453,14 +1455,14 @@ private fun PjuPeriodicSummarySection(
         // 1. Health Breakdown Per Cluster
         Card(
             shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.94f)),
-            border = BorderStroke(1.dp, Slate200)
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.74f)),
+            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f))
         ) {
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = "Rekap Kesehatan Per Cluster (${sheet.monthYear})",
                     style = MaterialTheme.typography.titleSmall,
-                    color = Navy900,
+                    color = Blue900,
                     fontWeight = FontWeight.ExtraBold
                 )
                 sheet.clusters.forEachIndexed { idx, cluster ->
@@ -1480,7 +1482,7 @@ private fun PjuPeriodicSummarySection(
                             Text(
                                 text = "${idx + 1}. ${cluster.clusterName}",
                                 style = MaterialTheme.typography.labelLarge,
-                                color = Navy900,
+                                color = Blue900,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.weight(1f)
                             )
@@ -1490,7 +1492,7 @@ private fun PjuPeriodicSummarySection(
                                 color = when {
                                     pct == null -> Slate500
                                     matiCount > 0 -> Red800
-                                    redupCount > 0 -> Amber800
+                                    redupCount > 0 -> Blue800Text
                                     else -> Emerald800
                                 },
                                 fontWeight = FontWeight.Bold
@@ -1505,7 +1507,7 @@ private fun PjuPeriodicSummarySection(
                             color = when {
                                 pct == null -> Slate200
                                 matiCount > 0 -> Red600
-                                redupCount > 0 -> Gold600
+                                redupCount > 0 -> Sky600
                                 else -> Emerald600
                             },
                             trackColor = Slate100
@@ -1521,14 +1523,14 @@ private fun PjuPeriodicSummarySection(
         // 2. Chronological Periodic Check Log
         Card(
             shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.94f)),
-            border = BorderStroke(1.dp, Slate200)
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.74f)),
+            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f))
         ) {
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = "Riwayat Pengecekan Berkala (Per Tanggal)",
                     style = MaterialTheme.typography.titleSmall,
-                    color = Navy900,
+                    color = Blue900,
                     fontWeight = FontWeight.ExtraBold
                 )
                 if (checkedDays.isEmpty()) {
@@ -1547,8 +1549,8 @@ private fun PjuPeriodicSummarySection(
                         Surface(
                             onClick = { onQuickInspectDay(day) },
                             shape = RoundedCornerShape(10.dp),
-                            color = Slate50,
-                            border = BorderStroke(1.dp, Slate200),
+                            color = IceBlue50.copy(alpha = 0.75f),
+                            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.40f)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
@@ -1560,7 +1562,7 @@ private fun PjuPeriodicSummarySection(
                                     Text(
                                         text = "Tanggal $day ${sheet.monthYear}",
                                         style = MaterialTheme.typography.labelLarge,
-                                        color = Navy900,
+                                        color = Blue900,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
@@ -1571,7 +1573,7 @@ private fun PjuPeriodicSummarySection(
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                                     PjuLegendChip("✓$b", Emerald100, Emerald800)
-                                    if (r > 0) PjuLegendChip("!$r", Amber100, Amber800)
+                                    if (r > 0) PjuLegendChip("!$r", IceBlue100, Blue800Text)
                                     if (m > 0) PjuLegendChip("✕$m", Red100, Red800)
                                 }
                             }
@@ -1597,8 +1599,8 @@ private fun PjuNotesAndIssuesSection(
         // CATATAN Card matching physical sheet rectangle
         Card(
             shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.94f)),
-            border = BorderStroke(1.dp, Navy800)
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.74f)),
+            border = BorderStroke(1.dp, Sky400.copy(alpha = 0.50f))
         ) {
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
@@ -1609,13 +1611,13 @@ private fun PjuNotesAndIssuesSection(
                     Text(
                         text = "CATATAN :",
                         style = MaterialTheme.typography.labelLarge,
-                        color = Navy900,
+                        color = Blue900,
                         fontWeight = FontWeight.ExtraBold
                     )
                     Button(
                         onClick = { onSaveNotes(notesDraft) },
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400)
+                        colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300)
                     ) {
                         Text("Simpan Catatan", style = MaterialTheme.typography.labelSmall)
                     }
@@ -1636,8 +1638,8 @@ private fun PjuNotesAndIssuesSection(
         // FORM PERMASALAHAN PJU
         Card(
             shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.94f)),
-            border = BorderStroke(1.dp, Slate200)
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.74f)),
+            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f))
         ) {
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
@@ -1686,7 +1688,7 @@ private fun PjuNotesAndIssuesSection(
                     sheet.issues.forEachIndexed { idx, issue ->
                         val (stBg, stFg) = when (issue.status) {
                             "Selesai" -> Emerald100 to Emerald800
-                            "Dalam Perbaikan" -> Amber100 to Amber800
+                            "Dalam Perbaikan" -> IceBlue100 to Blue800Text
                             else -> Red100 to Red800
                         }
                         Surface(
@@ -1776,7 +1778,8 @@ private fun PjuCellEditorDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(18.dp),
-            color = Color.White,
+            color = IceBlue50.copy(alpha = 0.94f),
+            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -1786,7 +1789,7 @@ private fun PjuCellEditorDialog(
                 Text(
                     text = "${target.clusterName} • Tanggal ${target.day}",
                     style = MaterialTheme.typography.titleMedium,
-                    color = Navy900,
+                    color = Blue900,
                     fontWeight = FontWeight.ExtraBold
                 )
                 Text(
@@ -1851,7 +1854,7 @@ private fun PjuCellEditorDialog(
                 slots.forEachIndexed { idx, cur ->
                     val (bg, fg) = when (cur) {
                         PjuLampStatus.BAIK -> Emerald100 to Emerald800
-                        PjuLampStatus.REDUP -> Amber100 to Amber800
+                        PjuLampStatus.REDUP -> IceBlue100 to Blue800Text
                         PjuLampStatus.MATI -> Red100 to Red800
                         PjuLampStatus.NONE -> Slate100 to Slate700
                     }
@@ -1874,7 +1877,7 @@ private fun PjuCellEditorDialog(
                             Text(
                                 text = "Titik Lampu ${idx + 1}",
                                 style = MaterialTheme.typography.labelLarge,
-                                color = Navy900,
+                                color = Blue900,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
@@ -1908,7 +1911,7 @@ private fun PjuCellEditorDialog(
                     Spacer(modifier = Modifier.width(6.dp))
                     Button(
                         onClick = { onSave(slots) },
-                        colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400)
+                        colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300)
                     ) {
                         Text("Simpan", fontWeight = FontWeight.Bold)
                     }
@@ -1941,7 +1944,8 @@ private fun PjuSheetConfigDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(18.dp),
-            color = Color.White,
+            color = IceBlue50.copy(alpha = 0.94f),
+            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -1950,8 +1954,8 @@ private fun PjuSheetConfigDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(title, style = MaterialTheme.typography.titleMedium, color = Navy900, fontWeight = FontWeight.ExtraBold)
-                Text("Pilih Bulan:", style = MaterialTheme.typography.labelMedium, color = Navy900, fontWeight = FontWeight.Bold)
+                Text(title, style = MaterialTheme.typography.titleMedium, color = Blue900, fontWeight = FontWeight.ExtraBold)
+                Text("Pilih Bulan:", style = MaterialTheme.typography.labelMedium, color = Blue900, fontWeight = FontWeight.Bold)
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                     verticalArrangement = Arrangement.spacedBy(5.dp)
@@ -1961,14 +1965,14 @@ private fun PjuSheetConfigDialog(
                         val sel = month == mNum
                         Surface(
                             onClick = { month = mNum },
-                            color = if (sel) Navy900 else Slate100,
+                            color = if (sel) Blue900 else Slate100.copy(alpha = 0.85f),
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
                                 text = mName,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = if (sel) Gold400 else Navy900,
+                                color = if (sel) Sky300 else Blue900,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
                             )
                         }
@@ -2031,7 +2035,7 @@ private fun PjuSheetConfigDialog(
                         Text(
                             text = "Salin daftar cluster dari lembar aktif",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Navy900
+                            color = Blue900
                         )
                     }
                 }
@@ -2045,7 +2049,7 @@ private fun PjuSheetConfigDialog(
                             val e = endStr.toIntOrNull()?.coerceIn(s, 31) ?: 30
                             onConfirm(month, y, s, e, responsible, copyClusters)
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400)
+                        colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300)
                     ) {
                         Text("Simpan", fontWeight = FontWeight.Bold)
                     }
@@ -2074,7 +2078,8 @@ private fun PjuIssueEditorDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(18.dp),
-            color = Color.White,
+            color = IceBlue50.copy(alpha = 0.94f),
+            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -2086,7 +2091,7 @@ private fun PjuIssueEditorDialog(
                 Text(
                     text = if (isEdit) "Edit Permasalahan PJU" else "Catat Permasalahan PJU",
                     style = MaterialTheme.typography.titleMedium,
-                    color = Navy900,
+                    color = Blue900,
                     fontWeight = FontWeight.ExtraBold
                 )
                 OutlinedTextField(
@@ -2106,13 +2111,13 @@ private fun PjuIssueEditorDialog(
                         Surface(
                             onClick = { cluster = opt },
                             shape = RoundedCornerShape(8.dp),
-                            color = if (sel) Navy900 else Slate100
+                            color = if (sel) Blue900 else Slate100.copy(alpha = 0.85f)
                         ) {
                             Text(
                                 text = opt,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = if (sel) Gold400 else Navy900,
+                                color = if (sel) Sky300 else Blue900,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
                             )
                         }
@@ -2150,14 +2155,14 @@ private fun PjuIssueEditorDialog(
                         Surface(
                             onClick = { status = st },
                             shape = RoundedCornerShape(8.dp),
-                            color = if (sel) Navy900 else Slate100,
+                            color = if (sel) Blue900 else Slate100.copy(alpha = 0.85f),
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
                                 text = st,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = if (sel) Gold400 else Navy900,
+                                color = if (sel) Sky300 else Blue900,
                                 textAlign = TextAlign.Center,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -2182,7 +2187,7 @@ private fun PjuIssueEditorDialog(
                                 )
                             )
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400)
+                        colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300)
                     ) {
                         Text("Simpan Masalah", fontWeight = FontWeight.Bold)
                     }

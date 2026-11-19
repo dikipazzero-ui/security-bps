@@ -1,6 +1,7 @@
 package com.example.notifications
 
 import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -24,11 +25,13 @@ import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.provider.Settings
 import android.util.Base64
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.content.ContextCompat
+import androidx.core.content.LocusIdCompat
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
@@ -39,13 +42,16 @@ object SecurityNotificationManager {
 
     const val CHANNEL_CHAT_ID = "security_bps_chat_v2"
     const val CHANNEL_ALERT_ID = "security_bps_alert_v2"
+    const val CHANNEL_MONITOR_SERVICE_ID = "security_bps_monitor_v1"
     const val EXTRA_OPEN_TAB = "extra_open_tab"
     const val EXTRA_ROOM_CODE = "extra_room_code"
     const val EXTRA_SENDER_NAME = "extra_sender_name"
 
     private const val CHAT_NOTIFICATION_ID = 4101
     private const val ALERT_NOTIFICATION_ID = 4102
+    const val MONITOR_NOTIFICATION_ID = 4100
 
+    private const val ACCENT_BLUE_INT = 0xFF0284C7.toInt()
     private val vibrationPattern = longArrayOf(0L, 210L, 110L, 260L)
     private val urgentVibrationPattern = longArrayOf(0L, 280L, 100L, 280L, 100L, 340L)
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -89,12 +95,14 @@ object SecurityNotificationManager {
                 "Live Chat & Gelembung Koordinasi",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Notifikasi chat masuk lengkap dengan nada dering, getar, dan gelembung jendela"
+                description = "Notifikasi chat mengambang lengkap dengan nada dering, getar, dan gelembung OS"
                 enableLights(true)
+                lightColor = ACCENT_BLUE_INT
                 enableVibration(true)
                 vibrationPattern = this@SecurityNotificationManager.vibrationPattern
                 setSound(soundUri, audioAttr)
                 setShowBadge(true)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     setAllowBubbles(true)
                 }
@@ -110,13 +118,61 @@ object SecurityNotificationManager {
             ).apply {
                 description = "Pemberitahuan penting, status tim, dan pembaruan laporan Plot BPS"
                 enableLights(true)
+                lightColor = ACCENT_BLUE_INT
                 enableVibration(true)
                 vibrationPattern = urgentVibrationPattern
                 setSound(soundUri, audioAttr)
                 setShowBadge(true)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             }
             manager.createNotificationChannel(alertChannel)
         }
+
+        if (manager.getNotificationChannel(CHANNEL_MONITOR_SERVICE_ID) == null) {
+            val monitorChannel = NotificationChannel(
+                CHANNEL_MONITOR_SERVICE_ID,
+                "Siaga Latar Belakang Security BPS",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Menjaga pemantauan pesan & laporan Plot BPS aktif meski aplikasi ditutup"
+                enableLights(false)
+                enableVibration(false)
+                setSound(null, null)
+                setShowBadge(false)
+            }
+            manager.createNotificationChannel(monitorChannel)
+        }
+    }
+
+    fun buildMonitorServiceNotification(context: Context, roomCode: String): Notification {
+        ensureChannels(context)
+        val appContext = context.applicationContext
+        val cleanRoom = roomCode.ifBlank { "PLOT-BPS" }
+        val openIntent = Intent(appContext, MainActivity::class.java).apply {
+            action = Intent.ACTION_VIEW
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(EXTRA_OPEN_TAB, "CHAT")
+            putExtra(EXTRA_ROOM_CODE, cleanRoom)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            appContext,
+            MONITOR_NOTIFICATION_ID,
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        return NotificationCompat.Builder(appContext, CHANNEL_MONITOR_SERVICE_ID)
+            .setSmallIcon(R.drawable.ic_stat_security_notif)
+            .setColor(ACCENT_BLUE_INT)
+            .setContentTitle(appContext.getString(R.string.bg_monitor_notif_title))
+            .setContentText(appContext.getString(R.string.bg_monitor_notif_body, cleanRoom))
+            .setOngoing(true)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setContentIntent(pendingIntent)
+            .build()
     }
 
     fun playRingtoneAndVibrate(
@@ -141,12 +197,10 @@ object SecurityNotificationManager {
                     if (prev.isPlaying) prev.stop()
                 }
                 val ringtone = RingtoneManager.getRingtone(context, uri) ?: return@runCatching
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    ringtone.audioAttributes = AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                }
+                ringtone.audioAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
                 ringtone.play()
                 activeRingtone = ringtone
                 val stopTask = Runnable {
@@ -192,14 +246,17 @@ object SecurityNotificationManager {
         ensureChannels(context, settings)
 
         val appContext = context.applicationContext
-        val roomCode = event.roomCode.ifBlank { "BPS-PLOT" }
+        val roomCode = event.roomCode.ifBlank { "PLOT-BPS" }
         val shortcutId = "security_bps_chat_$roomCode"
+        val locusId = LocusIdCompat(shortcutId)
 
         val avatarIcon = createAvatarIconCompat(appContext, event.senderPhoto)
+            ?: IconCompat.createWithResource(appContext, R.mipmap.ic_launcher_round)
         val senderPerson = Person.Builder()
             .setName(event.senderName)
             .setKey("${roomCode}_${event.senderName}")
-            .apply { if (avatarIcon != null) setIcon(avatarIcon) }
+            .setImportant(true)
+            .setIcon(avatarIcon)
             .build()
         val mePerson = Person.Builder()
             .setName(officerName.ifBlank { "Petugas Security" })
@@ -224,14 +281,10 @@ object SecurityNotificationManager {
             .setLongLabel("Live Chat ${event.senderName} ($roomCode)")
             .setIntent(mainChatIntent)
             .setLongLived(true)
+            .setLocusId(locusId)
+            .setCategories(setOf("android.shortcut.conversation"))
             .setPerson(senderPerson)
-            .apply {
-                if (avatarIcon != null) {
-                    setIcon(avatarIcon)
-                } else {
-                    setIcon(IconCompat.createWithResource(appContext, R.mipmap.ic_launcher_round))
-                }
-            }
+            .setIcon(avatarIcon)
             .build()
         runCatching {
             ShortcutManagerCompat.pushDynamicShortcut(appContext, shortcut)
@@ -239,6 +292,7 @@ object SecurityNotificationManager {
 
         val builder = NotificationCompat.Builder(appContext, CHANNEL_CHAT_ID)
             .setSmallIcon(R.drawable.ic_stat_security_notif)
+            .setColor(ACCENT_BLUE_INT)
             .setContentTitle("${event.senderName} • $roomCode")
             .setContentText(event.messagePreview)
             .setStyle(
@@ -249,6 +303,9 @@ object SecurityNotificationManager {
             )
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setShortcutId(shortcutId)
+            .setLocusId(locusId)
             .setShortcutInfo(shortcut)
             .setContentIntent(mainPendingIntent)
             .setAutoCancel(true)
@@ -261,6 +318,7 @@ object SecurityNotificationManager {
 
         if (settings.floatingBubbleEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val bubbleIntent = Intent(appContext, BubbleChatActivity::class.java).apply {
+                action = Intent.ACTION_VIEW
                 putExtra(EXTRA_ROOM_CODE, roomCode)
                 putExtra(EXTRA_SENDER_NAME, event.senderName)
             }
@@ -272,9 +330,8 @@ object SecurityNotificationManager {
                 bubbleIntent,
                 bubbleFlags
             )
-            val bubbleIcon = avatarIcon ?: IconCompat.createWithResource(appContext, R.mipmap.ic_launcher_round)
-            val bubbleMetadata = NotificationCompat.BubbleMetadata.Builder(bubblePendingIntent, bubbleIcon)
-                .setDesiredHeight(520)
+            val bubbleMetadata = NotificationCompat.BubbleMetadata.Builder(bubblePendingIntent, avatarIcon)
+                .setDesiredHeight(560)
                 .setAutoExpandBubble(false)
                 .setSuppressNotification(false)
                 .build()
@@ -318,11 +375,13 @@ object SecurityNotificationManager {
 
         val builder = NotificationCompat.Builder(appContext, CHANNEL_ALERT_ID)
             .setSmallIcon(R.drawable.ic_stat_security_notif)
+            .setColor(ACCENT_BLUE_INT)
             .setContentTitle(event.title)
             .setContentText(event.messagePreview)
             .setStyle(NotificationCompat.BigTextStyle().bigText("${event.senderName}: ${event.messagePreview}"))
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
 
@@ -337,6 +396,29 @@ object SecurityNotificationManager {
 
         runCatching {
             NotificationManagerCompat.from(appContext).notify(ALERT_NOTIFICATION_ID, builder.build())
+        }
+    }
+
+    fun openSystemBubbleSettings(context: Context) {
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Intent(Settings.ACTION_APP_NOTIFICATION_BUBBLE_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                putExtra(Settings.EXTRA_CHANNEL_ID, CHANNEL_CHAT_ID)
+            }
+        } else {
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            }
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching {
+            context.startActivity(intent)
+        }.onFailure {
+            val fallback = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            runCatching { context.startActivity(fallback) }
         }
     }
 

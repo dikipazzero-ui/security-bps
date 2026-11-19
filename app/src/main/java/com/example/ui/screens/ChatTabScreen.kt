@@ -95,20 +95,23 @@ import com.example.data.model.UiState
 import com.example.media.ImageUtils
 import com.example.media.VoicePlaybackState
 import com.example.media.VoiceRecordingState
-import com.example.ui.theme.Amber100
-import com.example.ui.theme.Amber800
+import com.example.ui.theme.Blue800
+import com.example.ui.theme.Blue800Text
+import com.example.ui.theme.Blue900
 import com.example.ui.theme.Emerald400
 import com.example.ui.theme.Emerald600
-import com.example.ui.theme.Gold400
-import com.example.ui.theme.Gold500
+import com.example.ui.theme.IceBlue100
+import com.example.ui.theme.IceBlue50
 import com.example.ui.theme.Navy50
 import com.example.ui.theme.Navy700
 import com.example.ui.theme.Navy800
 import com.example.ui.theme.Navy900
-import com.example.ui.theme.Navy950
 import com.example.ui.theme.Red100
 import com.example.ui.theme.Red600
 import com.example.ui.theme.Red800
+import com.example.ui.theme.Sky300
+import com.example.ui.theme.Sky400
+import com.example.ui.theme.Sky500
 import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
 import com.example.ui.theme.Slate400
@@ -196,8 +199,8 @@ fun ChatTabScreen(
 
     Card(
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.89f)),
-        border = BorderStroke(1.dp, Slate200),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.54f)),
+        border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f)),
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 4.dp, vertical = 4.dp)
@@ -208,7 +211,7 @@ fun ChatTabScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Navy900)
+                    .background(Blue900.copy(alpha = 0.82f))
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
@@ -226,13 +229,13 @@ fun ChatTabScreen(
                             modifier = Modifier
                                 .size(26.dp)
                                 .clip(RoundedCornerShape(7.dp))
-                                .background(Gold500.copy(alpha = 0.18f)),
+                                .background(Sky500.copy(alpha = 0.22f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Radio,
                                 contentDescription = null,
-                                tint = Gold400,
+                                tint = Sky300,
                                 modifier = Modifier.size(15.dp)
                             )
                         }
@@ -262,9 +265,9 @@ fun ChatTabScreen(
                                 )
                                 Surface(
                                     onClick = onOpenRoomModal,
-                                    color = Navy800,
+                                    color = Blue800.copy(alpha = 0.85f),
                                     shape = RoundedCornerShape(6.dp),
-                                    border = BorderStroke(1.dp, Gold500.copy(alpha = 0.55f)),
+                                    border = BorderStroke(1.dp, Sky400.copy(alpha = 0.55f)),
                                     modifier = Modifier.testTag("open_room_code_button")
                                 ) {
                                     Row(
@@ -272,11 +275,11 @@ fun ChatTabScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(3.dp)
                                     ) {
-                                        Icon(Icons.Default.Key, contentDescription = null, tint = Gold400, modifier = Modifier.size(11.dp))
+                                        Icon(Icons.Default.Key, contentDescription = null, tint = Sky300, modifier = Modifier.size(11.dp))
                                         Text(
                                             text = activeRoomCode,
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = Gold400,
+                                            color = Sky300,
                                             fontWeight = FontWeight.Bold,
                                             maxLines = 1
                                         )
@@ -311,7 +314,7 @@ fun ChatTabScreen(
                             Icon(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = "Cari & Saring Pesan",
-                                tint = if (showSearchPanel || chatFilter.isActive) Gold400 else Color.White,
+                                tint = if (showSearchPanel || chatFilter.isActive) Sky300 else Color.White,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -332,7 +335,7 @@ fun ChatTabScreen(
                         }
                         OutlinedButton(
                             onClick = onSimulateTeamReply,
-                            border = BorderStroke(1.dp, Gold500.copy(alpha = 0.45f)),
+                            border = BorderStroke(1.dp, Sky400.copy(alpha = 0.50f)),
                             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier
@@ -342,14 +345,14 @@ fun ChatTabScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.Reply,
                                 contentDescription = null,
-                                tint = Gold400,
+                                tint = Sky300,
                                 modifier = Modifier.size(12.dp)
                             )
                             Spacer(modifier = Modifier.width(3.dp))
                             Text(
                                 text = "Tes",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Gold400
+                                color = Sky300
                             )
                         }
                     }
@@ -359,7 +362,7 @@ fun ChatTabScreen(
             // Ultra-slim Live Online Members Pill Strip
             if (roomMembers.isNotEmpty()) {
                 Surface(
-                    color = Slate50,
+                    color = Color.White.copy(alpha = 0.65f),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     LazyRow(
@@ -378,7 +381,7 @@ fun ChatTabScreen(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(50))
-                                    .background(Color.White)
+                                    .background(Color.White.copy(alpha = 0.84f))
                                     .clickable(onClick = onOpenMembersModal)
                                     .padding(start = 3.dp, end = 7.dp, top = 2.dp, bottom = 2.dp)
                             ) {
@@ -387,15 +390,15 @@ fun ChatTabScreen(
                                     isOnline = online,
                                     photoData = member.photoData,
                                     size = 20.dp,
-                                    containerColor = if (online) Navy800 else Slate200,
-                                    textColor = if (online) Gold400 else Slate700,
-                                    borderColor = if (online) Gold500 else Slate400,
+                                    containerColor = if (online) Blue800 else Slate200,
+                                    textColor = if (online) Sky300 else Slate700,
+                                    borderColor = if (online) Sky500 else Slate400,
                                     ringColor = Color.White
                                 )
                                 Text(
                                     text = member.name.substringBefore(" "),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = if (online) Navy900 else Slate500,
+                                    color = if (online) Blue900 else Slate500,
                                     fontWeight = if (online) FontWeight.Bold else FontWeight.Normal,
                                     maxLines = 1
                                 )
@@ -403,7 +406,7 @@ fun ChatTabScreen(
                         }
                     }
                 }
-                HorizontalDivider(color = Slate200)
+                HorizontalDivider(color = Sky300.copy(alpha = 0.35f))
             }
 
             // Collapsible Search & Time Filter Panel
@@ -429,17 +432,17 @@ fun ChatTabScreen(
                 }
             }
 
-            // Messages area
+            // Messages area - translucent ice-blue veil so background image shows cleanly
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .background(Slate100)
+                    .background(IceBlue50.copy(alpha = 0.18f))
             ) {
                 when (chatState) {
                     is UiState.Loading -> {
                         CircularProgressIndicator(
-                            color = Navy900,
+                            color = Sky500,
                             modifier = Modifier.align(Alignment.Center)
                         )
                     }
@@ -568,7 +571,7 @@ fun ChatTabScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = Color.White,
                             unfocusedContainerColor = Color.White,
-                            focusedBorderColor = Gold500,
+                            focusedBorderColor = Sky500,
                             unfocusedBorderColor = Slate200
                         ),
                         modifier = Modifier
@@ -672,7 +675,7 @@ fun ChatTabScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.White)
+                        .background(Color.White.copy(alpha = 0.78f))
                         .padding(horizontal = 6.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -680,7 +683,7 @@ fun ChatTabScreen(
                     Surface(
                         onClick = { showEmojiBar = !showEmojiBar },
                         shape = RoundedCornerShape(10.dp),
-                        color = if (showEmojiBar) Navy900 else Slate100,
+                        color = if (showEmojiBar) Blue900 else Slate100.copy(alpha = 0.88f),
                         modifier = Modifier
                             .size(40.dp)
                             .testTag("chat_emoji_button")
@@ -689,7 +692,7 @@ fun ChatTabScreen(
                             Icon(
                                 imageVector = Icons.Default.EmojiEmotions,
                                 contentDescription = "Pilih Emoji",
-                                tint = if (showEmojiBar) Gold400 else Navy800,
+                                tint = if (showEmojiBar) Sky300 else Blue800,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -698,7 +701,7 @@ fun ChatTabScreen(
                     Surface(
                         onClick = onRequestChatPhoto,
                         shape = RoundedCornerShape(10.dp),
-                        color = Slate100,
+                        color = Slate100.copy(alpha = 0.88f),
                         modifier = Modifier
                             .size(40.dp)
                             .testTag("chat_camera_button")
@@ -707,7 +710,7 @@ fun ChatTabScreen(
                             Icon(
                                 imageVector = Icons.Default.CameraAlt,
                                 contentDescription = "Lampirkan Foto",
-                                tint = Navy800,
+                                tint = Blue800,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -727,9 +730,9 @@ fun ChatTabScreen(
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Slate100,
-                            focusedBorderColor = Gold500,
+                            focusedContainerColor = Color.White.copy(alpha = 0.92f),
+                            unfocusedContainerColor = Slate100.copy(alpha = 0.85f),
+                            focusedBorderColor = Sky500,
                             unfocusedBorderColor = Slate200
                         ),
                         modifier = Modifier
@@ -740,8 +743,8 @@ fun ChatTabScreen(
                     Surface(
                         onClick = onStartVoiceRecording,
                         shape = RoundedCornerShape(10.dp),
-                        color = Amber100,
-                        border = BorderStroke(1.dp, Gold500.copy(alpha = 0.5f)),
+                        color = IceBlue100.copy(alpha = 0.90f),
+                        border = BorderStroke(1.dp, Sky500.copy(alpha = 0.50f)),
                         modifier = Modifier
                             .size(40.dp)
                             .testTag("start_voice_button")
@@ -750,7 +753,7 @@ fun ChatTabScreen(
                             Icon(
                                 imageVector = Icons.Default.Mic,
                                 contentDescription = "Rekam Voice Note",
-                                tint = Amber800,
+                                tint = Blue800Text,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -759,7 +762,7 @@ fun ChatTabScreen(
                     Surface(
                         onClick = { if (!isSending) onSendTextOrPhoto() },
                         shape = RoundedCornerShape(10.dp),
-                        color = Navy900,
+                        color = Blue900,
                         modifier = Modifier
                             .size(40.dp)
                             .testTag("send_chat_button")
@@ -768,14 +771,14 @@ fun ChatTabScreen(
                             if (isSending) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(16.dp),
-                                    color = Gold400,
+                                    color = Sky300,
                                     strokeWidth = 2.dp
                                 )
                             } else {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.Send,
                                     contentDescription = "Kirim Pesan",
-                                    tint = Gold400,
+                                    tint = Sky300,
                                     modifier = Modifier.size(19.dp)
                                 )
                             }
@@ -785,9 +788,9 @@ fun ChatTabScreen(
             }
 
             // Dedicated Bottom Save Bar (very bottom of Chat option)
-            HorizontalDivider(color = Navy800.copy(alpha = 0.25f))
+            HorizontalDivider(color = Sky400.copy(alpha = 0.30f))
             Surface(
-                color = Navy900,
+                color = Blue900.copy(alpha = 0.84f),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -811,10 +814,10 @@ fun ChatTabScreen(
                     )
                     OutlinedButton(
                         onClick = onOpenGlobalRecap,
-                        border = BorderStroke(1.dp, Gold400.copy(alpha = 0.75f)),
+                        border = BorderStroke(1.dp, Sky400.copy(alpha = 0.75f)),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = Navy800,
-                            contentColor = Gold400
+                            containerColor = Blue800.copy(alpha = 0.85f),
+                            contentColor = Sky300
                         ),
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
@@ -834,8 +837,8 @@ fun ChatTabScreen(
                         onClick = onExplicitSaveChat,
                         enabled = !isExplicitSaving,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Gold500,
-                            contentColor = Navy950
+                            containerColor = Sky500,
+                            contentColor = Color.White
                         ),
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
@@ -846,7 +849,7 @@ fun ChatTabScreen(
                         if (isExplicitSaving) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(15.dp),
-                                color = Navy950,
+                                color = Color.White,
                                 strokeWidth = 2.dp
                             )
                         } else {
@@ -966,23 +969,23 @@ private fun ChatBubbleItem(
                 isOnline = isSenderOnline,
                 photoData = senderPhoto,
                 size = 32.dp,
-                containerColor = Navy800,
-                textColor = Gold400,
-                borderColor = Gold500.copy(alpha = 0.6f),
-                ringColor = Slate100
+                containerColor = Blue800,
+                textColor = Sky300,
+                borderColor = Sky400.copy(alpha = 0.6f),
+                ringColor = Color.White.copy(alpha = 0.85f)
             )
             Spacer(modifier = Modifier.width(6.dp))
         }
 
         Surface(
-            color = if (isMe) Navy900 else Color.White,
+            color = if (isMe) Blue900.copy(alpha = 0.84f) else Color.White.copy(alpha = 0.84f),
             shape = RoundedCornerShape(
                 topStart = 14.dp,
                 topEnd = 14.dp,
                 bottomStart = if (isMe) 14.dp else 4.dp,
                 bottomEnd = if (isMe) 4.dp else 14.dp
             ),
-            border = BorderStroke(1.dp, if (isMe) Navy800 else Slate200),
+            border = BorderStroke(1.dp, if (isMe) Sky400.copy(alpha = 0.45f) else Sky300.copy(alpha = 0.55f)),
             modifier = Modifier.widthIn(max = 330.dp)
         ) {
             Column(
@@ -1003,7 +1006,7 @@ private fun ChatBubbleItem(
                             text = message.senderName,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.ExtraBold,
-                            color = if (isMe) Gold400 else Navy800,
+                            color = if (isMe) Sky300 else Blue800,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -1021,13 +1024,13 @@ private fun ChatBubbleItem(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Surface(
-                            color = if (isMe) Gold500.copy(alpha = 0.2f) else Slate100,
+                            color = if (isMe) Sky500.copy(alpha = 0.24f) else IceBlue100.copy(alpha = 0.85f),
                             shape = RoundedCornerShape(6.dp)
                         ) {
                             Text(
                                 text = message.senderRole,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (isMe) Gold400 else Slate500,
+                                color = if (isMe) Sky300 else Blue800Text,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -1042,7 +1045,7 @@ private fun ChatBubbleItem(
                                     Icon(
                                         imageVector = Icons.Default.MoreVert,
                                         contentDescription = "Aksi Pesan",
-                                        tint = if (isMe) Gold400 else Slate500,
+                                        tint = if (isMe) Sky300 else Slate500,
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
@@ -1125,9 +1128,9 @@ private fun ChatBubbleItem(
 
                 if (message.audioType != "none") {
                     Surface(
-                        color = if (isMe) Navy800 else Amber100.copy(alpha = 0.7f),
+                        color = if (isMe) Blue800.copy(alpha = 0.85f) else IceBlue100.copy(alpha = 0.82f),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, if (isMe) Navy700 else Gold500.copy(alpha = 0.4f))
+                        border = BorderStroke(1.dp, if (isMe) Sky400.copy(alpha = 0.45f) else Sky400.copy(alpha = 0.50f))
                     ) {
                         Row(
                             modifier = Modifier
@@ -1140,14 +1143,14 @@ private fun ChatBubbleItem(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(CircleShape)
-                                    .background(Gold500)
+                                    .background(Sky500)
                                     .clickable(onClick = onTogglePlay),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = if (isPlaying) Icons.Default.Stop else Icons.Default.PlayArrow,
                                     contentDescription = if (isPlaying) "Hentikan Voice Note" else "Putar Voice Note",
-                                    tint = Navy950,
+                                    tint = Color.White,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -1159,19 +1162,19 @@ private fun ChatBubbleItem(
                                     Icon(
                                         imageVector = Icons.Default.GraphicEq,
                                         contentDescription = null,
-                                        tint = if (isMe) Gold400 else Navy900,
+                                        tint = if (isMe) Sky300 else Blue900,
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Text(
                                         text = "Voice Note",
                                         style = MaterialTheme.typography.labelMedium,
-                                        color = if (isMe) Gold400 else Navy900
+                                        color = if (isMe) Sky300 else Blue900
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
                                 LinearProgressIndicator(
                                     progress = { if (isPlaying) playbackProgress else 0f },
-                                    color = Gold500,
+                                    color = Sky500,
                                     trackColor = Slate400.copy(alpha = 0.35f),
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -1205,7 +1208,7 @@ private fun ChatBubbleItem(
                         Icon(
                             imageVector = Icons.Default.DoneAll,
                             contentDescription = null,
-                            tint = Gold400,
+                            tint = Sky300,
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -1231,14 +1234,15 @@ private fun EditChatMessageDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = Color.White,
+            color = IceBlue50.copy(alpha = 0.94f),
+            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f)),
             shadowElevation = 10.dp
         ) {
             Column {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Navy900)
+                        .background(Blue900.copy(alpha = 0.90f))
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -1247,7 +1251,7 @@ private fun EditChatMessageDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = null, tint = Gold400)
+                        Icon(Icons.Default.Edit, contentDescription = null, tint = Sky300)
                         Text(
                             text = "Edit Pesan Chat",
                             style = MaterialTheme.typography.titleMedium,
@@ -1326,8 +1330,8 @@ private fun EditChatMessageDialog(
                             },
                             enabled = canSave,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Navy900,
-                                contentColor = Gold400
+                                containerColor = Blue900,
+                                contentColor = Sky300
                             ),
                             modifier = Modifier.testTag("save_edit_chat_button")
                         ) {

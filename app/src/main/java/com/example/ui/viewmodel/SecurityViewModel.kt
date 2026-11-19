@@ -37,6 +37,7 @@ import com.example.data.model.UnifiedNoteItem
 import com.example.data.model.currentIsoDate
 import com.example.notifications.AlertKind
 import com.example.notifications.IncomingAlertEvent
+import com.example.notifications.NotificationRuntimeState
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -598,6 +599,7 @@ class SecurityViewModel(
     }
 
     private fun dispatchIncomingAlert(event: IncomingAlertEvent, showBubbleOnChat: Boolean) {
+        if (!NotificationRuntimeState.shouldDispatchAlert(event.id)) return
         _notificationHistory.update { (listOf(event) + it).take(25) }
         _activeHeadsUpAlert.value = event
         if (showBubbleOnChat) {
@@ -693,6 +695,7 @@ class SecurityViewModel(
 
     fun setAppForeground(inForeground: Boolean) {
         _isForeground.value = inForeground
+        NotificationRuntimeState.isAppUiForeground = inForeground
     }
 
     suspend fun markOfflineBeforeSignOut() {

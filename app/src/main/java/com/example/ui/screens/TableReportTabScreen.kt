@@ -79,20 +79,20 @@ import com.example.data.model.TimeKeywordFilter
 import com.example.data.model.UiState
 import com.example.data.model.currentIsoDate
 import com.example.data.model.parseIsoDateTriple
-import com.example.ui.theme.Amber100
-import com.example.ui.theme.Amber800
+import com.example.ui.theme.Blue900
 import com.example.ui.theme.Emerald100
 import com.example.ui.theme.Emerald800
-import com.example.ui.theme.Gold400
-import com.example.ui.theme.Gold500
+import com.example.ui.theme.IceBlue50
 import com.example.ui.theme.Navy100
 import com.example.ui.theme.Navy700
 import com.example.ui.theme.Navy800
 import com.example.ui.theme.Navy900
-import com.example.ui.theme.Navy950
 import com.example.ui.theme.Red100
 import com.example.ui.theme.Red600
 import com.example.ui.theme.Red800
+import com.example.ui.theme.Sky300
+import com.example.ui.theme.Sky400
+import com.example.ui.theme.Sky500
 import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
 import com.example.ui.theme.Slate300
@@ -171,8 +171,8 @@ fun TableReportTabScreen(
         item {
             Card(
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.93f)),
-                border = BorderStroke(1.dp, Slate200)
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.74f)),
+                border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f))
             ) {
                 Column(
                     modifier = Modifier.padding(10.dp),
@@ -185,13 +185,13 @@ fun TableReportTabScreen(
                         Icon(
                             imageVector = Icons.Default.TableChart,
                             contentDescription = null,
-                            tint = Gold500
+                            tint = Sky500
                         )
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "Tabel Buku Jurnal & Kegiatan Security",
                                 style = MaterialTheme.typography.titleMedium,
-                                color = Navy900
+                                color = Blue900
                             )
                             Text(
                                 text = "Format Personel, Inventaris Pos & Uraian Kegiatan per Jam",
@@ -214,8 +214,8 @@ fun TableReportTabScreen(
                                 Surface(
                                     onClick = { onSelectSheet(sheet.id) },
                                     shape = RoundedCornerShape(10.dp),
-                                    color = if (selected) Navy900 else Slate100,
-                                    border = BorderStroke(1.dp, if (selected) Gold500 else Slate300)
+                                    color = if (selected) Blue900 else Slate100.copy(alpha = 0.85f),
+                                    border = BorderStroke(1.dp, if (selected) Sky400 else Slate300)
                                 ) {
                                     Column(
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
@@ -224,7 +224,7 @@ fun TableReportTabScreen(
                                             text = "${sheet.sheetDate} • ${sheet.shift}",
                                             style = MaterialTheme.typography.labelMedium,
                                             fontWeight = FontWeight.Bold,
-                                            color = if (selected) Gold400 else Navy900
+                                            color = if (selected) Sky300 else Blue900
                                         )
                                         Text(
                                             text = "No: ${sheet.docNumber.ifBlank { "-" }} • ${sheet.activityRows.size} keg.",
@@ -243,7 +243,7 @@ fun TableReportTabScreen(
                     ) {
                         Button(
                             onClick = { showNewSheetDialog = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400),
+                            colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300),
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                             modifier = Modifier.testTag("new_sheet_button")
@@ -353,8 +353,8 @@ fun TableReportTabScreen(
                     item {
                         Card(
                             shape = RoundedCornerShape(18.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.93f)),
-                            border = BorderStroke(1.dp, Slate200)
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.74f)),
+                            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f))
                         ) {
                             Column(
                                 modifier = Modifier
@@ -366,11 +366,11 @@ fun TableReportTabScreen(
                                 Text(
                                     text = "Belum ada lembar tabel pelaporan.",
                                     style = MaterialTheme.typography.titleSmall,
-                                    color = Navy900
+                                    color = Blue900
                                 )
                                 Button(
                                     onClick = { showNewSheetDialog = true },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400)
+                                    colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300)
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = null)
                                     Spacer(Modifier.width(6.dp))
@@ -384,8 +384,8 @@ fun TableReportTabScreen(
                     item(key = "sheet_header_info") {
                         Card(
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.94f)),
-                            border = BorderStroke(1.5.dp, Navy800)
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.76f)),
+                            border = BorderStroke(1.5.dp, Sky400.copy(alpha = 0.55f))
                         ) {
                             Row(
                                 modifier = Modifier
@@ -399,18 +399,18 @@ fun TableReportTabScreen(
                                         text = activeSheet.formattedDisplayDate(),
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.ExtraBold,
-                                        color = Navy900
+                                        color = Blue900
                                     )
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Surface(color = Gold500, shape = RoundedCornerShape(6.dp)) {
+                                        Surface(color = Sky500, shape = RoundedCornerShape(6.dp)) {
                                             Text(
                                                 text = activeSheet.shift,
                                                 style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.ExtraBold,
-                                                color = Navy950,
+                                                color = Color.White,
                                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                             )
                                         }
@@ -823,8 +823,8 @@ private fun TableSectionCard(
 ) {
     Card(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.94f)),
-        border = BorderStroke(1.dp, Slate200)
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.74f)),
+        border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f))
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -842,7 +842,7 @@ private fun TableSectionCard(
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = Navy900,
+                        tint = Blue900,
                         modifier = Modifier
                             .padding(6.dp)
                             .size(18.dp)
@@ -853,7 +853,7 @@ private fun TableSectionCard(
                         text = title,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Navy900
+                        color = Blue900
                     )
                     Text(
                         text = subtitle,
@@ -864,7 +864,7 @@ private fun TableSectionCard(
                 extraHeaderAction?.invoke()
                 Button(
                     onClick = onAddClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400),
+                    colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300),
                     shape = RoundedCornerShape(10.dp),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                     modifier = Modifier.testTag(addButtonTag)
@@ -888,14 +888,14 @@ private fun GridHeaderCell(
     Box(
         modifier = Modifier
             .width(width)
-            .border(0.5.dp, Navy700)
+            .border(0.5.dp, Sky400.copy(alpha = 0.35f))
             .padding(horizontal = 8.dp, vertical = 9.dp)
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.ExtraBold,
-            color = Gold400,
+            color = Sky300,
             textAlign = align,
             modifier = Modifier.fillMaxWidth()
         )
@@ -940,7 +940,8 @@ private fun NewActivitySheetDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Buat Lembar Tabel Baru", fontWeight = FontWeight.Bold, color = Navy900) },
+        containerColor = IceBlue50.copy(alpha = 0.94f),
+        title = { Text("Buat Lembar Tabel Baru", fontWeight = FontWeight.Bold, color = Blue900) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
@@ -958,7 +959,7 @@ private fun NewActivitySheetDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Text("Pilih Shift:", style = MaterialTheme.typography.labelMedium, color = Navy900)
+                Text("Pilih Shift:", style = MaterialTheme.typography.labelMedium, color = Blue900)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ShiftOption.entries.forEach { opt ->
                         FilterChip(
@@ -984,7 +985,7 @@ private fun NewActivitySheetDialog(
         confirmButton = {
             Button(
                 onClick = { onCreate(sheetDate, shift, docNumber, includeDefault) },
-                colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400)
+                colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300)
             ) {
                 Text("Buat Lembar")
             }
@@ -1008,7 +1009,8 @@ private fun EditSheetHeaderDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Ubah Header Lembar", fontWeight = FontWeight.Bold, color = Navy900) },
+        containerColor = IceBlue50.copy(alpha = 0.94f),
+        title = { Text("Ubah Header Lembar", fontWeight = FontWeight.Bold, color = Blue900) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
@@ -1025,7 +1027,7 @@ private fun EditSheetHeaderDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Text("Shift:", style = MaterialTheme.typography.labelMedium, color = Navy900)
+                Text("Shift:", style = MaterialTheme.typography.labelMedium, color = Blue900)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ShiftOption.entries.forEach { opt ->
                         FilterChip(
@@ -1040,7 +1042,7 @@ private fun EditSheetHeaderDialog(
         confirmButton = {
             Button(
                 onClick = { onSave(sheetDate, shift, docNumber) },
-                colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400)
+                colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300)
             ) {
                 Text("Simpan")
             }
@@ -1137,7 +1139,7 @@ private fun EditPersonnelRowDialog(
         confirmButton = {
             Button(
                 onClick = { onSave(PersonnelRow(nama.trim(), jabatan.trim(), plot.trim(), kehadiran.trim(), ket.trim())) },
-                colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400)
+                colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300)
             ) {
                 Text("Simpan")
             }
@@ -1216,7 +1218,7 @@ private fun EditInventoryRowDialog(
         confirmButton = {
             Button(
                 onClick = { onSave(InventoryRow(inventaris.trim(), jumlah.trim(), kondisi.trim(), keterangan.trim())) },
-                colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400)
+                colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300)
             ) {
                 Text("Simpan")
             }
@@ -1282,7 +1284,7 @@ private fun EditActivityRowDialog(
         confirmButton = {
             Button(
                 onClick = { onSave(ActivityTableRow(jam.trim(), uraian.trim())) },
-                colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400)
+                colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300)
             ) {
                 Text("Simpan")
             }

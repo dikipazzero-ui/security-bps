@@ -114,19 +114,23 @@ import com.example.media.ImageUtils
 import com.example.media.PdfReportPrinter
 import com.example.media.VoiceNoteManager
 import com.example.notifications.AlertKind
+import com.example.notifications.BackgroundAlertService
 import com.example.notifications.NotificationPreferences
 import com.example.notifications.SecurityNotificationManager
+import com.example.ui.theme.Blue700
+import com.example.ui.theme.Blue800
+import com.example.ui.theme.Blue900
+import com.example.ui.theme.Blue950
 import com.example.ui.theme.Emerald400
-import com.example.ui.theme.Gold400
-import com.example.ui.theme.Gold500
+import com.example.ui.theme.IceBlue50
 import com.example.ui.theme.Navy700
-import com.example.ui.theme.Navy800
-import com.example.ui.theme.Navy900
 import com.example.ui.theme.Navy950
 import com.example.ui.theme.Red100
 import com.example.ui.theme.Red600
 import com.example.ui.theme.Red800
-import com.example.ui.theme.Slate100
+import com.example.ui.theme.Sky300
+import com.example.ui.theme.Sky400
+import com.example.ui.theme.Sky500
 import com.example.ui.theme.Slate300
 import com.example.ui.theme.Slate400
 import com.example.ui.viewmodel.MainTab
@@ -320,6 +324,24 @@ fun MainScreen(
         }
     }
 
+    LaunchedEffect(activeRoomCode, profile.name) {
+        notificationPrefs.saveActiveContext(activeRoomCode, profile.name)
+    }
+
+    LaunchedEffect(
+        currentUserId,
+        activeRoomCode,
+        notifSettings.enabled,
+        notifSettings.backgroundMonitorEnabled,
+        hasNotifPermission
+    ) {
+        if (notifSettings.enabled && notifSettings.backgroundMonitorEnabled && hasNotifPermission) {
+            BackgroundAlertService.start(context, activeRoomCode, profile.name)
+        } else {
+            BackgroundAlertService.stop(context)
+        }
+    }
+
     LaunchedEffect(Unit) {
         viewModel.toastEvents.collect { msg ->
             snackbarHostState.showSnackbar(msg)
@@ -488,9 +510,9 @@ fun MainScreen(
                 .background(
                     Brush.verticalGradient(
                         listOf(
-                            Navy950.copy(alpha = 0.22f),
-                            Slate100.copy(alpha = 0.28f),
-                            Navy950.copy(alpha = 0.18f)
+                            Blue950.copy(alpha = 0.14f),
+                            IceBlue50.copy(alpha = 0.14f),
+                            Blue950.copy(alpha = 0.16f)
                         )
                     )
                 )
@@ -510,16 +532,16 @@ fun MainScreen(
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                // COMPACT COMMAND HEADER (kept slim so main chat & content are much wider/taller)
+                // COMPACT TRANSLUCENT GLASS COMMAND HEADER
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(
                             Brush.horizontalGradient(
                                 listOf(
-                                    Navy950.copy(alpha = 0.90f),
-                                    Navy900.copy(alpha = 0.90f),
-                                    Navy800.copy(alpha = 0.88f)
+                                    Blue950.copy(alpha = 0.72f),
+                                    Blue900.copy(alpha = 0.70f),
+                                    Blue800.copy(alpha = 0.68f)
                                 )
                             )
                         )
@@ -543,7 +565,7 @@ fun MainScreen(
                                 modifier = Modifier
                                     .size(28.dp)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .border(1.dp, Gold500, RoundedCornerShape(8.dp))
+                                    .border(1.dp, Sky400.copy(alpha = 0.85f), RoundedCornerShape(8.dp))
                             ) {
                                 Image(
                                     painter = painterResource(id = R.drawable.ic_security_shield_1794947235641),
@@ -561,10 +583,10 @@ fun MainScreen(
                                     showPhotoSourcePicker = true
                                 },
                                 size = 30.dp,
-                                containerColor = Navy700,
-                                textColor = Gold400,
-                                borderColor = Gold500.copy(alpha = 0.6f),
-                                ringColor = Navy950
+                                containerColor = Blue800.copy(alpha = 0.85f),
+                                textColor = Sky300,
+                                borderColor = Sky400.copy(alpha = 0.75f),
+                                ringColor = Blue950
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
@@ -603,8 +625,9 @@ fun MainScreen(
                                 }
                                 Surface(
                                     onClick = { showShiftDropdown = true },
-                                    color = Gold500,
+                                    color = Sky500.copy(alpha = 0.86f),
                                     shape = RoundedCornerShape(8.dp),
+                                    border = BorderStroke(1.dp, Sky300.copy(alpha = 0.6f)),
                                     modifier = Modifier.testTag("compact_shift_selector")
                                 ) {
                                     Row(
@@ -616,12 +639,12 @@ fun MainScreen(
                                             text = shortShift,
                                             style = MaterialTheme.typography.labelMedium,
                                             fontWeight = FontWeight.ExtraBold,
-                                            color = Navy950
+                                            color = Color.White
                                         )
                                         Icon(
                                             imageVector = Icons.Default.KeyboardArrowDown,
                                             contentDescription = "Pilih Shift",
-                                            tint = Navy950,
+                                            tint = Color.White,
                                             modifier = Modifier.size(14.dp)
                                         )
                                     }
@@ -662,7 +685,7 @@ fun MainScreen(
                                             Icons.Default.NotificationsOff
                                         },
                                         contentDescription = "Notifikasi, Nada Dering & Gelembung",
-                                        tint = if (notifSettings.enabled) Gold400 else Slate400,
+                                        tint = if (notifSettings.enabled) Sky300 else Slate400,
                                         modifier = Modifier.size(19.dp)
                                     )
                                 }
@@ -688,7 +711,7 @@ fun MainScreen(
                                 Icon(
                                     imageVector = Icons.Default.ManageSearch,
                                     contentDescription = "Cari Seluruh Catatan",
-                                    tint = Gold400,
+                                    tint = Sky300,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -715,6 +738,7 @@ fun MainScreen(
                             IconButton(
                                 onClick = {
                                     scope.launch {
+                                        BackgroundAlertService.stop(context)
                                         viewModel.markOfflineBeforeSignOut()
                                         voiceNoteManager.release()
                                         signOutOfficer(credentialManager, scope)
@@ -759,9 +783,9 @@ fun MainScreen(
                         AnimatedVisibility(visible = showHeaderOptions) {
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Surface(
-                                    color = Navy950.copy(alpha = 0.65f),
+                                    color = Blue950.copy(alpha = 0.56f),
                                     shape = RoundedCornerShape(10.dp),
-                                    border = BorderStroke(1.dp, Navy700.copy(alpha = 0.8f)),
+                                    border = BorderStroke(1.dp, Sky400.copy(alpha = 0.45f)),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Row(
@@ -773,7 +797,7 @@ fun MainScreen(
                                             Text(
                                                 text = "$dateLabel • ${stringResource(R.string.header_title)}",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = Gold400,
+                                                color = Sky300,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
@@ -795,14 +819,14 @@ fun MainScreen(
                                             Icon(
                                                 imageVector = Icons.Default.Edit,
                                                 contentDescription = "Ubah Data Petugas",
-                                                tint = Gold400,
+                                                tint = Sky300,
                                                 modifier = Modifier.size(17.dp)
                                             )
                                         }
                                     }
                                 }
 
-                                HorizontalDivider(color = Navy700.copy(alpha = 0.6f))
+                                HorizontalDivider(color = Sky400.copy(alpha = 0.35f))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -811,7 +835,7 @@ fun MainScreen(
                                     Icon(
                                         imageVector = Icons.Default.Schedule,
                                         contentDescription = null,
-                                        tint = Gold400,
+                                        tint = Sky300,
                                         modifier = Modifier.size(14.dp)
                                     )
                                     ShiftOption.entries.forEach { shift ->
@@ -819,10 +843,10 @@ fun MainScreen(
                                         Surface(
                                             onClick = { viewModel.setGlobalShift(shift.label) },
                                             shape = RoundedCornerShape(8.dp),
-                                            color = if (isSelected) Gold500 else Navy900,
+                                            color = if (isSelected) Sky500.copy(alpha = 0.88f) else Blue900.copy(alpha = 0.64f),
                                             border = BorderStroke(
                                                 1.dp,
-                                                if (isSelected) Gold400 else Navy700
+                                                if (isSelected) Sky300 else Blue700.copy(alpha = 0.7f)
                                             ),
                                             modifier = Modifier
                                                 .weight(1f)
@@ -836,12 +860,12 @@ fun MainScreen(
                                                     text = shift.label,
                                                     style = MaterialTheme.typography.labelSmall,
                                                     fontWeight = FontWeight.ExtraBold,
-                                                    color = if (isSelected) Navy950 else Slate300
+                                                    color = if (isSelected) Color.White else Slate300
                                                 )
                                                 Text(
                                                     text = shift.timeRange,
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = if (isSelected) Navy950.copy(alpha = 0.8f) else Slate400,
+                                                    color = if (isSelected) Color.White.copy(alpha = 0.90f) else Slate400,
                                                     maxLines = 1
                                                 )
                                             }
@@ -857,7 +881,7 @@ fun MainScreen(
                         state = tabBarListState,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Navy950.copy(alpha = 0.92f)),
+                            .background(Blue950.copy(alpha = 0.68f)),
                         contentPadding = PaddingValues(horizontal = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
@@ -868,29 +892,29 @@ fun MainScreen(
                                     icon = Icons.Default.Assignment,
                                     label = stringResource(R.string.tab_laporan),
                                     badge = reports.size,
-                                    badgeBg = Gold500,
-                                    badgeFg = Navy950
+                                    badgeBg = Sky500,
+                                    badgeFg = Color.White
                                 )
                                 MainTab.TABEL -> TabSpec(
                                     icon = Icons.Default.TableChart,
                                     label = stringResource(R.string.tab_tabel),
                                     badge = activitySheets.size,
-                                    badgeBg = Gold500,
-                                    badgeFg = Navy950
+                                    badgeBg = Sky500,
+                                    badgeFg = Color.White
                                 )
                                 MainTab.ABSENSI -> TabSpec(
                                     icon = Icons.Default.FactCheck,
                                     label = stringResource(R.string.tab_absensi),
                                     badge = attendanceSheets.size,
-                                    badgeBg = Gold500,
-                                    badgeFg = Navy950
+                                    badgeBg = Sky500,
+                                    badgeFg = Color.White
                                 )
                                 MainTab.PJU -> TabSpec(
                                     icon = Icons.Default.Lightbulb,
                                     label = stringResource(R.string.tab_pju),
                                     badge = pjuSheets.sumOf { it.issues.size },
-                                    badgeBg = if (pjuSheets.any { it.issues.isNotEmpty() }) Red600 else Gold500,
-                                    badgeFg = if (pjuSheets.any { it.issues.isNotEmpty() }) Color.White else Navy950
+                                    badgeBg = if (pjuSheets.any { it.issues.isNotEmpty() }) Red600 else Sky500,
+                                    badgeFg = Color.White
                                 )
                                 MainTab.CHAT -> TabSpec(
                                     icon = Icons.Default.Radio,
@@ -923,7 +947,7 @@ fun MainScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(2.dp)
-                            .background(Gold500)
+                            .background(Sky400.copy(alpha = 0.75f))
                     )
                 }
 
@@ -1256,6 +1280,9 @@ fun MainScreen(
                 notificationPrefs.setFloatingBubbleEnabled(it)
                 if (!it) viewModel.closeFloatingBubble()
             },
+            onToggleBackgroundMonitor = {
+                notificationPrefs.setBackgroundMonitorEnabled(it)
+            },
             onToggleSystemInForeground = { notificationPrefs.setSystemBannerWhenActive(it) },
             onSelectRingtonePreset = { preset ->
                 val uri = RingtoneManager.getDefaultUri(preset.type)
@@ -1289,6 +1316,9 @@ fun MainScreen(
                     notificationPrefs.setFloatingBubbleEnabled(true)
                 }
                 viewModel.openFloatingChatWindow()
+            },
+            onOpenSystemBubbleSettings = {
+                SecurityNotificationManager.openSystemBubbleSettings(context)
             },
             onClearHistory = viewModel::clearNotificationHistory,
             onDismiss = { showNotificationModal = false }
@@ -1461,7 +1491,7 @@ private fun TabHeaderButton(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = if (selected) Gold400 else Slate400,
+                    tint = if (selected) Sky300 else Slate300,
                     modifier = Modifier.size(15.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
@@ -1469,7 +1499,7 @@ private fun TabHeaderButton(
                     text = label,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold,
-                    color = if (selected) Gold400 else Slate400,
+                    color = if (selected) Sky300 else Slate300,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1493,7 +1523,7 @@ private fun TabHeaderButton(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(2.dp)
-                    .background(if (selected) Gold500 else Color.Transparent)
+                    .background(if (selected) Sky400 else Color.Transparent)
             )
         }
     }

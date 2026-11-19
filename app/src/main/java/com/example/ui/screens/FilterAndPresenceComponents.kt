@@ -64,22 +64,23 @@ import com.example.data.model.IndonesianMonths
 import com.example.data.model.ShiftOption
 import com.example.data.model.TimeKeywordFilter
 import com.example.media.ImageUtils
+import com.example.ui.theme.Blue700
+import com.example.ui.theme.Blue800
+import com.example.ui.theme.Blue900
 import com.example.ui.theme.Emerald100
 import com.example.ui.theme.Emerald400
 import com.example.ui.theme.Emerald600
 import com.example.ui.theme.Emerald800
-import com.example.ui.theme.Gold400
-import com.example.ui.theme.Gold500
+import com.example.ui.theme.IceBlue50
 import com.example.ui.theme.Navy100
 import com.example.ui.theme.Navy700
 import com.example.ui.theme.Navy800
 import com.example.ui.theme.Navy900
-import com.example.ui.theme.Navy950
+import com.example.ui.theme.Sky300
+import com.example.ui.theme.Sky400
+import com.example.ui.theme.Sky500
 import com.example.ui.theme.Slate100
-import com.example.ui.theme.Slate200
-import com.example.ui.theme.Slate300
 import com.example.ui.theme.Slate400
-import com.example.ui.theme.Slate50
 import com.example.ui.theme.Slate500
 import com.example.ui.theme.Slate700
 import java.util.Calendar
@@ -91,10 +92,10 @@ fun OfficerAvatarWithPresence(
     photoData: String? = null,
     onClick: (() -> Unit)? = null,
     size: Dp = 36.dp,
-    containerColor: Color = Navy700,
-    textColor: Color = Gold400,
-    borderColor: Color = Gold500.copy(alpha = 0.6f),
-    ringColor: Color = Navy900
+    containerColor: Color = Blue800,
+    textColor: Color = Sky300,
+    borderColor: Color = Sky400.copy(alpha = 0.7f),
+    ringColor: Color = Blue900
 ) {
     val initials = remember(name) {
         name.trim()
@@ -205,8 +206,8 @@ fun SearchAndTimeFilterPanel(
 
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = Color.White.copy(alpha = 0.92f),
-        border = BorderStroke(1.dp, Slate200),
+        color = Color.White.copy(alpha = 0.74f),
+        border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f)),
         modifier = modifier.fillMaxWidth()
     ) {
         Column(
@@ -225,7 +226,7 @@ fun SearchAndTimeFilterPanel(
                     Icon(
                         imageVector = Icons.Default.FilterList,
                         contentDescription = null,
-                        tint = Navy800,
+                        tint = Blue700,
                         modifier = Modifier.size(18.dp)
                     )
                     Text(
@@ -235,13 +236,13 @@ fun SearchAndTimeFilterPanel(
                     )
                 }
                 Surface(
-                    color = if (filter.isActive) Navy900 else Slate100,
+                    color = if (filter.isActive) Blue900.copy(alpha = 0.88f) else IceBlue50.copy(alpha = 0.8f),
                     shape = RoundedCornerShape(50)
                 ) {
                     Text(
                         text = if (filter.isActive) "$filteredCount / $totalCount hasil" else "$totalCount data",
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (filter.isActive) Gold400 else Slate500,
+                        color = if (filter.isActive) Sky300 else Slate500,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
@@ -258,7 +259,7 @@ fun SearchAndTimeFilterPanel(
                     )
                 },
                 leadingIcon = {
-                    Icon(Icons.Default.Search, contentDescription = null, tint = Navy700)
+                    Icon(Icons.Default.Search, contentDescription = null, tint = Blue700)
                 },
                 trailingIcon = {
                     if (filter.keyword.isNotEmpty()) {
@@ -270,10 +271,10 @@ fun SearchAndTimeFilterPanel(
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Slate50,
-                    focusedBorderColor = Gold500,
-                    unfocusedBorderColor = Slate200
+                    focusedContainerColor = Color.White.copy(alpha = 0.90f),
+                    unfocusedContainerColor = IceBlue50.copy(alpha = 0.65f),
+                    focusedBorderColor = Sky500,
+                    unfocusedBorderColor = Sky300.copy(alpha = 0.45f)
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -366,8 +367,8 @@ fun SearchAndTimeFilterPanel(
                 Surface(
                     onClick = onOpenGlobalRecap,
                     shape = RoundedCornerShape(10.dp),
-                    color = Navy900,
-                    border = BorderStroke(1.dp, Gold500),
+                    color = Blue900.copy(alpha = 0.84f),
+                    border = BorderStroke(1.dp, Sky400.copy(alpha = 0.8f)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("${testTagPrefix}_open_recap_filter")
@@ -385,7 +386,7 @@ fun SearchAndTimeFilterPanel(
                             Icon(
                                 imageVector = Icons.Default.ManageSearch,
                                 contentDescription = null,
-                                tint = Gold400,
+                                tint = Sky300,
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
@@ -399,14 +400,14 @@ fun SearchAndTimeFilterPanel(
                         }
                         if (globalRecapCount != null) {
                             Surface(
-                                color = Gold500,
+                                color = Sky500,
                                 shape = RoundedCornerShape(50)
                             ) {
                                 Text(
                                     text = "$globalRecapCount Data",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = Navy950,
+                                    color = Color.White,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                 )
                             }
@@ -431,15 +432,15 @@ internal fun <T> FilterDropdownChip(
         Surface(
             onClick = { expanded = true },
             shape = RoundedCornerShape(10.dp),
-            color = if (isSelected) Navy900 else Slate50,
-            border = BorderStroke(1.dp, if (isSelected) Gold500 else Slate200),
+            color = if (isSelected) Blue900.copy(alpha = 0.88f) else IceBlue50.copy(alpha = 0.72f),
+            border = BorderStroke(1.dp, if (isSelected) Sky400 else Sky300.copy(alpha = 0.45f)),
             modifier = Modifier.testTag(testTag)
         ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = if (isSelected) Gold400 else Slate700,
+                color = if (isSelected) Sky300 else Slate700,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
@@ -475,8 +476,8 @@ fun BottomOptionSaveCard(
 ) {
     Card(
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Navy900.copy(alpha = 0.95f)),
-        border = BorderStroke(1.2.dp, Gold500.copy(alpha = 0.7f)),
+        colors = CardDefaults.cardColors(containerColor = Blue900.copy(alpha = 0.80f)),
+        border = BorderStroke(1.2.dp, Sky400.copy(alpha = 0.75f)),
         modifier = modifier.fillMaxWidth()
     ) {
         Column(
@@ -490,13 +491,13 @@ fun BottomOptionSaveCard(
                 Icon(
                     imageVector = Icons.Default.Schedule,
                     contentDescription = null,
-                    tint = Gold400,
+                    tint = Sky300,
                     modifier = Modifier.size(14.dp)
                 )
                 Text(
                     text = statusSubtitle,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Slate300,
+                    color = Color.White.copy(alpha = 0.85f),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -505,8 +506,8 @@ fun BottomOptionSaveCard(
                 onClick = onSaveClick,
                 enabled = !isSaving,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Gold500,
-                    contentColor = Navy950
+                    containerColor = Sky500.copy(alpha = 0.92f),
+                    contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
@@ -517,7 +518,7 @@ fun BottomOptionSaveCard(
                 if (isSaving) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
-                        color = Navy950,
+                        color = Color.White,
                         strokeWidth = 2.dp
                     )
                 } else {
@@ -537,10 +538,10 @@ fun BottomOptionSaveCard(
             if (onOpenRecapSearch != null) {
                 OutlinedButton(
                     onClick = onOpenRecapSearch,
-                    border = BorderStroke(1.dp, Gold400.copy(alpha = 0.75f)),
+                    border = BorderStroke(1.dp, Sky300.copy(alpha = 0.8f)),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Navy800,
-                        contentColor = Gold400
+                        containerColor = Blue800.copy(alpha = 0.65f),
+                        contentColor = Sky300
                     ),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier

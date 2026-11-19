@@ -80,22 +80,26 @@ import com.example.data.model.ShiftOption
 import com.example.data.model.TimeKeywordFilter
 import com.example.data.model.UiState
 import com.example.media.ImageUtils
-import com.example.ui.theme.Amber100
-import com.example.ui.theme.Amber800
+import com.example.ui.theme.Blue800
+import com.example.ui.theme.Blue800Text
+import com.example.ui.theme.Blue900
+import com.example.ui.theme.Blue950
 import com.example.ui.theme.Emerald100
 import com.example.ui.theme.Emerald600
 import com.example.ui.theme.Emerald800
-import com.example.ui.theme.Gold400
-import com.example.ui.theme.Gold500
-import com.example.ui.theme.Gold600
+import com.example.ui.theme.IceBlue100
+import com.example.ui.theme.IceBlue50
 import com.example.ui.theme.Navy100
 import com.example.ui.theme.Navy700
 import com.example.ui.theme.Navy800
 import com.example.ui.theme.Navy900
-import com.example.ui.theme.Navy950
 import com.example.ui.theme.Red100
 import com.example.ui.theme.Red600
 import com.example.ui.theme.Red800
+import com.example.ui.theme.Sky300
+import com.example.ui.theme.Sky400
+import com.example.ui.theme.Sky500
+import com.example.ui.theme.Sky600
 import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
 import com.example.ui.theme.Slate400
@@ -161,8 +165,8 @@ fun ReportTabScreen(
         item {
             Card(
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.92f)),
-                border = BorderStroke(1.dp, Slate200)
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.74f)),
+                border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f))
             ) {
                 Column(
                     modifier = Modifier.padding(10.dp),
@@ -175,12 +179,12 @@ fun ReportTabScreen(
                         Icon(
                             imageVector = Icons.Default.Description,
                             contentDescription = null,
-                            tint = Gold500
+                            tint = Sky500
                         )
                         Text(
                             text = "Input Rincian Kegiatan (3 Kategori Wajib)",
                             style = MaterialTheme.typography.titleMedium,
-                            color = Navy900
+                            color = Blue900
                         )
                     }
                     Text(
@@ -221,8 +225,8 @@ fun ReportTabScreen(
         item {
             Card(
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.92f)),
-                border = BorderStroke(1.dp, Slate200),
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.74f)),
+                border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column {
@@ -230,14 +234,14 @@ fun ReportTabScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Navy900)
+                            .background(Blue900.copy(alpha = 0.82f))
                             .padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
                             text = "PILIH KATEGORI LAPORAN HARIAN (1 - 3):",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Gold400,
+                            color = Sky300,
                             fontWeight = FontWeight.Bold
                         )
                         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -433,9 +437,9 @@ fun ReportTabScreen(
                         // 4-Slot Photo Upload Box + Caption Column Under Every Photo
                         val filledPhotoCount = formState.photoSlots.count { it != null }
                         Surface(
-                            color = Slate50,
+                            color = IceBlue50.copy(alpha = 0.72f),
                             shape = RoundedCornerShape(14.dp),
-                            border = BorderStroke(1.dp, Slate200)
+                            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f))
                         ) {
                             Column(
                                 modifier = Modifier.padding(12.dp),
@@ -453,13 +457,13 @@ fun ReportTabScreen(
                                         Icon(
                                             imageVector = Icons.Default.CameraAlt,
                                             contentDescription = null,
-                                            tint = Gold600,
+                                            tint = Sky600,
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Text(
                                             text = "Dokumentasi Foto & Keterangan (Maks. 4)",
                                             style = MaterialTheme.typography.labelMedium,
-                                            color = Navy900
+                                            color = Blue900
                                         )
                                     }
                                     Surface(
@@ -566,8 +570,8 @@ fun ReportTabScreen(
                                 enabled = !formState.isSubmitting,
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Navy900,
-                                    contentColor = Gold400
+                                    containerColor = Blue900,
+                                    contentColor = Sky300
                                 ),
                                 modifier = Modifier
                                     .weight(1f)
@@ -577,7 +581,7 @@ fun ReportTabScreen(
                                 if (formState.isSubmitting) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(18.dp),
-                                        color = Gold400,
+                                        color = Sky300,
                                         strokeWidth = 2.dp
                                     )
                                 } else {
@@ -698,8 +702,8 @@ private fun CategorySelectCard(
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(14.dp),
-        color = if (selected) Navy800 else Navy950.copy(alpha = 0.65f),
-        border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) Gold400 else Navy800),
+        color = if (selected) Blue800.copy(alpha = 0.85f) else Blue950.copy(alpha = 0.62f),
+        border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) Sky400 else Blue800),
         modifier = modifier.testTag("category_select_${category.number}")
     ) {
         Row(
@@ -711,14 +715,14 @@ private fun CategorySelectCard(
                 modifier = Modifier
                     .size(24.dp)
                     .clip(RoundedCornerShape(7.dp))
-                    .background(Gold500),
+                    .background(Sky500),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = category.number.toString(),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Navy950
+                    color = Color.White
                 )
             }
             Column {
@@ -741,7 +745,7 @@ private fun CategorySelectCard(
 private fun StatusDot(status: ReportStatus) {
     val color = when (status) {
         ReportStatus.AMAN -> Emerald600
-        ReportStatus.PEMANTAUAN -> Gold500
+        ReportStatus.PEMANTAUAN -> Sky500
         ReportStatus.TINDAK_LANJUT -> Red600
     }
     Box(
@@ -774,8 +778,8 @@ private fun PhotoSlotWithCaptionTile(
                     .fillMaxWidth()
                     .aspectRatio(1.1f)
                     .clip(RoundedCornerShape(12.dp))
-                    .border(2.dp, Gold500, RoundedCornerShape(12.dp))
-                    .background(Navy900)
+                    .border(2.dp, Sky500, RoundedCornerShape(12.dp))
+                    .background(Blue900)
                     .clickable(onClick = onPreviewClick)
             ) {
                 if (imageBitmap != null) {
@@ -787,7 +791,7 @@ private fun PhotoSlotWithCaptionTile(
                     )
                 }
                 Surface(
-                    color = Navy950.copy(alpha = 0.8f),
+                    color = Blue950.copy(alpha = 0.78f),
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier
                         .align(Alignment.TopStart)
@@ -796,7 +800,7 @@ private fun PhotoSlotWithCaptionTile(
                     Text(
                         text = "Foto ${slotIndex + 1}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Gold400,
+                        color = Sky300,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
@@ -838,9 +842,9 @@ private fun PhotoSlotWithCaptionTile(
                 maxLines = 2,
                 textStyle = MaterialTheme.typography.bodySmall,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    focusedBorderColor = Gold500,
+                    focusedContainerColor = Color.White.copy(alpha = 0.90f),
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.85f),
+                    focusedBorderColor = Sky500,
                     unfocusedBorderColor = Slate200
                 ),
                 modifier = Modifier
@@ -851,8 +855,8 @@ private fun PhotoSlotWithCaptionTile(
             Surface(
                 onClick = onUploadClick,
                 shape = RoundedCornerShape(12.dp),
-                color = Color.White,
-                border = BorderStroke(1.5.dp, Slate200),
+                color = Color.White.copy(alpha = 0.76f),
+                border = BorderStroke(1.5.dp, Sky300.copy(alpha = 0.50f)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1.1f)
@@ -911,15 +915,15 @@ private fun CategoryReportSectionCard(
 ) {
     Card(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.92f)),
-        border = BorderStroke(1.dp, Slate200)
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.74f)),
+        border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f))
     ) {
         Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        Brush.horizontalGradient(listOf(Navy900, Navy800))
+                        Brush.horizontalGradient(listOf(Blue900.copy(alpha = 0.84f), Blue800.copy(alpha = 0.80f)))
                     )
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -934,14 +938,14 @@ private fun CategoryReportSectionCard(
                         modifier = Modifier
                             .size(24.dp)
                             .clip(RoundedCornerShape(6.dp))
-                            .background(Gold500),
+                            .background(Sky500),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = category.number.toString(),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.ExtraBold,
-                            color = Navy950
+                            color = Color.White
                         )
                     }
                     Text(
@@ -952,14 +956,14 @@ private fun CategoryReportSectionCard(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Surface(
-                    color = Navy800,
+                    color = Blue800.copy(alpha = 0.85f),
                     shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.dp, Gold500.copy(alpha = 0.4f))
+                    border = BorderStroke(1.dp, Sky400.copy(alpha = 0.45f))
                 ) {
                     Text(
                         text = "${items.size} Rincian",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Gold400,
+                        color = Sky300,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
@@ -968,7 +972,7 @@ private fun CategoryReportSectionCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(3.dp)
-                    .background(Gold500)
+                    .background(Sky500)
             )
 
             Column(
@@ -977,9 +981,9 @@ private fun CategoryReportSectionCard(
             ) {
                 if (items.isEmpty()) {
                     Surface(
-                        color = Slate50,
+                        color = IceBlue50.copy(alpha = 0.72f),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Slate200),
+                        border = BorderStroke(1.dp, Sky300.copy(alpha = 0.40f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
@@ -989,7 +993,7 @@ private fun CategoryReportSectionCard(
                                 "Belum ada rincian kegiatan pada Kategori ${category.number}."
                             },
                             style = MaterialTheme.typography.bodySmall,
-                            color = Slate400,
+                            color = Slate500,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(vertical = 20.dp, horizontal = 14.dp)
                         )
@@ -1019,15 +1023,15 @@ private fun ReportItemCard(
 ) {
     val (statusBg, statusFg) = when (report.statusEnum) {
         ReportStatus.AMAN -> Emerald100 to Emerald800
-        ReportStatus.PEMANTAUAN -> Amber100 to Amber800
+        ReportStatus.PEMANTAUAN -> IceBlue100 to Blue800Text
         ReportStatus.TINDAK_LANJUT -> Red100 to Red800
     }
     val dateBadge = remember(report.reportDate, report.createdAt) { report.formattedDateBadge() }
 
     Surface(
-        color = Slate50,
+        color = Color.White.copy(alpha = 0.76f),
         shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, Slate200)
+        border = BorderStroke(1.dp, Sky300.copy(alpha = 0.42f))
     ) {
         Column(
             modifier = Modifier
@@ -1045,17 +1049,17 @@ private fun ReportItemCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Surface(color = Navy900, shape = RoundedCornerShape(6.dp)) {
+                    Surface(color = Blue900, shape = RoundedCornerShape(6.dp)) {
                         Text(
                             text = report.shift,
                             style = MaterialTheme.typography.labelSmall,
-                            color = Gold400,
+                            color = Sky300,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
                     }
                     if (dateBadge.isNotBlank()) {
-                        Surface(color = Color.White, shape = RoundedCornerShape(6.dp), border = BorderStroke(1.dp, Slate200)) {
+                        Surface(color = Color.White.copy(alpha = 0.85f), shape = RoundedCornerShape(6.dp), border = BorderStroke(1.dp, Slate200)) {
                             Text(
                                 text = dateBadge,
                                 style = MaterialTheme.typography.labelSmall,
@@ -1069,7 +1073,7 @@ private fun ReportItemCard(
                         Text(
                             text = "${report.time} WIB",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Navy900,
+                            color = Blue900,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
@@ -1121,7 +1125,7 @@ private fun ReportItemCard(
                     Icon(
                         imageVector = Icons.Default.PhotoLibrary,
                         contentDescription = null,
-                        tint = Gold600,
+                        tint = Sky600,
                         modifier = Modifier.size(15.dp)
                     )
                     Text(

@@ -70,23 +70,23 @@ import com.example.data.model.ShiftOption
 import com.example.data.model.TimeKeywordFilter
 import com.example.data.model.UnifiedNoteItem
 import com.example.data.model.currentIsoDate
-import com.example.ui.theme.Amber100
-import com.example.ui.theme.Amber800
+import com.example.ui.theme.Blue800Text
+import com.example.ui.theme.Blue900
+import com.example.ui.theme.Blue950
 import com.example.ui.theme.Emerald100
 import com.example.ui.theme.Emerald800
-import com.example.ui.theme.Gold400
-import com.example.ui.theme.Gold500
+import com.example.ui.theme.IceBlue100
+import com.example.ui.theme.IceBlue50
 import com.example.ui.theme.Navy100
-import com.example.ui.theme.Navy700
 import com.example.ui.theme.Navy800
 import com.example.ui.theme.Navy900
-import com.example.ui.theme.Navy950
-import com.example.ui.theme.Red100
 import com.example.ui.theme.Red600
+import com.example.ui.theme.Sky300
+import com.example.ui.theme.Sky400
+import com.example.ui.theme.Sky500
 import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
 import com.example.ui.theme.Slate400
-import com.example.ui.theme.Slate50
 import com.example.ui.theme.Slate500
 import com.example.ui.theme.Slate700
 import com.example.ui.viewmodel.currentFormattedTime
@@ -141,7 +141,8 @@ fun GlobalNotesSearchDialog(
     ) {
         Surface(
             shape = RoundedCornerShape(18.dp),
-            color = Slate50,
+            color = IceBlue50.copy(alpha = 0.90f),
+            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.55f)),
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 780.dp)
@@ -149,11 +150,11 @@ fun GlobalNotesSearchDialog(
                 .padding(horizontal = 10.dp, vertical = 14.dp)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Navy Header
+                // Sapphire Blue Header
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Navy900)
+                        .background(Blue900.copy(alpha = 0.90f))
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -170,7 +171,7 @@ fun GlobalNotesSearchDialog(
                             Icon(
                                 imageVector = Icons.Default.ManageSearch,
                                 contentDescription = null,
-                                tint = Gold400,
+                                tint = Sky300,
                                 modifier = Modifier.size(24.dp)
                             )
                             Column {
@@ -183,7 +184,7 @@ fun GlobalNotesSearchDialog(
                                 Text(
                                     text = "${filteredNotes.size} dari ${allNotes.size} data Ruang $activeRoomCode • Dipantau Semua Anggota",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Gold400,
+                                    color = Sky300,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -193,7 +194,7 @@ fun GlobalNotesSearchDialog(
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Surface(
                                 onClick = { showAddForm = !showAddForm },
-                                color = if (showAddForm) Color.White else Gold500,
+                                color = if (showAddForm) Color.White else Sky500,
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.testTag("toggle_quick_add_note_button")
                             ) {
@@ -205,14 +206,14 @@ fun GlobalNotesSearchDialog(
                                     Icon(
                                         imageVector = if (showAddForm) Icons.Default.Close else Icons.Default.Add,
                                         contentDescription = null,
-                                        tint = Navy950,
+                                        tint = if (showAddForm) Blue950 else Color.White,
                                         modifier = Modifier.size(15.dp)
                                     )
                                     Text(
                                         text = if (showAddForm) "Tutup" else "Catatan Baru",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.ExtraBold,
-                                        color = Navy950
+                                        color = if (showAddForm) Blue950 else Color.White
                                     )
                                 }
                             }
@@ -244,7 +245,7 @@ fun GlobalNotesSearchDialog(
                             )
                         },
                         leadingIcon = {
-                            Icon(Icons.Default.Search, contentDescription = null, tint = Navy700)
+                            Icon(Icons.Default.Search, contentDescription = null, tint = Sky500)
                         },
                         trailingIcon = {
                             if (filter.keyword.isNotEmpty()) {
@@ -256,9 +257,9 @@ fun GlobalNotesSearchDialog(
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            focusedBorderColor = Gold500,
+                            focusedContainerColor = Color.White.copy(alpha = 0.94f),
+                            unfocusedContainerColor = Color.White.copy(alpha = 0.90f),
+                            focusedBorderColor = Sky500,
                             unfocusedBorderColor = Color.Transparent
                         ),
                         modifier = Modifier
@@ -271,7 +272,7 @@ fun GlobalNotesSearchDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.White)
+                        .background(Color.White.copy(alpha = 0.80f))
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -402,8 +403,8 @@ fun GlobalNotesSearchDialog(
                 AnimatedVisibility(visible = showAddForm) {
                     Card(
                         shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        border = BorderStroke(1.dp, Gold500),
+                        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.88f)),
+                        border = BorderStroke(1.dp, Sky400),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(10.dp)
@@ -491,7 +492,7 @@ fun GlobalNotesSearchDialog(
                                     }
                                 },
                                 enabled = !isSavingNote,
-                                colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400),
+                                colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(48.dp)
@@ -566,16 +567,16 @@ private fun UnifiedNoteCard(
     val (sourceBg, sourceFg) = when (note.source) {
         NoteSourceTab.LAPORAN -> Navy100 to Navy900
         NoteSourceTab.TABEL -> Emerald100 to Emerald800
-        NoteSourceTab.ABSENSI -> Amber100 to Amber800
-        NoteSourceTab.PJU -> Navy900 to Gold400
+        NoteSourceTab.ABSENSI -> IceBlue100 to Blue800Text
+        NoteSourceTab.PJU -> Blue900 to Sky300
         NoteSourceTab.CHAT -> Slate200 to Navy900
-        NoteSourceTab.CATATAN -> Gold500.copy(alpha = 0.25f) to Navy950
+        NoteSourceTab.CATATAN -> IceBlue100 to Blue800Text
     }
 
     Card(
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Slate200)
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.84f)),
+        border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f))
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -601,14 +602,14 @@ private fun UnifiedNoteCard(
 
                 // Shift Badge with full time range
                 Surface(
-                    color = Gold500,
+                    color = Sky500,
                     shape = RoundedCornerShape(6.dp)
                 ) {
                     Text(
                         text = "${shiftOption.label} (${shiftOption.timeRange})",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Navy950,
+                        color = Color.White,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
@@ -690,20 +691,20 @@ private fun UnifiedNoteCard(
                         OutlinedButton(
                             onClick = onOpenTarget,
                             shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, Navy700),
+                            border = BorderStroke(1.dp, Sky500),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                                 contentDescription = null,
-                                tint = Navy900,
+                                tint = Blue900,
                                 modifier = Modifier.size(13.dp)
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
                                 text = "Buka di ${note.source.label}",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Navy900,
+                                color = Blue900,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -719,14 +720,14 @@ private fun ShiftFilterPill(label: String, selected: Boolean, onClick: () -> Uni
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
-        color = if (selected) Navy900 else Slate100,
-        border = BorderStroke(1.dp, if (selected) Gold500 else Slate200)
+        color = if (selected) Blue900 else Slate100.copy(alpha = 0.85f),
+        border = BorderStroke(1.dp, if (selected) Sky400 else Slate200)
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = if (selected) Gold400 else Slate700,
+            color = if (selected) Sky300 else Slate700,
             modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
         )
     }
@@ -737,14 +738,14 @@ private fun SourceFilterPill(label: String, selected: Boolean, onClick: () -> Un
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(50),
-        color = if (selected) Gold500 else Color.White,
-        border = BorderStroke(1.dp, if (selected) Gold500 else Slate200)
+        color = if (selected) Sky500 else Color.White.copy(alpha = 0.85f),
+        border = BorderStroke(1.dp, if (selected) Sky500 else Slate200)
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
-            color = if (selected) Navy950 else Navy900,
+            color = if (selected) Color.White else Blue900,
             modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
         )
     }

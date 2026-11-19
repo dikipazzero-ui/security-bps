@@ -88,21 +88,25 @@ import com.example.notifications.AlertKind
 import com.example.notifications.IncomingAlertEvent
 import com.example.notifications.NotificationSettings
 import com.example.notifications.RingtonePreset
-import com.example.ui.theme.Amber100
-import com.example.ui.theme.Amber800
+import com.example.ui.theme.Blue800
+import com.example.ui.theme.Blue800Text
+import com.example.ui.theme.Blue900
+import com.example.ui.theme.Blue950
 import com.example.ui.theme.Emerald600
-import com.example.ui.theme.Gold400
-import com.example.ui.theme.Gold500
+import com.example.ui.theme.IceBlue100
+import com.example.ui.theme.IceBlue50
 import com.example.ui.theme.Navy800
 import com.example.ui.theme.Navy900
-import com.example.ui.theme.Navy950
 import com.example.ui.theme.Red100
 import com.example.ui.theme.Red600
 import com.example.ui.theme.Red800
+import com.example.ui.theme.Sky300
+import com.example.ui.theme.Sky400
+import com.example.ui.theme.Sky500
+import com.example.ui.theme.Sky600
 import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
 import com.example.ui.theme.Slate400
-import com.example.ui.theme.Slate50
 import com.example.ui.theme.Slate500
 import com.example.ui.theme.Slate700
 import com.example.ui.theme.Slate800
@@ -157,8 +161,8 @@ fun FloatingNotificationOverlay(
                 val isUrgent = alert.isUrgent || alert.kind == AlertKind.ANNOUNCEMENT
                 Surface(
                     shape = RoundedCornerShape(16.dp),
-                    color = if (isUrgent) Navy950 else Navy900.copy(alpha = 0.97f),
-                    border = BorderStroke(1.5.dp, if (isUrgent) Red600 else Gold500),
+                    color = if (isUrgent) Blue950.copy(alpha = 0.88f) else Blue900.copy(alpha = 0.86f),
+                    border = BorderStroke(1.5.dp, if (isUrgent) Red600 else Sky400),
                     shadowElevation = 12.dp,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -177,13 +181,13 @@ fun FloatingNotificationOverlay(
                                     modifier = Modifier
                                         .size(38.dp)
                                         .clip(CircleShape)
-                                        .background(if (alert.isUrgent) Red600 else Gold500),
+                                        .background(if (alert.isUrgent) Red600 else Sky500),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Campaign,
                                         contentDescription = null,
-                                        tint = if (alert.isUrgent) Color.White else Navy950,
+                                        tint = Color.White,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -193,10 +197,10 @@ fun FloatingNotificationOverlay(
                                     isOnline = true,
                                     photoData = alert.senderPhoto,
                                     size = 38.dp,
-                                    containerColor = Navy800,
-                                    textColor = Gold400,
-                                    borderColor = Gold500,
-                                    ringColor = Navy900
+                                    containerColor = Blue800,
+                                    textColor = Sky300,
+                                    borderColor = Sky400,
+                                    ringColor = Blue900
                                 )
                             }
 
@@ -206,14 +210,14 @@ fun FloatingNotificationOverlay(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     Surface(
-                                        color = if (isUrgent) Red600 else Gold500.copy(alpha = 0.22f),
+                                        color = if (isUrgent) Red600 else Sky500.copy(alpha = 0.28f),
                                         shape = RoundedCornerShape(6.dp)
                                     ) {
                                         Text(
                                             text = alert.title,
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.ExtraBold,
-                                            color = if (isUrgent) Color.White else Gold400,
+                                            color = if (isUrgent) Color.White else Sky300,
                                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                         )
                                     }
@@ -263,7 +267,7 @@ fun FloatingNotificationOverlay(
                                     onDismissHeadsUp()
                                     onExpandFloatingWindow()
                                 },
-                                border = BorderStroke(1.dp, Gold500.copy(alpha = 0.65f)),
+                                border = BorderStroke(1.dp, Sky400.copy(alpha = 0.75f)),
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier
@@ -273,11 +277,11 @@ fun FloatingNotificationOverlay(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.Reply,
                                     contentDescription = null,
-                                    tint = Gold400,
+                                    tint = Sky300,
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(Modifier.width(4.dp))
-                                Text("Balas di Gelembung", style = MaterialTheme.typography.labelSmall, color = Gold400)
+                                Text("Balas di Gelembung", style = MaterialTheme.typography.labelSmall, color = Sky300)
                             }
                             Spacer(Modifier.width(8.dp))
                             Button(
@@ -286,8 +290,8 @@ fun FloatingNotificationOverlay(
                                     onOpenFullChatFromAlert()
                                 },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Gold500,
-                                    contentColor = Navy950
+                                    containerColor = Sky500,
+                                    contentColor = Color.White
                                 ),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                                 shape = RoundedCornerShape(8.dp),
@@ -340,8 +344,8 @@ fun FloatingNotificationOverlay(
                     Surface(
                         onClick = onExpandFloatingWindow,
                         shape = CircleShape,
-                        color = Navy900,
-                        border = BorderStroke(2.dp, Gold500),
+                        color = Blue900.copy(alpha = 0.86f),
+                        border = BorderStroke(2.dp, Sky400),
                         shadowElevation = 10.dp,
                         modifier = Modifier
                             .size(bubbleSizeDp)
@@ -351,7 +355,7 @@ fun FloatingNotificationOverlay(
                             Icon(
                                 imageVector = Icons.Default.Radio,
                                 contentDescription = "Buka Gelembung Live Chat",
-                                tint = Gold400,
+                                tint = Sky300,
                                 modifier = Modifier.size(26.dp)
                             )
                         }
@@ -401,8 +405,8 @@ private fun FloatingMiniChatWindow(
 
     Card(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.5.dp, Gold500),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.84f)),
+        border = BorderStroke(1.5.dp, Sky400.copy(alpha = 0.85f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 14.dp),
         modifier = modifier
             .widthIn(min = 270.dp, max = 330.dp)
@@ -414,7 +418,7 @@ private fun FloatingMiniChatWindow(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Navy900)
+                    .background(Blue900.copy(alpha = 0.88f))
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -424,7 +428,7 @@ private fun FloatingMiniChatWindow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.Radio, contentDescription = null, tint = Gold400, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Radio, contentDescription = null, tint = Sky300, modifier = Modifier.size(16.dp))
                     Text(
                         text = "Gelembung Chat • $activeRoomCode",
                         style = MaterialTheme.typography.labelLarge,
@@ -438,7 +442,7 @@ private fun FloatingMiniChatWindow(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                             contentDescription = "Buka Penuh",
-                            tint = Gold400,
+                            tint = Sky300,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -467,7 +471,7 @@ private fun FloatingMiniChatWindow(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .background(Slate100),
+                    .background(IceBlue50.copy(alpha = 0.55f)),
                 contentPadding = PaddingValues(8.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -491,16 +495,16 @@ private fun FloatingMiniChatWindow(
                             horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start
                         ) {
                             Surface(
-                                color = if (isMe) Navy900 else Color.White,
+                                color = if (isMe) Blue900.copy(alpha = 0.88f) else Color.White.copy(alpha = 0.88f),
                                 shape = RoundedCornerShape(10.dp),
-                                border = BorderStroke(1.dp, if (isMe) Navy800 else Slate200),
+                                border = BorderStroke(1.dp, if (isMe) Blue800 else Sky300.copy(alpha = 0.5f)),
                                 modifier = Modifier.widthIn(max = 240.dp)
                             ) {
                                 Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)) {
                                     Text(
                                         text = "${msg.senderName} • ${msg.time}",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = if (isMe) Gold400 else Navy800,
+                                        color = if (isMe) Sky300 else Blue800,
                                         fontWeight = FontWeight.Bold
                                     )
                                     val body = when {
@@ -527,7 +531,7 @@ private fun FloatingMiniChatWindow(
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Slate50),
+                    .background(IceBlue50.copy(alpha = 0.70f)),
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -535,8 +539,8 @@ private fun FloatingMiniChatWindow(
                     Surface(
                         onClick = { quickInput += emoji },
                         shape = RoundedCornerShape(8.dp),
-                        color = Color.White,
-                        border = BorderStroke(1.dp, Slate200),
+                        color = Color.White.copy(alpha = 0.88f),
+                        border = BorderStroke(1.dp, Sky300.copy(alpha = 0.4f)),
                         modifier = Modifier.size(28.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -546,13 +550,13 @@ private fun FloatingMiniChatWindow(
                 }
             }
 
-            HorizontalDivider(color = Slate200)
+            HorizontalDivider(color = Sky300.copy(alpha = 0.35f))
 
             // Quick Reply Composer
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White)
+                    .background(Color.White.copy(alpha = 0.82f))
                     .padding(horizontal = 6.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -565,9 +569,9 @@ private fun FloatingMiniChatWindow(
                     shape = RoundedCornerShape(10.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Slate100,
-                        focusedBorderColor = Gold500,
-                        unfocusedBorderColor = Slate200
+                        unfocusedContainerColor = IceBlue50.copy(alpha = 0.8f),
+                        focusedBorderColor = Sky500,
+                        unfocusedBorderColor = Sky300.copy(alpha = 0.45f)
                     ),
                     modifier = Modifier
                         .weight(1f)
@@ -582,7 +586,7 @@ private fun FloatingMiniChatWindow(
                         }
                     },
                     shape = RoundedCornerShape(10.dp),
-                    color = Navy900,
+                    color = Blue900.copy(alpha = 0.9f),
                     modifier = Modifier
                         .size(40.dp)
                         .testTag("floating_quick_reply_send")
@@ -591,7 +595,7 @@ private fun FloatingMiniChatWindow(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = "Kirim Balasan",
-                            tint = Gold400,
+                            tint = Sky300,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -612,12 +616,14 @@ fun NotificationSettingsDialog(
     onToggleSound: (Boolean) -> Unit,
     onToggleVibration: (Boolean) -> Unit,
     onToggleFloatingBubble: (Boolean) -> Unit,
+    onToggleBackgroundMonitor: (Boolean) -> Unit,
     onToggleSystemInForeground: (Boolean) -> Unit,
     onSelectRingtonePreset: (RingtonePreset) -> Unit,
     onPickSystemRingtone: () -> Unit,
     onTestChatNotification: () -> Unit,
     onTestAnnouncementNotification: () -> Unit,
     onOpenFloatingBubbleWindow: () -> Unit,
+    onOpenSystemBubbleSettings: () -> Unit,
     onClearHistory: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -630,7 +636,8 @@ fun NotificationSettingsDialog(
                 .fillMaxWidth()
                 .padding(14.dp),
             shape = RoundedCornerShape(20.dp),
-            color = Color.White,
+            color = IceBlue50.copy(alpha = 0.92f),
+            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.6f)),
             shadowElevation = 12.dp
         ) {
             Column {
@@ -638,7 +645,7 @@ fun NotificationSettingsDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Navy900)
+                        .background(Blue900.copy(alpha = 0.92f))
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -647,7 +654,7 @@ fun NotificationSettingsDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = Gold400)
+                        Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = Sky300)
                         Column {
                             Text(
                                 text = "Notifikasi, Nada Dering & Gelembung",
@@ -655,9 +662,9 @@ fun NotificationSettingsDialog(
                                 color = Color.White
                             )
                             Text(
-                                text = "Atur suara, getar, dan jendela pop-up seperti WA",
+                                text = "Atur suara, getar, & notifikasi mengambang saat app ditutup",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Gold400
+                                color = Sky300
                             )
                         }
                     }
@@ -675,9 +682,9 @@ fun NotificationSettingsDialog(
                 ) {
                     if (!hasOsNotificationPermission) {
                         Surface(
-                            color = Amber100,
+                            color = IceBlue100,
                             shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, Gold500)
+                            border = BorderStroke(1.dp, Sky500)
                         ) {
                             Row(
                                 modifier = Modifier
@@ -687,14 +694,14 @@ fun NotificationSettingsDialog(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "Izin notifikasi sistem belum aktif. Aktifkan agar notifikasi muncul di layar HP.",
+                                    text = "Izin notifikasi sistem belum aktif. Aktifkan agar notifikasi mengambang muncul saat app ditutup.",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Amber800,
+                                    color = Blue800Text,
                                     modifier = Modifier.weight(1f)
                                 )
                                 Button(
                                     onClick = onRequestPermission,
-                                    colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300),
                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
@@ -709,6 +716,13 @@ fun NotificationSettingsDialog(
                         subtitle = "Bunyi & pemberitahuan saat chat atau info baru masuk",
                         checked = settings.enabled,
                         onCheckedChange = onToggleEnabled
+                    )
+                    SettingSwitchRow(
+                        title = "Siaga Notif Mengambang (Saat App Ditutup)",
+                        subtitle = "Pantau Live Chat & laporan di latar belakang agar gelembung & pop-up OS tetap muncul",
+                        checked = settings.backgroundMonitorEnabled,
+                        enabled = settings.enabled,
+                        onCheckedChange = onToggleBackgroundMonitor
                     )
                     SettingSwitchRow(
                         title = "Nada Dering (Suara)",
@@ -741,9 +755,9 @@ fun NotificationSettingsDialog(
 
                     // Ringtone Picker Card
                     Surface(
-                        color = Slate50,
+                        color = Color.White.copy(alpha = 0.78f),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Slate200),
+                        border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
@@ -760,7 +774,7 @@ fun NotificationSettingsDialog(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    Icon(Icons.Default.MusicNote, contentDescription = null, tint = Navy800, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Default.MusicNote, contentDescription = null, tint = Blue800, modifier = Modifier.size(18.dp))
                                     Column {
                                         Text("Nada Dering Aktif", style = MaterialTheme.typography.labelMedium, color = Navy900)
                                         Text(settings.ringtoneTitle, style = MaterialTheme.typography.labelSmall, color = Emerald600)
@@ -783,13 +797,13 @@ fun NotificationSettingsDialog(
                                     Surface(
                                         onClick = { onSelectRingtonePreset(preset) },
                                         shape = RoundedCornerShape(8.dp),
-                                        color = if (selected) Navy900 else Color.White,
-                                        border = BorderStroke(1.dp, if (selected) Gold500 else Slate200)
+                                        color = if (selected) Blue900 else Color.White,
+                                        border = BorderStroke(1.dp, if (selected) Sky400 else Slate200)
                                     ) {
                                         Text(
                                             text = preset.label,
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = if (selected) Gold400 else Slate700,
+                                            color = if (selected) Sky300 else Slate700,
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
                                         )
                                     }
@@ -806,7 +820,7 @@ fun NotificationSettingsDialog(
                     ) {
                         Button(
                             onClick = onTestChatNotification,
-                            colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400),
+                            colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300),
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                             modifier = Modifier.testTag("test_chat_notif_button")
@@ -832,9 +846,19 @@ fun NotificationSettingsDialog(
                                 onDismiss()
                             },
                             shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, Sky500),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Text("Buka Jendela Gelembung", style = MaterialTheme.typography.labelSmall, color = Navy900)
+                        }
+                        OutlinedButton(
+                            onClick = onOpenSystemBubbleSettings,
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, Sky600),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier.testTag("open_system_bubble_settings_button")
+                        ) {
+                            Text("Atur Gelembung Sistem HP", style = MaterialTheme.typography.labelSmall, color = Blue800)
                         }
                     }
 
@@ -868,9 +892,9 @@ fun NotificationSettingsDialog(
                     } else {
                         history.take(8).forEach { item ->
                             Surface(
-                                color = if (item.isUrgent) Red100.copy(alpha = 0.5f) else Slate50,
+                                color = if (item.isUrgent) Red100.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.78f),
                                 shape = RoundedCornerShape(10.dp),
-                                border = BorderStroke(1.dp, if (item.isUrgent) Red600.copy(alpha = 0.4f) else Slate200),
+                                border = BorderStroke(1.dp, if (item.isUrgent) Red600.copy(alpha = 0.4f) else Sky300.copy(alpha = 0.4f)),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
@@ -916,9 +940,9 @@ private fun SettingSwitchRow(
     onCheckedChange: (Boolean) -> Unit
 ) {
     Surface(
-        color = Slate50,
+        color = Color.White.copy(alpha = 0.78f),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Slate200),
+        border = BorderStroke(1.dp, Sky300.copy(alpha = 0.4f)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -945,8 +969,8 @@ private fun SettingSwitchRow(
                 enabled = enabled,
                 onCheckedChange = onCheckedChange,
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = Navy950,
-                    checkedTrackColor = Gold500
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = Sky500
                 )
             )
         }

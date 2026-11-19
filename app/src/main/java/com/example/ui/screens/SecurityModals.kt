@@ -74,16 +74,18 @@ import com.example.data.model.OfficerProfile
 import com.example.data.model.OfficerRoles
 import com.example.data.model.RoomMember
 import com.example.media.ImageUtils
+import com.example.ui.theme.Blue800
+import com.example.ui.theme.Blue900
 import com.example.ui.theme.Emerald600
-import com.example.ui.theme.Gold400
-import com.example.ui.theme.Gold500
-import com.example.ui.theme.Navy100
+import com.example.ui.theme.IceBlue50
 import com.example.ui.theme.Navy700
 import com.example.ui.theme.Navy800
 import com.example.ui.theme.Navy900
-import com.example.ui.theme.Navy950
 import com.example.ui.theme.Red100
 import com.example.ui.theme.Red600
+import com.example.ui.theme.Sky300
+import com.example.ui.theme.Sky400
+import com.example.ui.theme.Sky500
 import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
 import com.example.ui.theme.Slate400
@@ -107,14 +109,15 @@ fun WhatsAppRecapDialog(
                 .fillMaxWidth()
                 .padding(16.dp),
             shape = RoundedCornerShape(20.dp),
-            color = Color.White,
+            color = IceBlue50.copy(alpha = 0.92f),
+            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.6f)),
             shadowElevation = 12.dp
         ) {
             Column {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Navy900)
+                        .background(Blue900.copy(alpha = 0.92f))
                         .padding(horizontal = 18.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -221,14 +224,15 @@ fun EditOfficerDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = Color.White,
+            color = IceBlue50.copy(alpha = 0.92f),
+            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.6f)),
             shadowElevation = 10.dp
         ) {
             Column {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Navy900)
+                        .background(Blue900.copy(alpha = 0.92f))
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -240,7 +244,7 @@ fun EditOfficerDialog(
                         Icon(
                             imageVector = Icons.Default.Badge,
                             contentDescription = null,
-                            tint = Gold400
+                            tint = Sky300
                         )
                         Text(
                             text = "Identitas & Foto Profil",
@@ -265,9 +269,9 @@ fun EditOfficerDialog(
                 ) {
                     // Profile Photo Picker Section
                     Surface(
-                        color = Slate50,
+                        color = Color.White.copy(alpha = 0.80f),
                         shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.dp, Slate200),
+                        border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -280,10 +284,10 @@ fun EditOfficerDialog(
                                 isOnline = true,
                                 photoData = profile.photoData,
                                 size = 60.dp,
-                                containerColor = Navy800,
-                                textColor = Gold400,
-                                borderColor = Gold500,
-                                ringColor = Slate50
+                                containerColor = Blue800,
+                                textColor = Sky300,
+                                borderColor = Sky400,
+                                ringColor = IceBlue50
                             )
                             Column(
                                 modifier = Modifier.weight(1f),
@@ -298,8 +302,8 @@ fun EditOfficerDialog(
                                     Button(
                                         onClick = onPickProfilePhoto,
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = Navy900,
-                                            contentColor = Gold400
+                                            containerColor = Blue900,
+                                            contentColor = Sky300
                                         ),
                                         shape = RoundedCornerShape(10.dp),
                                         modifier = Modifier.testTag("change_profile_photo_button")
@@ -391,8 +395,8 @@ fun EditOfficerDialog(
                                 }
                             },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Navy900,
-                                contentColor = Gold400
+                                containerColor = Blue900,
+                                contentColor = Sky300
                             ),
                             modifier = Modifier.testTag("save_officer_button")
                         ) {
@@ -515,9 +519,9 @@ fun PhotoLightboxDialog(
                 if (!caption.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Surface(
-                        color = Navy900.copy(alpha = 0.9f),
+                        color = Blue900.copy(alpha = 0.9f),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Gold500.copy(alpha = 0.5f)),
+                        border = BorderStroke(1.dp, Sky400.copy(alpha = 0.6f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
@@ -559,7 +563,7 @@ fun PhotoSourcePickerDialog(
                 Surface(
                     onClick = onPickCamera,
                     shape = RoundedCornerShape(12.dp),
-                    color = Navy900,
+                    color = Blue900,
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("pick_camera_option")
@@ -569,7 +573,7 @@ fun PhotoSourcePickerDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Gold400)
+                        Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Sky300)
                         Column {
                             Text("Ambil Foto Kamera", color = Color.White, fontWeight = FontWeight.Bold)
                             Text("Gunakan kamera perangkat secara langsung", style = MaterialTheme.typography.bodySmall, color = Slate100)
@@ -626,14 +630,15 @@ fun JoinOrCreateRoomDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = Color.White,
+            color = IceBlue50.copy(alpha = 0.92f),
+            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.6f)),
             shadowElevation = 12.dp
         ) {
             Column {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Navy900)
+                        .background(Blue900.copy(alpha = 0.92f))
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -642,7 +647,7 @@ fun JoinOrCreateRoomDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.Key, contentDescription = null, tint = Gold400)
+                        Icon(Icons.Default.Key, contentDescription = null, tint = Sky300)
                         Text(
                             text = "Ruang Kerja Tim (1 Database)",
                             style = MaterialTheme.typography.titleMedium,
@@ -710,8 +715,8 @@ fun JoinOrCreateRoomDialog(
                         Surface(
                             onClick = { modeJoin = true },
                             shape = RoundedCornerShape(10.dp),
-                            color = if (modeJoin) Navy900 else Slate100,
-                            border = BorderStroke(1.dp, if (modeJoin) Gold500 else Slate200),
+                            color = if (modeJoin) Blue900 else Slate100,
+                            border = BorderStroke(1.dp, if (modeJoin) Sky400 else Slate200),
                             modifier = Modifier.weight(1f)
                         ) {
                             Row(
@@ -722,7 +727,7 @@ fun JoinOrCreateRoomDialog(
                                 Icon(
                                     Icons.Default.Login,
                                     contentDescription = null,
-                                    tint = if (modeJoin) Gold400 else Slate700,
+                                    tint = if (modeJoin) Sky300 else Slate700,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -736,8 +741,8 @@ fun JoinOrCreateRoomDialog(
                         Surface(
                             onClick = { modeJoin = false },
                             shape = RoundedCornerShape(10.dp),
-                            color = if (!modeJoin) Navy900 else Slate100,
-                            border = BorderStroke(1.dp, if (!modeJoin) Gold500 else Slate200),
+                            color = if (!modeJoin) Blue900 else Slate100,
+                            border = BorderStroke(1.dp, if (!modeJoin) Sky400 else Slate200),
                             modifier = Modifier.weight(1f)
                         ) {
                             Row(
@@ -748,7 +753,7 @@ fun JoinOrCreateRoomDialog(
                                 Icon(
                                     Icons.Default.AddCircle,
                                     contentDescription = null,
-                                    tint = if (!modeJoin) Gold400 else Slate700,
+                                    tint = if (!modeJoin) Sky300 else Slate700,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -787,7 +792,7 @@ fun JoinOrCreateRoomDialog(
                         Button(
                             onClick = { onJoinRoom(joinCodeInput) },
                             enabled = !isBusy && joinCodeInput.trim().length >= 3,
-                            colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400),
+                            colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -795,7 +800,7 @@ fun JoinOrCreateRoomDialog(
                                 .testTag("confirm_join_room_button")
                         ) {
                             if (isBusy) {
-                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Gold400, strokeWidth = 2.dp)
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Sky300, strokeWidth = 2.dp)
                             } else {
                                 Text("Gabung ke Ruang Live Chat", fontWeight = FontWeight.Bold)
                             }
@@ -839,7 +844,7 @@ fun JoinOrCreateRoomDialog(
                         Button(
                             onClick = { onCreateRoom(createCodeInput, createTitleInput) },
                             enabled = !isBusy && createCodeInput.trim().length >= 3 && createTitleInput.isNotBlank(),
-                            colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400),
+                            colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -847,7 +852,7 @@ fun JoinOrCreateRoomDialog(
                                 .testTag("confirm_create_room_button")
                         ) {
                             if (isBusy) {
-                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Gold400, strokeWidth = 2.dp)
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Sky300, strokeWidth = 2.dp)
                             } else {
                                 Text("Buat & Gabung Ruang", fontWeight = FontWeight.Bold)
                             }
@@ -871,14 +876,15 @@ fun RoomMembersDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = Color.White,
+            color = IceBlue50.copy(alpha = 0.92f),
+            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.6f)),
             shadowElevation = 12.dp
         ) {
             Column {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Navy900)
+                        .background(Blue900.copy(alpha = 0.92f))
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -888,7 +894,7 @@ fun RoomMembersDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Icon(Icons.Default.Groups, contentDescription = null, tint = Gold400)
+                        Icon(Icons.Default.Groups, contentDescription = null, tint = Sky300)
                         Column {
                             Text(
                                 text = "Anggota Ruang ($roomCode)",
@@ -898,7 +904,7 @@ fun RoomMembersDialog(
                             Text(
                                 text = "$onlineCount online dari ${members.size} tergabung",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Gold400
+                                color = Sky300
                             )
                         }
                     }
@@ -925,9 +931,9 @@ fun RoomMembersDialog(
                         items(members, key = { it.userId }) { member ->
                             val online = member.isCurrentlyOnline()
                             Surface(
-                                color = Slate50,
+                                color = Color.White.copy(alpha = 0.82f),
                                 shape = RoundedCornerShape(14.dp),
-                                border = BorderStroke(1.dp, if (online) Emerald600.copy(alpha = 0.35f) else Slate200)
+                                border = BorderStroke(1.dp, if (online) Emerald600.copy(alpha = 0.4f) else Sky300.copy(alpha = 0.35f))
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -941,10 +947,10 @@ fun RoomMembersDialog(
                                         isOnline = online,
                                         photoData = member.photoData,
                                         size = 42.dp,
-                                        containerColor = if (online) Navy800 else Slate200,
-                                        textColor = if (online) Gold400 else Slate700,
-                                        borderColor = if (online) Gold500 else Slate400,
-                                        ringColor = Slate50
+                                        containerColor = if (online) Blue800 else Slate200,
+                                        textColor = if (online) Sky300 else Slate700,
+                                        borderColor = if (online) Sky400 else Slate400,
+                                        ringColor = IceBlue50
                                     )
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(

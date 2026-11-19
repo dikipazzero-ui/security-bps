@@ -80,21 +80,22 @@ import com.example.data.model.TimeKeywordFilter
 import com.example.data.model.UiState
 import com.example.data.model.currentIsoDate
 import com.example.data.model.parseIsoDateTriple
-import com.example.ui.theme.Amber100
-import com.example.ui.theme.Amber800
+import com.example.ui.theme.Blue800Text
+import com.example.ui.theme.Blue900
 import com.example.ui.theme.Emerald100
 import com.example.ui.theme.Emerald600
 import com.example.ui.theme.Emerald800
-import com.example.ui.theme.Gold400
-import com.example.ui.theme.Gold500
-import com.example.ui.theme.Navy50
+import com.example.ui.theme.IceBlue100
+import com.example.ui.theme.IceBlue50
 import com.example.ui.theme.Navy100
-import com.example.ui.theme.Navy700
 import com.example.ui.theme.Navy800
 import com.example.ui.theme.Navy900
 import com.example.ui.theme.Red100
 import com.example.ui.theme.Red600
 import com.example.ui.theme.Red800
+import com.example.ui.theme.Sky300
+import com.example.ui.theme.Sky400
+import com.example.ui.theme.Sky500
 import com.example.ui.theme.Slate50
 import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
@@ -175,7 +176,7 @@ fun AttendanceTabScreen(
         when (sheetsState) {
             is UiState.Loading -> {
                 CircularProgressIndicator(
-                    color = Gold400,
+                    color = Sky400,
                     modifier = Modifier.align(Alignment.Center)
                 )
             }
@@ -205,8 +206,8 @@ fun AttendanceTabScreen(
                     item {
                         Card(
                             shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.90f)),
-                            border = BorderStroke(1.dp, Slate200)
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.74f)),
+                            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f))
                         ) {
                             Column(
                                 modifier = Modifier.padding(10.dp),
@@ -226,16 +227,16 @@ fun AttendanceTabScreen(
                                             modifier = Modifier
                                                 .size(36.dp)
                                                 .clip(RoundedCornerShape(10.dp))
-                                                .background(Navy900),
+                                                .background(Blue900),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Icon(Icons.Default.FactCheck, contentDescription = null, tint = Gold400)
+                                            Icon(Icons.Default.FactCheck, contentDescription = null, tint = Sky300)
                                         }
                                         Column {
                                             Text(
                                                 text = "Tabel Absensi 15 Anggota",
                                                 style = MaterialTheme.typography.titleSmall,
-                                                color = Navy900,
+                                                color = Blue900,
                                                 fontWeight = FontWeight.ExtraBold
                                             )
                                             Text(
@@ -254,14 +255,14 @@ fun AttendanceTabScreen(
                                             Icon(
                                                 imageVector = Icons.Default.Search,
                                                 contentDescription = "Cari & Saring Absensi",
-                                                tint = if (showSearchPanel || attendanceFilter.isActive) Gold500 else Navy800
+                                                tint = if (showSearchPanel || attendanceFilter.isActive) Sky500 else Navy800
                                             )
                                         }
                                         Button(
                                             onClick = { showCreateDialog = true },
                                             colors = ButtonDefaults.buttonColors(
-                                                containerColor = Navy900,
-                                                contentColor = Gold400
+                                                containerColor = Blue900,
+                                                contentColor = Sky300
                                             ),
                                             shape = RoundedCornerShape(10.dp),
                                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
@@ -284,8 +285,8 @@ fun AttendanceTabScreen(
                                             Surface(
                                                 onClick = { onSelectSheet(sheet.id) },
                                                 shape = RoundedCornerShape(10.dp),
-                                                color = if (isSelected) Navy900 else Slate100,
-                                                border = BorderStroke(1.dp, if (isSelected) Gold500 else Slate200)
+                                                color = if (isSelected) Blue900 else Slate100.copy(alpha = 0.85f),
+                                                border = BorderStroke(1.dp, if (isSelected) Sky400 else Slate200)
                                             ) {
                                                 Column(
                                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
@@ -294,7 +295,7 @@ fun AttendanceTabScreen(
                                                         text = "${sheet.sheetDate} • ${sheet.shift}",
                                                         style = MaterialTheme.typography.labelMedium,
                                                         fontWeight = FontWeight.Bold,
-                                                        color = if (isSelected) Gold400 else Navy900
+                                                        color = if (isSelected) Sky300 else Blue900
                                                     )
                                                     Text(
                                                         text = "${sheet.rows.size} Anggota • ${sheet.periodLabel}",
@@ -384,9 +385,9 @@ fun AttendanceTabScreen(
                     if (activeSheet == null) {
                         item {
                             Surface(
-                                color = Color.White.copy(alpha = 0.90f),
+                                color = Color.White.copy(alpha = 0.74f),
                                 shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(1.dp, Slate200),
+                                border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f)),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(
@@ -406,7 +407,7 @@ fun AttendanceTabScreen(
                                     )
                                     Button(
                                         onClick = { showCreateDialog = true },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400)
+                                        colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300)
                                     ) {
                                         Text("+ Buat Tabel Absensi 15 Anggota")
                                     }
@@ -423,8 +424,8 @@ fun AttendanceTabScreen(
                         item {
                             Card(
                                 shape = RoundedCornerShape(18.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.91f)),
-                                border = BorderStroke(1.dp, Slate200)
+                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.74f)),
+                                border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f))
                             ) {
                                 Column(
                                     modifier = Modifier.padding(14.dp),
@@ -440,7 +441,7 @@ fun AttendanceTabScreen(
                                                 text = activeSheet.formattedDisplayDate(),
                                                 style = MaterialTheme.typography.titleSmall,
                                                 fontWeight = FontWeight.ExtraBold,
-                                                color = Navy900
+                                                color = Blue900
                                             )
                                             Text(
                                                 text = "${activeSheet.shift} • ${activeSheet.periodLabel} • Danru: ${activeSheet.commanderName}",
@@ -464,10 +465,10 @@ fun AttendanceTabScreen(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        SummaryCountChip("Total: ${activeSheet.rows.size}", Navy900, Gold400)
+                                        SummaryCountChip("Total: ${activeSheet.rows.size}", Blue900, Sky300)
                                         SummaryCountChip("Hadir (H): $hCount", Emerald100, Emerald800)
                                         SummaryCountChip("Izin (I): $iCount", Navy100, Navy800)
-                                        SummaryCountChip("Sakit (S): $sCount", Amber100, Amber800)
+                                        SummaryCountChip("Sakit (S): $sCount", IceBlue100, Blue800Text)
                                         SummaryCountChip("Alpha (A): $aCount", Red100, Red800)
                                         SummaryCountChip("Libur (L): $lCount", Slate100, Slate700)
                                     }
@@ -540,8 +541,8 @@ fun AttendanceTabScreen(
                         item {
                             Card(
                                 shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.96f)),
-                                border = BorderStroke(1.5.dp, Navy800)
+                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.78f)),
+                                border = BorderStroke(1.5.dp, Sky400.copy(alpha = 0.55f))
                             ) {
                                 val hScroll = rememberScrollState()
                                 Column(
@@ -549,10 +550,10 @@ fun AttendanceTabScreen(
                                         .fillMaxWidth()
                                         .horizontalScroll(hScroll)
                                 ) {
-                                    // Formal Navy Header Row
+                                    // Formal Sapphire Blue Header Row
                                     Row(
                                         modifier = Modifier
-                                            .background(Navy900)
+                                            .background(Blue900.copy(alpha = 0.90f))
                                             .height(44.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -578,7 +579,7 @@ fun AttendanceTabScreen(
                                         GridDivider(Color.White.copy(alpha = 0.25f))
                                         HeaderGridCell("AKSI", COL_AKSI, TextAlign.Center)
                                     }
-                                    HorizontalDivider(thickness = 1.5.dp, color = Gold500)
+                                    HorizontalDivider(thickness = 1.5.dp, color = Sky400)
 
                                     if (visibleIndexedRows.isEmpty()) {
                                         Box(
@@ -595,7 +596,7 @@ fun AttendanceTabScreen(
                                         }
                                     } else {
                                         visibleIndexedRows.forEachIndexed { displayPos, (originalIdx, row) ->
-                                            val rowBg = if (displayPos % 2 == 0) Color.White else Slate50
+                                            val rowBg = if (displayPos % 2 == 0) Color.White.copy(alpha = 0.80f) else IceBlue50.copy(alpha = 0.72f)
                                             AttendanceGridRow(
                                                 rowNumber = originalIdx + 1,
                                                 row = row,
@@ -616,9 +617,9 @@ fun AttendanceTabScreen(
                         // Legend footer card
                         item {
                             Surface(
-                                color = Color.White.copy(alpha = 0.88f),
+                                color = Color.White.copy(alpha = 0.74f),
                                 shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, Slate200),
+                                border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f)),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
@@ -753,7 +754,7 @@ private fun HeaderGridCell(text: String, width: Dp, align: TextAlign) {
             text = text,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.ExtraBold,
-            color = Gold400,
+            color = Sky300,
             textAlign = align,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -783,7 +784,7 @@ private fun AttendanceGridRow(
     val (statusBg, statusFg) = when (status) {
         AttendanceStatus.HADIR -> Emerald100 to Emerald800
         AttendanceStatus.IZIN -> Navy100 to Navy800
-        AttendanceStatus.SAKIT -> Amber100 to Amber800
+        AttendanceStatus.SAKIT -> IceBlue100 to Blue800Text
         AttendanceStatus.ALPHA -> Red100 to Red800
         AttendanceStatus.LIBUR -> Slate200 to Slate700
     }
@@ -911,19 +912,20 @@ private fun AttendanceHeaderDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = Color.White,
+            color = IceBlue50.copy(alpha = 0.94f),
+            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f)),
             shadowElevation = 10.dp
         ) {
             Column {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Navy900)
+                        .background(Blue900.copy(alpha = 0.90f))
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(title, style = MaterialTheme.typography.titleSmall, color = Gold400, fontWeight = FontWeight.Bold)
+                    Text(title, style = MaterialTheme.typography.titleSmall, color = Sky300, fontWeight = FontWeight.Bold)
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Color.White)
                     }
@@ -941,21 +943,21 @@ private fun AttendanceHeaderDialog(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Text("Shift Tugas", style = MaterialTheme.typography.labelMedium, color = Navy900)
+                    Text("Shift Tugas", style = MaterialTheme.typography.labelMedium, color = Blue900)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                         ShiftOption.entries.forEach { shift ->
                             val active = selectedShift == shift.label
                             Surface(
                                 onClick = { selectedShift = shift.label },
                                 shape = RoundedCornerShape(10.dp),
-                                color = if (active) Navy900 else Slate100,
-                                border = BorderStroke(1.dp, if (active) Gold500 else Slate200),
+                                color = if (active) Blue900 else Slate100.copy(alpha = 0.85f),
+                                border = BorderStroke(1.dp, if (active) Sky400 else Slate200),
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text(
                                     text = shift.label,
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = if (active) Gold400 else Slate700,
+                                    color = if (active) Sky300 else Slate700,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.padding(vertical = 8.dp)
                                 )
@@ -996,7 +998,7 @@ private fun AttendanceHeaderDialog(
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = { onConfirm(sheetDate, selectedShift, periodLabel, commanderName, copyNames) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400)
+                            colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300)
                         ) {
                             Text("Simpan")
                         }
@@ -1034,20 +1036,21 @@ private fun EditAttendanceRowDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = Color.White,
+            color = IceBlue50.copy(alpha = 0.94f),
+            border = BorderStroke(1.dp, Sky300.copy(alpha = 0.45f)),
             shadowElevation = 10.dp
         ) {
             Column {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Navy900)
+                        .background(Blue900.copy(alpha = 0.90f))
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Gold400)
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Sky300)
                         Text(
                             text = "Absensi Anggota #${rowNumber.toString().padStart(2, '0')}",
                             style = MaterialTheme.typography.titleSmall,
@@ -1098,7 +1101,7 @@ private fun EditAttendanceRowDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Text("Status Kehadiran", style = MaterialTheme.typography.labelMedium, color = Navy900)
+                    Text("Status Kehadiran", style = MaterialTheme.typography.labelMedium, color = Blue900)
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -1111,13 +1114,13 @@ private fun EditAttendanceRowDialog(
                                     recordedAt = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
                                 },
                                 shape = RoundedCornerShape(10.dp),
-                                color = if (selected) Navy900 else Slate100,
-                                border = BorderStroke(1.dp, if (selected) Gold500 else Slate200)
+                                color = if (selected) Blue900 else Slate100.copy(alpha = 0.85f),
+                                border = BorderStroke(1.dp, if (selected) Sky400 else Slate200)
                             ) {
                                 Text(
                                     text = "${st.code} (${st.label})",
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = if (selected) Gold400 else Slate700,
+                                    color = if (selected) Sky300 else Slate700,
                                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
                                 )
@@ -1178,7 +1181,7 @@ private fun EditAttendanceRowDialog(
                                     )
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = Navy900, contentColor = Gold400),
+                            colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300),
                             modifier = Modifier.testTag("save_attendance_row_button")
                         ) {
                             Text("Simpan & Rekam")

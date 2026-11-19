@@ -54,12 +54,15 @@ import com.example.data.firebase.SecurityRepository
 import com.example.data.model.ChatMessage
 import com.example.data.model.DEFAULT_ROOM_CODE
 import com.example.data.model.OfficerProfile
-import com.example.ui.theme.Gold400
-import com.example.ui.theme.Gold500
+import com.example.ui.theme.Blue800
+import com.example.ui.theme.Blue900
+import com.example.ui.theme.IceBlue50
 import com.example.ui.theme.Navy800
 import com.example.ui.theme.Navy900
 import com.example.ui.theme.SecurityBpsTheme
-import com.example.ui.theme.Slate100
+import com.example.ui.theme.Sky300
+import com.example.ui.theme.Sky400
+import com.example.ui.theme.Sky500
 import com.example.ui.theme.Slate200
 import com.example.ui.theme.Slate400
 import com.example.ui.theme.Slate500
@@ -113,7 +116,7 @@ private fun BubbleChatContent(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Slate100)
+                .background(IceBlue50)
                 .padding(20.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -128,12 +131,12 @@ private fun BubbleChatContent(
                 )
                 Surface(
                     onClick = onOpenFullApp,
-                    color = Navy900,
+                    color = Blue900,
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Text(
                         text = "Buka Security BPS",
-                        color = Gold400,
+                        color = Sky300,
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                     )
@@ -162,13 +165,13 @@ private fun BubbleChatContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Slate100)
+            .background(IceBlue50)
             .imePadding()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Navy900)
+                .background(Blue900)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -178,7 +181,7 @@ private fun BubbleChatContent(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                Icon(Icons.Default.Radio, contentDescription = null, tint = Gold400, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Radio, contentDescription = null, tint = Sky300, modifier = Modifier.size(18.dp))
                 Column {
                     Text(
                         text = "Live Chat • $roomCode",
@@ -190,7 +193,7 @@ private fun BubbleChatContent(
                     Text(
                         text = activeProfile.name,
                         style = MaterialTheme.typography.labelSmall,
-                        color = Gold400,
+                        color = Sky300,
                         maxLines = 1
                     )
                 }
@@ -199,7 +202,7 @@ private fun BubbleChatContent(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                     contentDescription = "Buka Layar Penuh",
-                    tint = Gold400
+                    tint = Sky300
                 )
             }
         }
@@ -234,8 +237,8 @@ private fun BubbleChatContent(
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Slate100,
-                    focusedBorderColor = Gold500,
+                    unfocusedContainerColor = IceBlue50,
+                    focusedBorderColor = Sky500,
                     unfocusedBorderColor = Slate200
                 ),
                 modifier = Modifier.weight(1f)
@@ -260,14 +263,14 @@ private fun BubbleChatContent(
                     }
                 },
                 shape = RoundedCornerShape(12.dp),
-                color = Navy900,
+                color = Blue900,
                 modifier = Modifier.size(44.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = "Kirim",
-                        tint = Gold400,
+                        tint = Sky300,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -283,16 +286,16 @@ private fun BubbleRowMessage(msg: ChatMessage, isMe: Boolean) {
         horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start
     ) {
         Surface(
-            color = if (isMe) Navy900 else Color.White,
+            color = if (isMe) Blue900 else Color.White,
             shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, if (isMe) Navy800 else Slate200)
+            border = BorderStroke(1.dp, if (isMe) Blue800 else Sky300.copy(alpha = 0.45f))
         ) {
             Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
                 Text(
                     text = msg.senderName,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = if (isMe) Gold400 else Navy800
+                    color = if (isMe) Sky300 else Blue800
                 )
                 val body = when {
                     msg.text.isNotBlank() -> msg.text

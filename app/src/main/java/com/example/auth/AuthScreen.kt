@@ -59,16 +59,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
 import com.example.R
+import com.example.ui.theme.Blue800
+import com.example.ui.theme.Blue900
+import com.example.ui.theme.Blue950
 import com.example.ui.theme.Emerald400
-import com.example.ui.theme.Gold400
-import com.example.ui.theme.Gold500
-import com.example.ui.theme.Navy700
-import com.example.ui.theme.Navy800
-import com.example.ui.theme.Navy900
-import com.example.ui.theme.Navy950
 import com.example.ui.theme.Red100
 import com.example.ui.theme.Red800
-import com.example.ui.theme.Slate400
+import com.example.ui.theme.Sky300
+import com.example.ui.theme.Sky400
+import com.example.ui.theme.Sky500
+import com.example.ui.theme.Slate300
 
 @Composable
 fun AuthScreen(
@@ -112,9 +112,9 @@ fun AuthScreen(
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Navy950.copy(alpha = 0.68f),
-                            Navy900.copy(alpha = 0.60f),
-                            Navy950.copy(alpha = 0.84f)
+                            Blue950.copy(alpha = 0.50f),
+                            Blue900.copy(alpha = 0.44f),
+                            Blue950.copy(alpha = 0.68f)
                         )
                     )
                 )
@@ -136,7 +136,7 @@ fun AuthScreen(
                     modifier = Modifier
                         .size(88.dp)
                         .clip(RoundedCornerShape(22.dp))
-                        .border(2.dp, Gold500, RoundedCornerShape(22.dp)),
+                        .border(2.dp, Sky400.copy(alpha = 0.85f), RoundedCornerShape(22.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
@@ -150,9 +150,9 @@ fun AuthScreen(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 Surface(
-                    color = Navy800,
+                    color = Blue800.copy(alpha = 0.72f),
                     shape = RoundedCornerShape(50),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Gold500.copy(alpha = 0.5f))
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Sky400.copy(alpha = 0.55f))
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -168,7 +168,7 @@ fun AuthScreen(
                         Text(
                             text = "SATUAN PENGAMANAN • PLOT BPS",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Gold400,
+                            color = Sky300,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -188,7 +188,7 @@ fun AuthScreen(
                 Text(
                     text = stringResource(R.string.auth_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Slate400,
+                    color = Slate300,
                     textAlign = TextAlign.Center
                 )
 
@@ -196,8 +196,8 @@ fun AuthScreen(
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Navy950.copy(alpha = 0.72f)),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Navy700),
+                    colors = CardDefaults.cardColors(containerColor = Blue950.copy(alpha = 0.58f)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Sky400.copy(alpha = 0.35f)),
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Column(
@@ -274,16 +274,16 @@ fun AuthScreen(
                         .testTag("google_sign_in_button"),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Gold500,
-                        contentColor = Navy950,
-                        disabledContainerColor = Gold500.copy(alpha = 0.5f),
-                        disabledContentColor = Navy950
+                        containerColor = Sky500.copy(alpha = 0.90f),
+                        contentColor = Color.White,
+                        disabledContainerColor = Sky500.copy(alpha = 0.45f),
+                        disabledContentColor = Color.White
                     )
                 ) {
                     if (isLoading || isAttemptingAuto) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(22.dp),
-                            color = Navy950,
+                            color = Color.White,
                             strokeWidth = 2.5.dp
                         )
                         Spacer(modifier = Modifier.width(10.dp))
@@ -314,13 +314,13 @@ fun AuthScreen(
                     Icon(
                         imageVector = Icons.Default.Shield,
                         contentDescription = null,
-                        tint = Slate400,
+                        tint = Sky300,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
                         text = "Data laporan & koordinasi tersimpan aman di akun Google Anda",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Slate400
+                        color = Slate300
                     )
                 }
             }
@@ -342,13 +342,13 @@ private fun FeatureRow(
             modifier = Modifier
                 .size(34.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(Gold500.copy(alpha = 0.16f)),
+                .background(Sky500.copy(alpha = 0.22f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Gold400,
+                tint = Sky300,
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -361,7 +361,7 @@ private fun FeatureRow(
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = Slate400
+                color = Slate300
             )
         }
     }
