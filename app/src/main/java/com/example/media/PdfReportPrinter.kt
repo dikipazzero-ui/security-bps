@@ -81,7 +81,7 @@ object PdfReportPrinter {
         profile: OfficerProfile
     ) {
         val printManager = context.getSystemService(Context.PRINT_SERVICE) as? PrintManager ?: return
-        val jobName = "Absensi_15_Anggota_BPS_${sheet.sheetDate}"
+        val jobName = "Absensi_4_Anggota_${sheet.shift.replace(" ", "_")}_BPS_${sheet.sheetDate}"
         val adapter = SecurityAttendancePrintAdapter(
             context = context,
             sheet = sheet,
@@ -590,7 +590,7 @@ private class SecurityAttendancePrintAdapter(
             callback.onLayoutCancelled()
             return
         }
-        val info = PrintDocumentInfo.Builder("Absensi_15_Anggota_BPS_${sheet.sheetDate}.pdf")
+        val info = PrintDocumentInfo.Builder("Absensi_4_Anggota_${sheet.shift.replace(" ", "_")}_BPS_${sheet.sheetDate}.pdf")
             .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
             .setPageCount(PrintDocumentInfo.PAGE_COUNT_UNKNOWN)
             .build()

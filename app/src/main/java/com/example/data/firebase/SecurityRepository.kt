@@ -448,7 +448,7 @@ class SecurityRepository(
             }
         }
 
-        // 3. Starter shared 15-member AttendanceSheet
+        // 3. Starter shared 4-member-per-shift AttendanceSheet
         val attCol = roomRef.collection("attendance_sheets")
         if (attCol.whereEqualTo("roomCode", cleanCode).limit(1).get().await().isEmpty) {
             val initAttRef = attCol.document("init_att_1")
@@ -458,9 +458,9 @@ class SecurityRepository(
                     roomCode = cleanCode,
                     sheetDate = currentIsoDate(),
                     shift = starterShift,
-                    periodLabel = "Regu Plot BPS (15 Anggota)",
+                    periodLabel = "Regu Plot BPS (4 Orang/Shift)",
                     commanderName = cleanName,
-                    rows = AttendanceTemplates.default15Members(cleanName, starterShift),
+                    rows = AttendanceTemplates.defaultShiftMembers(cleanName, starterShift),
                     includeCreatedAt = true
                 )
                 initAttRef.set(starterAttPayload).await()

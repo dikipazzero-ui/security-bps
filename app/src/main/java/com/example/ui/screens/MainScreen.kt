@@ -1086,15 +1086,15 @@ fun MainScreen(
                                     onQuickCycleStatus = viewModel::quickCycleAttendanceStatus,
                                     onMarkAllStatus = viewModel::markAllAttendanceStatus,
                                     onFillShiftTimes = viewModel::fillAttendanceShiftTimes,
-                                    onEnsure15Rows = viewModel::ensure15AttendanceRows,
+                                    onEnsure4Rows = viewModel::ensure4AttendanceRows,
                                     onDeleteRow = viewModel::deleteAttendanceRow,
                                     onDeleteSheet = viewModel::deleteActiveAttendanceSheet,
                                     onExplicitSave = viewModel::saveActiveAttendanceSheetExplicitly,
                                     onCopyWhatsApp = { sheet ->
                                         val text = viewModel.buildAttendanceWhatsAppRecap(sheet, profile)
                                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                                        clipboard?.setPrimaryClip(ClipData.newPlainText("Absensi 15 Anggota Security BPS", text))
-                                        viewModel.emitToast("Rekap Absensi 15 Anggota berhasil disalin ke Clipboard!")
+                                        clipboard?.setPrimaryClip(ClipData.newPlainText("Absensi 4 Orang/Shift Security BPS", text))
+                                        viewModel.emitToast("Rekap Absensi ${sheet.rows.size} Anggota (${sheet.shift}) berhasil disalin ke Clipboard!")
                                     },
                                     onPrintPdf = { sheet ->
                                         PdfReportPrinter.printAttendanceSheet(

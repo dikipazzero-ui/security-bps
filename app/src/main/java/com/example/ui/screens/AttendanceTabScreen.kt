@@ -137,7 +137,7 @@ fun AttendanceTabScreen(
     onQuickCycleStatus: (rowIndex: Int) -> Unit,
     onMarkAllStatus: (statusCode: String) -> Unit,
     onFillShiftTimes: () -> Unit,
-    onEnsure15Rows: () -> Unit,
+    onEnsure4Rows: () -> Unit,
     onDeleteRow: (rowIndex: Int) -> Unit,
     onDeleteSheet: () -> Unit,
     onExplicitSave: () -> Unit,
@@ -234,7 +234,7 @@ fun AttendanceTabScreen(
                                         }
                                         Column {
                                             Text(
-                                                text = "Tabel Absensi 15 Anggota",
+                                                text = "Tabel Absensi 4 Orang / Shift",
                                                 style = MaterialTheme.typography.titleSmall,
                                                 color = Blue900,
                                                 fontWeight = FontWeight.ExtraBold
@@ -409,7 +409,7 @@ fun AttendanceTabScreen(
                                         onClick = { showCreateDialog = true },
                                         colors = ButtonDefaults.buttonColors(containerColor = Blue900, contentColor = Sky300)
                                     ) {
-                                        Text("+ Buat Tabel Absensi 15 Anggota")
+                                        Text("+ Buat Tabel Absensi (4 Orang/Shift)")
                                     }
                                 }
                             }
@@ -497,17 +497,23 @@ fun AttendanceTabScreen(
                                             Spacer(modifier = Modifier.width(5.dp))
                                             Text("Samakan Jam Shift", style = MaterialTheme.typography.labelSmall, color = Navy900)
                                         }
-                                        if (activeSheet.rows.size < 15) {
+                                        if (activeSheet.rows.size != 4) {
                                             OutlinedButton(
-                                                onClick = onEnsure15Rows,
+                                                onClick = onEnsure4Rows,
                                                 shape = RoundedCornerShape(10.dp),
-                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                                modifier = Modifier.testTag("ensure_4_attendance_rows_button")
                                             ) {
                                                 Icon(Icons.Default.GroupAdd, contentDescription = null, modifier = Modifier.size(15.dp), tint = Navy800)
                                                 Spacer(modifier = Modifier.width(5.dp))
-                                                Text("Lengkapi 15 Anggota", style = MaterialTheme.typography.labelSmall, color = Navy900)
+                                                Text(
+                                                    text = if (activeSheet.rows.size < 4) "Lengkapi 4 Orang/Shift" else "Set 4 Orang/Shift",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = Navy900
+                                                )
                                             }
-                                        } else if (activeSheet.rows.size < 25) {
+                                        }
+                                        if (activeSheet.rows.size < 12) {
                                             OutlinedButton(
                                                 onClick = {
                                                     val num = activeSheet.rows.size + 1
@@ -529,7 +535,7 @@ fun AttendanceTabScreen(
                                         }
                                     }
                                     Text(
-                                        text = "Tip: Ketuk badge Status (H/I/S/A/L) untuk ganti cepat & rekam waktu otomatis, atau ketuk baris untuk edit lengkap.",
+                                        text = "Tip: Standar 4 orang tiap shift. Ketuk badge Status (H/I/S/A/L) untuk ganti cepat & rekam waktu otomatis, atau ketuk baris untuk edit lengkap.",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = Slate500
                                     )
@@ -537,7 +543,7 @@ fun AttendanceTabScreen(
                             }
                         }
 
-                        // THE NEAT BORDERED 15-MEMBER ATTENDANCE TABLE
+                        // THE NEAT BORDERED 4-MEMBER-PER-SHIFT ATTENDANCE TABLE
                         item {
                             Card(
                                 shape = RoundedCornerShape(16.dp),
@@ -652,10 +658,10 @@ fun AttendanceTabScreen(
 
     if (showCreateDialog) {
         AttendanceHeaderDialog(
-            title = "Buat Lembar Absensi 15 Anggota",
+            title = "Buat Lembar Absensi (4 Orang/Shift)",
             initialDate = currentIsoDate(),
             initialShift = defaultShift,
-            initialPeriod = "Regu Plot BPS (15 Anggota)",
+            initialPeriod = "Regu Plot BPS (4 Orang/Shift)",
             initialCommander = defaultCommanderName,
             showCopyNamesToggle = activeSheet != null,
             onDismiss = { showCreateDialog = false },
@@ -987,7 +993,7 @@ private fun AttendanceHeaderDialog(
                         ) {
                             Checkbox(checked = copyNames, onCheckedChange = { copyNames = it })
                             Text(
-                                text = "Salin daftar nama 15 anggota dari lembar aktif saat ini",
+                                text = "Salin daftar nama 4 anggota dari lembar aktif saat ini",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Slate700
                             )

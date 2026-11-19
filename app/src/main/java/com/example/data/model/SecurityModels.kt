@@ -619,7 +619,7 @@ data class AttendanceSheet(
     val roomCode: String = DEFAULT_ROOM_CODE,
     val sheetDate: String = currentIsoDate(),
     val shift: String = ShiftOption.SHIFT_1.label,
-    val periodLabel: String = "Regu Plot BPS (15 Anggota)",
+    val periodLabel: String = "Regu Plot BPS (4 Orang/Shift)",
     val commanderName: String = "Danru Plot BPS",
     val rows: List<AttendanceMemberRow> = emptyList(),
     @ServerTimestamp val createdAt: Timestamp? = null,
@@ -641,32 +641,30 @@ data class AttendanceSheet(
 }
 
 object AttendanceTemplates {
+    const val MEMBERS_PER_SHIFT = 4
+
     fun shiftTimes(shift: String): Pair<String, String> = when (shift) {
         ShiftOption.SHIFT_2.label -> "15.00" to "23.00"
         ShiftOption.SHIFT_3.label -> "23.00" to "07.00"
         else -> "07.00" to "15.00"
     }
 
-    fun default15Members(commanderName: String, shift: String): List<AttendanceMemberRow> {
+    fun isTemplatePlaceholderName(name: String): Boolean {
+        val clean = name.trim()
+        return clean.matches(Regex("^Anggota Security \\d{2}$")) ||
+            clean.matches(Regex("^ANGGOTA \\d+$", RegexOption.IGNORE_CASE)) ||
+            clean.equals("KA. SHIFT", ignoreCase = true)
+    }
+
+    fun defaultShiftMembers(commanderName: String, shift: String): List<AttendanceMemberRow> {
         val (masuk, pulang) = shiftTimes(shift)
         val nowStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
         val firstCommander = commanderName.trim().ifBlank { "DANRU PLOT BPS" }
         val presets = listOf(
             "DANRU" to "Pos Utama",
-            "WADANRU" to "Pos Utama",
-            "KA. SHIFT" to "Lobi BPS",
-            "ANGGOTA" to "Gerbang Depan",
-            "ANGGOTA" to "Gerbang Depan",
-            "ANGGOTA" to "Gedung Utama",
-            "ANGGOTA" to "Ruang Server",
-            "ANGGOTA" to "Ruang Arsip",
-            "ANGGOTA" to "Parkir Depan",
-            "ANGGOTA" to "Parkir Belakang",
-            "ANGGOTA" to "Patroli Keliling",
-            "ANGGOTA" to "Patroli Keliling",
-            "ANGGOTA" to "Pos Belakang",
-            "ANGGOTA" to "Cadangan Shift",
-            "ANGGOTA" to "Cadangan Shift"
+            "KA. SHIFT" to "Lobi & Portal BPS",
+            "ANGGOTA" to "Gerbang & Parkir",
+            "ANGGOTA" to "Patroli & Pos Belakang"
         )
         return presets.mapIndexed { idx, (jabatan, plot) ->
             val num = (idx + 1).toString().padStart(2, '0')
@@ -1004,7 +1002,7 @@ fun formatIsoDateBadge(isoDate: String): String {
 enum class NoteSourceTab(val label: String, val badgeText: String) {
     LAPORAN("Laporan", "Laporan Harian"),
     TABEL("Tabel", "Tabel Jurnal"),
-    ABSENSI("Absensi", "Absensi 15"),
+    ABSENSI("Absensi", "Absensi 4/Shift"),
     PJU("PJU", "Checklist PJU"),
     CHAT("Chat", "Live Chat"),
     CATATAN("Catatan", "Catatan Tersimpan");

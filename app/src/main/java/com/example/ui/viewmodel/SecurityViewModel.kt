@@ -263,6 +263,8 @@ class SecurityViewModel(
             initialValue = UiState.Loading
         )
 
+    private val normalizedLegacyAttendanceIds = HashSet<String>()
+
     val attendanceSheetsState: StateFlow<UiState<List<AttendanceSheet>>> = _activeRoomCode
         .flatMapLatest { code -> repository.observeAttendanceSheets(code) }
         .map<List<AttendanceSheet>, UiState<List<AttendanceSheet>>> { UiState.Success(it) }
@@ -272,6 +274,30 @@ class SecurityViewModel(
                 val cur = _selectedAttendanceSheetId.value
                 if (list.isNotEmpty() && (cur == null || list.none { it.id == cur })) {
                     _selectedAttendanceSheetId.value = list.first().id
+                }
+                list.forEach { sheet ->
+                    val targetCount = AttendanceTemplates.MEMBERS_PER_SHIFT
+                    val trailing = if (sheet.rows.size > targetCount) sheet.rows.drop(targetCount) else emptyList()
+                    val onlyTemplateTrailing = trailing.isNotEmpty() && trailing.all { row ->
+                        AttendanceTemplates.isTemplatePlaceholderName(row.nama) && row.keterangan.isBlank()
+                    }
+                    if (sheet.id.isNotBlank() &&
+                        onlyTemplateTrailing &&
+                        normalizedLegacyAttendanceIds.add(sheet.id)
+                    ) {
+                        val updatedPeriod = if (sheet.periodLabel.contains("15 Anggota", ignoreCase = true)) {
+                            "Regu Plot BPS (4 Orang/Shift)"
+                        } else {
+                            sheet.periodLabel
+                        }
+                        val normalizedSheet = sheet.copy(
+                            periodLabel = updatedPeriod,
+                            rows = sheet.rows.take(targetCount)
+                        )
+                        viewModelScope.launch {
+                            repository.saveAttendanceSheet(_activeRoomCode.value, normalizedSheet)
+                        }
+                    }
                 }
             }
         }
@@ -1514,7 +1540,7 @@ class SecurityViewModel(
         return sb.toString()
     }
 
-    // --- 15-Member Attendance Table Actions ---
+    // --- 4-Member-Per-Shift Attendance Table Actions ---
 
     fun selectAttendanceSheet(sheetId: String) {
         _selectedAttendanceSheetId.value = sheetId
@@ -1583,7 +1609,7 @@ class SecurityViewModel(
         val nowStr = currentFormattedTime()
         val existingRows = currentActiveAttendanceSheet()?.rows.orEmpty()
         val rows = if (copyExistingNames && existingRows.isNotEmpty()) {
-            existingRows.take(25).map { prev ->
+            val base = existingRows.take(AttendanceTemplates.MEMBERS_PER_SHIFT).map { prev ->
                 prev.copy(
                     status = AttendanceStatus.HADIR.code,
                     jamMasuk = masuk,
@@ -1591,9 +1617,19 @@ class SecurityViewModel(
                     recordedAt = nowStr,
                     keterangan = ""
                 )
+            }.toMutableList()
+            if (base.size < AttendanceTemplates.MEMBERS_PER_SHIFT) {
+                val defaults = AttendanceTemplates.defaultShiftMembers(
+                    commanderName = commanderName.ifBlank { profile.name },
+                    shift = shift
+                )
+                for (idx in base.size until AttendanceTemplates.MEMBERS_PER_SHIFT) {
+                    base.add(defaults[idx])
+                }
             }
+            base
         } else {
-            AttendanceTemplates.default15Members(
+            AttendanceTemplates.defaultShiftMembers(
                 commanderName = commanderName.ifBlank { profile.name },
                 shift = shift
             )
@@ -1606,7 +1642,7 @@ class SecurityViewModel(
             roomCode = roomCode,
             sheetDate = cleanDate,
             shift = shift,
-            periodLabel = periodLabel.trim().ifBlank { "Regu Plot BPS (15 Anggota)" }.take(60),
+            periodLabel = periodLabel.trim().ifBlank { "Regu Plot BPS (4 Orang/Shift)" }.take(60),
             commanderName = commanderName.trim().ifBlank { profile.name }.take(80),
             rows = rows
         )
@@ -1614,7 +1650,7 @@ class SecurityViewModel(
             val result = repository.saveAttendanceSheet(roomCode, newSheet)
             if (result.isSuccess) {
                 _selectedAttendanceSheetId.value = result.getOrThrow()
-                _toastEvents.tryEmit("Lembar absensi 15 anggota ($cleanDate • $shift) dibuat.")
+                _toastEvents.tryEmit("Lembar absensi 4 orang ($cleanDate • $shift) dibuat.")
                 onSuccess()
             } else {
                 _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal membuat lembar absensi.")
@@ -1733,17 +1769,32 @@ class SecurityViewModel(
         }
     }
 
-    fun ensure15AttendanceRows() {
+    fun ensure4AttendanceRows() {
         val current = currentActiveAttendanceSheet() ?: return
-        if (current.rows.size >= 15) {
-            _toastEvents.tryEmit("Tabel sudah memuat ${current.rows.size} anggota.")
+        val targetCount = AttendanceTemplates.MEMBERS_PER_SHIFT
+        if (current.rows.size == targetCount) {
+            _toastEvents.tryEmit("Tabel sudah memuat $targetCount anggota untuk ${current.shift}.")
+            return
+        }
+        if (current.rows.size > targetCount) {
+            saveMutatedAttendanceSheet("Tabel absensi disesuaikan menjadi $targetCount orang (${current.shift}).") { sheet ->
+                val updatedPeriod = if (sheet.periodLabel.contains("15 Anggota", ignoreCase = true)) {
+                    "Regu Plot BPS (4 Orang/Shift)"
+                } else {
+                    sheet.periodLabel
+                }
+                sheet.copy(
+                    periodLabel = updatedPeriod,
+                    rows = sheet.rows.take(targetCount)
+                )
+            }
             return
         }
         val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
-        val template = AttendanceTemplates.default15Members(profile.name, current.shift)
-        saveMutatedAttendanceSheet("Daftar anggota dilengkapi menjadi 15 personel.") { sheet ->
+        val template = AttendanceTemplates.defaultShiftMembers(profile.name, current.shift)
+        saveMutatedAttendanceSheet("Daftar anggota dilengkapi menjadi $targetCount orang (${current.shift}).") { sheet ->
             val combined = sheet.rows.toMutableList()
-            for (idx in combined.size until 15) {
+            for (idx in combined.size until targetCount) {
                 combined.add(template[idx])
             }
             sheet.copy(rows = combined)
