@@ -11,6 +11,8 @@ import androidx.core.content.ContextCompat
 import com.example.R
 import com.example.data.model.ChatMessage
 import com.example.data.model.DEFAULT_ROOM_CODE
+import com.example.data.model.NoteSourceTab
+import com.example.data.model.QuickNote
 import com.example.data.model.ReportCategory
 import com.example.data.model.ReportStatus
 import com.example.data.model.SecurityReport
@@ -31,14 +33,17 @@ class BackgroundAlertService : Service() {
 
     private var messagesListener: ListenerRegistration? = null
     private var reportsListener: ListenerRegistration? = null
+    private var teamNotesListener: ListenerRegistration? = null
     private var attachedRoomCode: String? = null
     private var attachedUserId: String? = null
     private var activeOfficerName: String = "Petugas Security"
 
     private var hasSeededMessages = false
     private var hasSeededReports = false
+    private var hasSeededTeamNotes = false
     private val knownMessageIds = HashSet<String>()
     private val knownReportIds = HashSet<String>()
+    private val knownTeamNoteIds = HashSet<String>()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -99,7 +104,7 @@ class BackgroundAlertService : Service() {
 
     private fun attachListenersIfNeeded(roomCode: String, uid: String) {
         if (attachedRoomCode == roomCode && attachedUserId == uid &&
-            messagesListener != null && reportsListener != null
+            messagesListener != null && reportsListener != null && teamNotesListener != null
         ) {
             return
         }
@@ -108,8 +113,10 @@ class BackgroundAlertService : Service() {
         attachedUserId = uid
         hasSeededMessages = false
         hasSeededReports = false
+        hasSeededTeamNotes = false
         knownMessageIds.clear()
         knownReportIds.clear()
+        knownTeamNoteIds.clear()
 
         val dbId = getString(R.string.firestore_database_id)
         val db = FirebaseFirestore.getInstance(dbId)
@@ -241,6 +248,62 @@ class BackgroundAlertService : Service() {
                     )
                 }
             }
+
+        teamNotesListener = roomRef.collection("quick_notes")
+            .whereEqualTo("roomCode", roomCode)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) return@addSnapshotListener
+                if (!hasSeededTeamNotes) {
+                    hasSeededTeamNotes = true
+                    snapshot.documents.forEach { doc -> knownTeamNoteIds.add(doc.id) }
+                    return@addSnapshotListener
+                }
+                if (NotificationRuntimeState.isAppUiForeground) {
+                    snapshot.documents.forEach { doc -> knownTeamNoteIds.add(doc.id) }
+                    return@addSnapshotListener
+                }
+
+                snapshot.documentChanges.forEach { change ->
+                    if (change.type != DocumentChange.Type.ADDED) return@forEach
+                    val doc = change.document
+                    if (!knownTeamNoteIds.add(doc.id)) return@forEach
+                    val note = doc.toObject(
+                        QuickNote::class.java,
+                        DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
+                    )
+                    if (note.userId == uid) return@forEach
+                    if (NoteSourceTab.fromNameOrDefault(note.sourceTab) != NoteSourceTab.CATATAN) return@forEach
+
+                    val eventId = "note_${note.id.ifBlank { doc.id }}"
+                    if (!NotificationRuntimeState.shouldDispatchAlert(eventId)) return@forEach
+
+                    val prefs = NotificationPreferences(applicationContext)
+                    val currentSettings = prefs.settings.value
+                    if (!currentSettings.enabled || !currentSettings.backgroundMonitorEnabled) return@forEach
+
+                    val event = IncomingAlertEvent(
+                        id = eventId,
+                        kind = AlertKind.ANNOUNCEMENT,
+                        title = "Catatan & Instruksi Atasan • $roomCode",
+                        senderName = note.officerName.ifBlank { "Atasan / Petugas $roomCode" },
+                        senderRole = "${note.title} • ${note.shift}",
+                        roomCode = roomCode,
+                        messagePreview = note.content,
+                        timeLabel = "${note.noteTime.ifBlank { "--:--" }} WIB",
+                        isUrgent = true
+                    )
+                    SecurityNotificationManager.playRingtoneAndVibrate(
+                        context = applicationContext,
+                        settings = currentSettings,
+                        isUrgent = true
+                    )
+                    SecurityNotificationManager.showAnnouncementNotification(
+                        context = applicationContext,
+                        event = event,
+                        settings = currentSettings
+                    )
+                }
+            }
     }
 
     private fun stopMonitoring() {
@@ -248,6 +311,8 @@ class BackgroundAlertService : Service() {
         messagesListener = null
         reportsListener?.remove()
         reportsListener = null
+        teamNotesListener?.remove()
+        teamNotesListener = null
         attachedRoomCode = null
         attachedUserId = null
     }

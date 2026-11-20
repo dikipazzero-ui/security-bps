@@ -73,6 +73,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.data.model.QuickNote
 import com.example.data.model.ReportCategory
 import com.example.data.model.ReportStatus
 import com.example.data.model.SecurityReport
@@ -114,11 +115,14 @@ import com.example.ui.viewmodel.ReportFormState
 fun ReportTabScreen(
     formState: ReportFormState,
     reportsState: UiState<List<SecurityReport>>,
+    teamNotes: List<QuickNote> = emptyList(),
     reportFilter: TimeKeywordFilter,
     activeShift: String,
     currentUserId: String = "",
     isRoomCreator: Boolean = false,
     isExplicitSaving: Boolean,
+    onSaveTeamNote: (noteId: String, title: String, content: String, shift: String, onSuccess: () -> Unit) -> Unit = { _, _, _, _, _ -> },
+    onDeleteTeamNote: (String) -> Unit = {},
     onSelectCategory: (Int) -> Unit,
     onTimeChange: (String) -> Unit,
     onReportDateChange: (String) -> Unit,
@@ -161,6 +165,19 @@ fun ReportTabScreen(
         contentPadding = PaddingValues(8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        // 0. Shared Commander Instructions & Team Notes Board (visible to all logged-in members)
+        item(key = "team_instructions_board") {
+            TeamInstructionsBoardCard(
+                teamNotes = teamNotes,
+                activeShift = activeShift,
+                currentUserId = currentUserId,
+                isRoomCreator = isRoomCreator,
+                isSaving = isExplicitSaving,
+                onSaveNote = onSaveTeamNote,
+                onDeleteNote = onDeleteTeamNote
+            )
+        }
+
         // 1. Quick Actions Card
         item {
             Card(

@@ -323,6 +323,24 @@ fun AuthScreen(
                         color = Slate300
                     )
                 }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Surface(
+                    color = Blue950.copy(alpha = 0.78f),
+                    shape = RoundedCornerShape(50),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Sky400.copy(alpha = 0.35f)),
+                    modifier = Modifier.testTag("auth_copyright_footer")
+                ) {
+                    Text(
+                        text = stringResource(R.string.app_copyright_footer),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Sky300,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                    )
+                }
             }
         }
     }

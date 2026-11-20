@@ -183,6 +183,8 @@ class SecurityViewModel(
     private var hasSeededRoomMembers = false
     private var lastObservedRoomForMembers: String? = null
     private val knownOnlineMemberIds = mutableSetOf<String>()
+    private var lastObservedRoomForTeamNotes: String? = null
+    private val knownTeamNoteIds = mutableSetOf<String>()
 
     val profileState: StateFlow<UiState<OfficerProfile>> = repository.observeProfile(currentUserId)
         .map<OfficerProfile?, UiState<OfficerProfile>> { profile ->
@@ -617,6 +619,50 @@ class SecurityViewModel(
                         messagePreview = "[${latest.time} WIB • ${latest.status}] ${latest.description}",
                         timeLabel = "${latest.time} WIB",
                         isUrgent = isUrgent
+                    )
+                    dispatchIncomingAlert(event, showBubbleOnChat = false)
+                }
+            }
+        }
+
+        // Observe new commander instructions / shared team notes posted on Halaman Utama
+        viewModelScope.launch {
+            combine(quickNotesState, _activeRoomCode) { state, room ->
+                state to room
+            }.collect { (state, room) ->
+                if (state !is UiState.Success) return@collect
+                val notes = state.data.filter { NoteSourceTab.fromNameOrDefault(it.sourceTab) == NoteSourceTab.CATATAN }
+                if (lastObservedRoomForTeamNotes != room) {
+                    lastObservedRoomForTeamNotes = room
+                    knownTeamNoteIds.clear()
+                    notes.forEach { n ->
+                        val key = n.id.ifBlank { "${n.officerName}_${n.noteTime}_${n.content.hashCode()}" }
+                        knownTeamNoteIds.add(key)
+                    }
+                    return@collect
+                }
+
+                val newlyArrived = mutableListOf<QuickNote>()
+                notes.forEach { n ->
+                    val key = n.id.ifBlank { "${n.officerName}_${n.noteTime}_${n.content.hashCode()}" }
+                    if (knownTeamNoteIds.add(key)) {
+                        newlyArrived.add(n)
+                    }
+                }
+
+                val fromOthers = newlyArrived.filter { it.userId != currentUserId }
+                if (fromOthers.isNotEmpty()) {
+                    val latest = fromOthers.first()
+                    val event = IncomingAlertEvent(
+                        id = "note_${latest.id.ifBlank { System.currentTimeMillis().toString() }}",
+                        kind = AlertKind.ANNOUNCEMENT,
+                        title = "Catatan & Instruksi Atasan • $room",
+                        senderName = latest.officerName.ifBlank { "Pimpinan / Anggota $room" },
+                        senderRole = "${latest.title} • ${latest.shift}",
+                        roomCode = room,
+                        messagePreview = latest.content,
+                        timeLabel = "${latest.noteTime.ifBlank { currentFormattedTime() }} WIB",
+                        isUrgent = true
                     )
                     dispatchIncomingAlert(event, showBubbleOnChat = false)
                 }
@@ -2313,6 +2359,28 @@ class SecurityViewModel(
         }
     }
 
+    fun saveSharedTeamNote(
+        noteId: String = "",
+        title: String,
+        content: String,
+        shift: String = "",
+        onSuccess: () -> Unit = {}
+    ) {
+        val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
+        val resolvedShift = shift.takeIf { it in ShiftOption.entries.map { s -> s.label } } ?: profile.activeShift
+        val resolvedTitle = title.trim().ifBlank { "Instruksi Atasan / Catatan Regu" }
+        saveQuickNote(
+            title = resolvedTitle,
+            content = content,
+            sourceTab = NoteSourceTab.CATATAN,
+            shift = resolvedShift,
+            noteDate = currentIsoDate(),
+            noteTime = currentFormattedTime(),
+            noteId = noteId,
+            onSuccess = onSuccess
+        )
+    }
+
     fun saveQuickNote(
         title: String,
         content: String,
@@ -2320,6 +2388,7 @@ class SecurityViewModel(
         shift: String,
         noteDate: String,
         noteTime: String,
+        noteId: String = "",
         onSuccess: () -> Unit = {}
     ) {
         val profile = (profileState.value as? UiState.Success)?.data ?: OfficerProfile(userId = currentUserId)
@@ -2328,24 +2397,31 @@ class SecurityViewModel(
             _toastEvents.tryEmit("Isi catatan tidak boleh kosong.")
             return
         }
+        val cleanTime = noteTime.trim().ifBlank { currentFormattedTime() }
         viewModelScope.launch {
             _isExplicitSaving.value = true
             val result = repository.saveQuickNote(
                 roomCode,
                 QuickNote(
+                    id = noteId,
                     roomCode = roomCode,
                     title = title.trim().ifBlank { "Catatan ${sourceTab.label}" },
                     content = content.trim(),
                     sourceTab = sourceTab.name,
                     noteDate = noteDate.trim().ifBlank { currentIsoDate() },
-                    noteTime = noteTime.trim().ifBlank { currentFormattedTime() },
+                    noteTime = cleanTime,
                     shift = shift,
                     officerName = profile.name
                 )
             )
             _isExplicitSaving.value = false
             if (result.isSuccess) {
-                _toastEvents.tryEmit("Catatan berhasil disimpan ($shift • ${noteTime.ifBlank { currentFormattedTime() }} WIB).")
+                val msg = when {
+                    noteId.isNotBlank() -> "Catatan diperbarui ($shift • $cleanTime WIB)."
+                    sourceTab == NoteSourceTab.CATATAN -> "Catatan & instruksi dibagikan ke semua anggota ($shift • $cleanTime WIB)!"
+                    else -> "Catatan berhasil disimpan ($shift • $cleanTime WIB)."
+                }
+                _toastEvents.tryEmit(msg)
                 onSuccess()
             } else {
                 _toastEvents.tryEmit(result.exceptionOrNull()?.localizedMessage ?: "Gagal menyimpan catatan.")

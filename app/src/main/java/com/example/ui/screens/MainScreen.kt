@@ -97,6 +97,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -107,6 +108,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.auth.signOutOfficer
+import com.example.data.model.NoteSourceTab
 import com.example.data.model.OfficerProfile
 import com.example.data.model.ShiftOption
 import com.example.data.model.UiState
@@ -183,6 +185,7 @@ fun MainScreen(
     val pjuSelectedShift by viewModel.pjuSelectedShift.collectAsStateWithLifecycle()
     val pjuSelectedTime by viewModel.pjuSelectedTime.collectAsStateWithLifecycle()
     val chatState by viewModel.chatState.collectAsStateWithLifecycle()
+    val quickNotesState by viewModel.quickNotesState.collectAsStateWithLifecycle()
     val formState by viewModel.formState.collectAsStateWithLifecycle()
     val reportFilter by viewModel.reportFilter.collectAsStateWithLifecycle()
     val tableFilter by viewModel.tableFilter.collectAsStateWithLifecycle()
@@ -955,8 +958,7 @@ fun MainScreen(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxWidth()
-                        .navigationBarsPadding(),
+                        .fillMaxWidth(),
                     contentAlignment = Alignment.TopCenter
                 ) {
                     Box(
@@ -971,14 +973,30 @@ fun MainScreen(
                         ) { page ->
                             when (MainTab.entries[page]) {
                             MainTab.LAPORAN -> {
+                                val teamNotes = remember(quickNotesState) {
+                                    (quickNotesState as? UiState.Success)?.data.orEmpty().filter {
+                                        NoteSourceTab.fromNameOrDefault(it.sourceTab) == NoteSourceTab.CATATAN
+                                    }
+                                }
                                 ReportTabScreen(
                                     formState = formState,
                                     reportsState = reportsState,
+                                    teamNotes = teamNotes,
                                     reportFilter = reportFilter,
                                     activeShift = profile.activeShift,
                                     currentUserId = currentUserId,
                                     isRoomCreator = activeChatRoom?.createdBy == currentUserId,
                                     isExplicitSaving = isExplicitSaving,
+                                    onSaveTeamNote = { noteId, title, content, shift, onDone ->
+                                        viewModel.saveSharedTeamNote(
+                                            noteId = noteId,
+                                            title = title,
+                                            content = content,
+                                            shift = shift,
+                                            onSuccess = onDone
+                                        )
+                                    },
+                                    onDeleteTeamNote = viewModel::deleteQuickNote,
                                     onSelectCategory = viewModel::selectCategory,
                                     onTimeChange = viewModel::updateTimeInput,
                                     onReportDateChange = viewModel::updateReportDateInput,
@@ -1236,6 +1254,40 @@ fun MainScreen(
                         }
                     }
                 }
+
+                // PERSISTENT COPYRIGHT FOOTER AT THE VERY BOTTOM OF THE APP
+                Surface(
+                    color = Blue950.copy(alpha = 0.86f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("app_copyright_footer")
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(Sky400.copy(alpha = 0.35f))
+                        )
+                        Text(
+                            text = stringResource(R.string.app_copyright_footer),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Sky300,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 5.dp)
+                        )
+                    }
+                }
             }
         }
 
@@ -1434,7 +1486,17 @@ fun MainScreen(
                 viewModel.openUnifiedNoteTarget(note)
                 showGlobalNotesSearch = false
             },
-            onSaveQuickNote = viewModel::saveQuickNote,
+            onSaveQuickNote = { title, content, source, shift, date, time, onSuccess ->
+                viewModel.saveQuickNote(
+                    title = title,
+                    content = content,
+                    sourceTab = source,
+                    shift = shift,
+                    noteDate = date,
+                    noteTime = time,
+                    onSuccess = onSuccess
+                )
+            },
             onDeleteQuickNote = viewModel::deleteQuickNote
         )
     }
