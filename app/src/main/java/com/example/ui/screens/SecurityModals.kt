@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -53,7 +54,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -75,8 +78,11 @@ import com.example.data.model.OfficerRoles
 import com.example.data.model.RoomMember
 import com.example.media.ImageUtils
 import com.example.ui.theme.Blue800
+import com.example.ui.theme.Blue800Text
 import com.example.ui.theme.Blue900
 import com.example.ui.theme.Emerald600
+import com.example.ui.theme.Emerald800
+import com.example.ui.theme.IceBlue100
 import com.example.ui.theme.IceBlue50
 import com.example.ui.theme.Navy700
 import com.example.ui.theme.Navy800
@@ -86,6 +92,7 @@ import com.example.ui.theme.Red600
 import com.example.ui.theme.Sky300
 import com.example.ui.theme.Sky400
 import com.example.ui.theme.Sky500
+import com.example.ui.theme.Sky600
 import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
 import com.example.ui.theme.Slate400
@@ -93,6 +100,7 @@ import com.example.ui.theme.Slate50
 import com.example.ui.theme.Slate500
 import com.example.ui.theme.Slate700
 import com.example.ui.theme.Slate800
+import kotlinx.coroutines.delay
 
 @Composable
 fun WhatsAppRecapDialog(
@@ -872,7 +880,14 @@ fun RoomMembersDialog(
     currentUserId: String,
     onDismiss: () -> Unit
 ) {
-    val onlineCount = members.count { it.isCurrentlyOnline() }
+    var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30_000L)
+            nowMillis = System.currentTimeMillis()
+        }
+    }
+    val onlineCount = members.count { it.isCurrentlyOnline(nowMillis) }
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(20.dp),
@@ -929,56 +944,91 @@ fun RoomMembersDialog(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(members, key = { it.userId }) { member ->
-                            val online = member.isCurrentlyOnline()
+                            val online = member.isCurrentlyOnline(nowMillis)
+                            val lastSeenText = member.lastSeenDisplay(nowMillis)
                             Surface(
                                 color = Color.White.copy(alpha = 0.82f),
                                 shape = RoundedCornerShape(14.dp),
                                 border = BorderStroke(1.dp, if (online) Emerald600.copy(alpha = 0.4f) else Sky300.copy(alpha = 0.35f))
                             ) {
-                                Row(
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    OfficerAvatarWithPresence(
-                                        name = member.name,
-                                        isOnline = online,
-                                        photoData = member.photoData,
-                                        size = 42.dp,
-                                        containerColor = if (online) Blue800 else Slate200,
-                                        textColor = if (online) Sky300 else Slate700,
-                                        borderColor = if (online) Sky400 else Slate400,
-                                        ringColor = IceBlue50
-                                    )
-                                    Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        OfficerAvatarWithPresence(
+                                            name = member.name,
+                                            isOnline = online,
+                                            photoData = member.photoData,
+                                            size = 42.dp,
+                                            containerColor = if (online) Blue800 else Slate200,
+                                            textColor = if (online) Sky300 else Slate700,
+                                            borderColor = if (online) Sky400 else Slate400,
+                                            ringColor = IceBlue50
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = member.name + if (member.userId == currentUserId) " (Anda)" else "",
+                                                    style = MaterialTheme.typography.labelLarge,
+                                                    color = Navy900,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                            Text(
+                                                text = "${member.role} • ${member.activeShift}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Slate500,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = "NRP: ${member.nrp}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = Navy700
+                                            )
+                                        }
+                                        OnlineStatusPill(isOnline = online)
+                                    }
+
+                                    Surface(
+                                        color = if (online) Emerald600.copy(alpha = 0.10f) else IceBlue100.copy(alpha = 0.72f),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("member_last_seen_${member.userId}")
+                                    ) {
                                         Row(
+                                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Schedule,
+                                                contentDescription = null,
+                                                tint = if (online) Emerald600 else Sky600,
+                                                modifier = Modifier.size(13.dp)
+                                            )
                                             Text(
-                                                text = member.name + if (member.userId == currentUserId) " (Anda)" else "",
-                                                style = MaterialTheme.typography.labelLarge,
-                                                color = Navy900,
+                                                text = lastSeenText,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Medium,
+                                                color = if (online) Emerald800 else Blue800Text,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                         }
-                                        Text(
-                                            text = "${member.role} • ${member.activeShift}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = Slate500,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            text = "NRP: ${member.nrp}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Navy700
-                                        )
                                     }
-                                    OnlineStatusPill(isOnline = online)
                                 }
                             }
                         }

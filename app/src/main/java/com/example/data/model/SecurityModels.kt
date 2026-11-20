@@ -185,6 +185,48 @@ data class RoomMember(
         val seenMillis = lastSeenAt?.toDate()?.time ?: return true
         return (nowMillis - seenMillis) <= 120_000L
     }
+
+    fun lastSeenMillis(): Long? = lastSeenAt?.toDate()?.time ?: joinedAt?.toDate()?.time
+
+    fun lastSeenDisplay(nowMillis: Long = System.currentTimeMillis()): String {
+        if (isCurrentlyOnline(nowMillis)) return "Sedang aktif sekarang"
+        val seenMillis = lastSeenMillis() ?: return "Terakhir online belum tercatat"
+
+        val seenDate = Date(seenMillis)
+        val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(seenDate)
+        val diffMillis = (nowMillis - seenMillis).coerceAtLeast(0L)
+
+        if (diffMillis < 60_000L) {
+            return "Terakhir online baru saja ($timeStr)"
+        }
+        if (diffMillis < 3_600_000L) {
+            val mins = (diffMillis / 60_000L).coerceAtLeast(1L)
+            return "Terakhir online $mins mnt lalu ($timeStr)"
+        }
+
+        val nowCal = Calendar.getInstance().apply { timeInMillis = nowMillis }
+        val seenCal = Calendar.getInstance().apply { timeInMillis = seenMillis }
+        if (nowCal.get(Calendar.YEAR) == seenCal.get(Calendar.YEAR) &&
+            nowCal.get(Calendar.DAY_OF_YEAR) == seenCal.get(Calendar.DAY_OF_YEAR)
+        ) {
+            return "Terakhir online hari ini, $timeStr WIB"
+        }
+
+        val yesterdayCal = Calendar.getInstance().apply {
+            timeInMillis = nowMillis
+            add(Calendar.DAY_OF_YEAR, -1)
+        }
+        if (yesterdayCal.get(Calendar.YEAR) == seenCal.get(Calendar.YEAR) &&
+            yesterdayCal.get(Calendar.DAY_OF_YEAR) == seenCal.get(Calendar.DAY_OF_YEAR)
+        ) {
+            return "Terakhir online kemarin, $timeStr WIB"
+        }
+
+        val day = seenCal.get(Calendar.DAY_OF_MONTH).toString().padStart(2, '0')
+        val monthShort = IndonesianMonths.shortNames.getOrElse(seenCal.get(Calendar.MONTH)) { "" }
+        val year = seenCal.get(Calendar.YEAR)
+        return "Terakhir online $day $monthShort $year, $timeStr WIB"
+    }
 }
 
 @Keep

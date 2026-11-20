@@ -273,6 +273,7 @@ class SecurityRepository(
                     DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
                 ).sortedWith(
                     compareByDescending<RoomMember> { it.isCurrentlyOnline() }
+                        .thenByDescending { it.lastSeenMillis() ?: 0L }
                         .thenBy { it.name.lowercase(Locale.getDefault()) }
                 )
             }
